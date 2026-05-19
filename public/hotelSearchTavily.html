@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tavily Hotel Search</title>
+    <meta name="description" content="Tìm kiếm khách sạn từ Excel với Tavily" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.2/xlsx.full.min.js"></script>
+    <script defer src="/analytics-init.js"></script>
+  </head>
+  <body>
+    <a href="#pageSEARCHTAVILY" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Tavily Search</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button
+            id="themeToggle"
+            type="button"
+            class="btn btn-outline btn-pill"
+            title="Đổi giao diện (Alt+D)"
+          >
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <a href="/logout" class="btn btn-outline btn-small"
+            ><i class="fa-solid fa-right-from-bracket"></i
+            ><span>Đăng xuất</span></a
+          >
+        </div>
+      </div>
+    </header>
+    <main
+      class="container stack-lg"
+      style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)"
+    >
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        Tìm kiếm khách sạn - Child
+      </h1>
+      <p
+        class="text-secondary"
+        style="margin: 0 0 var(--spacing-md); max-width: 720px"
+      >
+        Upload file Excel (các cột: No, Child's Name, Child's Address). Quá
+        trình tìm kiếm chạy live và kết quả hiển thị ngay lập tức.
+      </p>
+      <div class="tabs" data-tabs role="tablist" aria-label="Điều hướng">
+        <button role="tab" aria-selected="true" data-target="panel-upload">
+          <i class="fa-solid fa-file-import"></i> <span>Upload</span>
+        </button>
+        <button role="tab" aria-selected="false" data-target="panel-results">
+          <i class="fa-solid fa-table"></i> <span>Kết quả</span>
+        </button>
+        <button role="tab" aria-selected="false" data-target="panel-results-ddg">
+          <i class="fa-brands fa-searchengin"></i> <span>Kết quả DDG</span>
+        </button>
+      </div>
+      <section
+        id="panel-upload"
+        class="tab-panel active"
+        role="tabpanel"
+        tabindex="0"
+      >
+        <div
+          id="pageSEARCHTAVILY"
+          class="glass-card gradient"
+          role="region"
+          aria-labelledby="sectionInputTitle"
+        >
+          <div class="card-header">
+            <i class="fa-solid fa-database"></i> Nhập dữ liệu
+          </div>
+          <div class="form-row">
+            <div class="form-col">
+              <label for="fileInput">Tệp Excel</label>
+              <div
+                id="fileDropZone"
+                class="drop-zone"
+                style="padding: 28px var(--spacing-md); cursor: pointer"
+              >
+                <input
+                  id="fileInput"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style="display: none"
+                />
+                <div class="flex col center gap-sm" style="text-align: center">
+                  <div
+                    class="flex center"
+                    style="
+                      width: 62px;
+                      height: 62px;
+                      border-radius: 18px;
+                      background: linear-gradient(
+                        135deg,
+                        rgba(255, 255, 255, 0.14),
+                        rgba(255, 255, 255, 0.04)
+                      );
+                      position: relative;
+                      box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.5);
+                    "
+                  >
+                    <i
+                      class="fa-solid fa-file-excel"
+                      style="
+                        font-size: 1.6rem;
+                        background: linear-gradient(135deg, #21d4fd, #b721ff);
+                        -webkit-background-clip: text;
+                        background-clip: text;
+                        color: transparent;
+                      "
+                    ></i>
+                  </div>
+                  <div style="font-weight: 600; letter-spacing: 0.5px">
+                    Kéo & Thả hoặc Chọn Tệp
+                  </div>
+                  <div
+                    class="text-tertiary"
+                    style="font-size: 0.65rem; line-height: 1.4"
+                  >
+                    Chấp nhận: <strong>.xlsx</strong>, <strong>.xls</strong
+                    ><br />
+                    Dung lượng hợp lý (&lt; 5MB khuyến nghị)
+                  </div>
+                  <button
+                    type="button"
+                    id="browseFileBtn"
+                    class="btn btn-outline btn-small"
+                    style="margin-top: 4px"
+                  >
+                    <i class="fa-solid fa-folder-open"></i
+                    ><span>Chọn tệp...</span>
+                  </button>
+                  <div
+                    id="selectedFileInfo"
+                    class="badge hidden"
+                    style="
+                      margin-top: 6px;
+                      background: rgba(255, 255, 255, 0.15);
+                    "
+                  ></div>
+                </div>
+                <div
+                  id="fileError"
+                  class="text-tertiary hidden"
+                  style="color: #ff8a8a; margin-top: 10px; font-size: 0.65rem"
+                ></div>
+              </div>
+            </div>
+            <div class="form-col" style="max-width: 280px">
+              <label>Trạng thái</label>
+              <div class="stack-sm" style="font-size: 0.75rem">
+                <div
+                  id="counter"
+                  class="badge"
+                  style="background: rgba(255, 255, 255, 0.12)"
+                >
+                  0/0 lượt tìm kiếm
+                </div>
+                <div class="flex gap-xs wrap">
+                  <button
+                    id="downloadCSVButton"
+                    class="btn btn-outline btn-small hidden"
+                  >
+                    <i class="fa-solid fa-download"></i><span>CSV</span>
+                  </button>
+                  <button
+                    id="importCSVButton"
+                    class="btn btn-outline btn-small"
+                  >
+                    <i class="fa-solid fa-file-import"></i
+                    ><span>Import</span>
+                  </button>
+                  <input
+                    id="importCSVInput"
+                    type="file"
+                    accept=".csv"
+                    style="display: none"
+                  />
+                  <button
+                    id="clearResultsButton"
+                    class="btn btn-outline btn-small hidden"
+                  >
+                    <i class="fa-solid fa-trash-can"></i><span>Xóa</span>
+                  </button>
+                  <button
+                    id="snapshotArchiveButton"
+                    class="btn btn-outline btn-small hidden"
+                    title="Kho lưu các lần đã xóa/dừng"
+                  >
+                    <i class="fa-solid fa-box-archive"></i><span>Kho lưu</span>
+                  </button>
+                  <button
+                    id="resumeSessionButton"
+                    class="btn btn-outline btn-small hidden"
+                  >
+                    <i class="fa-solid fa-play"></i><span>Resume</span>
+                  </button>
+                  <div class="flex col" style="gap: 4px; min-width: 140px">
+                    <div style="display: flex; align-items: center; gap: 6px">
+                      <label
+                        style="
+                          font-size: 0.55rem;
+                          letter-spacing: 0.5px;
+                          text-transform: uppercase;
+                          color: var(--text-tertiary);
+                          display: flex;
+                          align-items: center;
+                          gap: 4px;
+                          margin: 0;
+                        "
+                      >
+                        <input
+                          type="checkbox"
+                          id="fuzzyEnable"
+                          style="margin: 0"
+                        />
+                        Fuzzy
+                      </label>
+                      <button
+                        type="button"
+                        id="fuzzyInfoBtn"
+                        class="btn btn-outline btn-small"
+                        style="padding: 2px 6px; font-size: 0.55rem"
+                        title="Giải thích Fuzzy"
+                      >
+                        <i class="fa-solid fa-circle-info"></i>
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      id="fuzzyThreshold"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value="0.78"
+                      title="Ngưỡng fuzzy (0-1)"
+                      style="
+                        font-size: 0.55rem;
+                        padding: 2px 4px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 6px;
+                      "
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stack-sm" style="margin-top: var(--spacing-md)">
+            <div class="flex gap-sm wrap">
+              <button
+                id="searchButton"
+                type="button"
+                class="btn btn-primary btn-modern"
+                style="flex: 1"
+              >
+                <i class="fa-solid fa-magnifying-glass"></i
+                ><span>Bắt đầu tìm kiếm</span>
+              </button>
+              <button
+                id="pauseResumeButton"
+                class="btn btn-outline hidden"
+                style="min-width: 140px"
+              >
+                <i class="fa-solid fa-pause"></i><span>Tạm dừng</span>
+              </button>
+              <button
+                id="stopButton"
+                class="btn btn-outline hidden"
+                style="min-width: 120px; --btn-accent: #ff4d4f"
+                aria-label="Dừng toàn bộ"
+                title="Dừng toàn bộ (Stop)"
+              >
+                <i class="fa-solid fa-stop"></i><span>Dừng</span>
+              </button>
+              <div
+                id="spinner"
+                class="flex gap-xs hidden center"
+                style="min-width: 140px"
+              >
+                <div class="loading-inline"></div>
+                <span
+                  class="text-tertiary"
+                  style="font-size: 0.65rem; letter-spacing: 0.5px"
+                  >Đang xử lý...</span
+                >
+              </div>
+            </div>
+            <div id="progressContainer" class="hidden" style="margin-top: 4px">
+              <label for="progressBar" class="visually-hidden">Tiến độ</label>
+              <div class="progress">
+                <div
+                  id="progressBar"
+                  class="progress-bar"
+                  role="progressbar"
+                  aria-label="Tiến độ xử lý"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                  aria-valuetext="0 phần trăm (0/0)"
+                ></div>
+              </div>
+              <div
+                id="progressText"
+                class="text-tertiary"
+                style="
+                  font-size: 0.6rem;
+                  letter-spacing: 0.45px;
+                  margin-top: 4px;
+                  text-transform: uppercase;
+                "
+              >
+                0%
+              </div>
+            </div>
+            <div
+              id="resumeBadge"
+              class="badge hidden"
+              style="
+                background: linear-gradient(90deg, #3ba55d, #2d7d44);
+                margin-top: 4px;
+              "
+            >
+              ĐANG TIẾP TỤC (RESUME)
+            </div>
+            <div
+              id="undoInlineContainer"
+              class="hidden"
+              style="margin-top: 6px"
+            ></div>
+          </div>
+        </div>
+
+        <div
+          class="glass-card"
+          role="region"
+          aria-labelledby="case12ApiSectionTitle"
+          style="margin-top: var(--spacing-md)"
+        >
+          <div class="card-header" id="case12ApiSectionTitle">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Chức năng 1 API (Case
+            1-2 / Chain-Branch / VHO / Check URL không Chrome)
+          </div>
+          <div class="form-row">
+            <div class="form-col">
+              <label for="case12FileInput">Tệp Excel đầu vào</label>
+              <div class="flex gap-sm wrap" style="align-items: center">
+                <input
+                  id="case12FileInput"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style="display: none"
+                />
+                <button
+                  id="case12PickFileButton"
+                  type="button"
+                  class="btn btn-outline btn-small"
+                >
+                  <i class="fa-solid fa-file-arrow-up"></i
+                  ><span>Chọn file API</span>
+                </button>
+                <span
+                  id="case12FileName"
+                  class="text-tertiary"
+                  style="font-size: 0.68rem"
+                  >Chưa chọn file</span
+                >
+              </div>
+            </div>
+            <div class="form-col" style="max-width: 340px">
+              <label>Trạng thái API</label>
+              <div
+                id="case12Status"
+                class="badge"
+                style="background: rgba(255, 255, 255, 0.1)"
+              >
+                Sẵn sàng
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-sm wrap" style="margin-top: var(--spacing-sm)">
+            <button
+              id="case12RunButton"
+              type="button"
+              class="btn btn-accent btn-modern"
+              style="flex: 1"
+            >
+              <i class="fa-solid fa-paper-plane"></i
+              ><span>Gửi file tới API chức năng 1</span>
+            </button>
+            <a
+              id="case12DownloadLink"
+              class="btn btn-outline btn-small hidden"
+              download="verified_case12.xlsx"
+              ><i class="fa-solid fa-download"></i><span>Tải lại kết quả</span></a
+            >
+          </div>
+        </div>
+        <div
+          class="glass-card"
+          role="region"
+          aria-labelledby="ddgSectionTitle"
+          style="margin-top: var(--spacing-md)"
+        >
+          <div class="card-header" id="ddgSectionTitle">
+            <i class="fa-brands fa-searchengin"></i> Chức năng DuckDuckGo (Tìm website chính thức)
+          </div>
+          <p class="text-tertiary" style="font-size: 0.72rem; margin: 0 0 var(--spacing-sm)">
+            Upload file Excel (các cột: No, Hotel Name, City, Country). Tìm website chính thức của khách sạn qua DuckDuckGo, lọc OTA và kiểm tra domain khớp tên.
+          </p>
+          <div class="form-row">
+            <div class="form-col">
+              <label for="ddgFileInput">Tệp Excel đầu vào</label>
+              <div class="flex gap-sm wrap" style="align-items: center">
+                <input id="ddgFileInput" type="file" accept=".xlsx,.xls" style="display: none" />
+                <button id="ddgPickFileButton" type="button" class="btn btn-outline btn-small">
+                  <i class="fa-solid fa-file-arrow-up"></i><span>Chọn file</span>
+                </button>
+                <span id="ddgFileName" class="text-tertiary" style="font-size: 0.68rem">Chưa chọn file</span>
+              </div>
+            </div>
+            <div class="form-col" style="max-width: 340px">
+              <label>Trạng thái</label>
+              <div id="ddgStatus" class="badge" style="background: rgba(255,255,255,0.1)">Sẵn sàng</div>
+              <div id="ddgCounter" class="badge" style="background: rgba(255,255,255,0.08); margin-top: 4px">0/0</div>
+            </div>
+          </div>
+          <div class="flex gap-sm wrap" style="margin-top: var(--spacing-sm)">
+            <button id="ddgRunButton" type="button" class="btn btn-accent btn-modern" style="flex: 1">
+              <i class="fa-solid fa-magnifying-glass"></i><span>Bắt đầu tìm DuckDuckGo</span>
+            </button>
+            <button id="ddgStopButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
+              <i class="fa-solid fa-stop"></i><span>Dừng</span>
+            </button>
+            <button id="ddgResumeButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #3ba55d">
+              <i class="fa-solid fa-play"></i><span>Tiếp tục</span>
+            </button>
+            <button id="ddgDownloadButton" type="button" class="btn btn-outline btn-small hidden">
+              <i class="fa-solid fa-download"></i><span>Tải CSV</span>
+            </button>
+          </div>
+          <div id="ddgProgressContainer" class="hidden" style="margin-top: var(--spacing-sm)">
+            <div class="progress">
+              <div id="ddgProgressBar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+            <div id="ddgProgressText" class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.45px">0%</div>
+          </div>
+        </div>
+      </section>
+      <!-- Modal: Snapshot Archive -->
+      <div
+        id="snapshotArchiveModal"
+        class="modal hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="snapshotArchiveTitle"
+      >
+        <div class="modal-content glass-card" style="max-width: 640px">
+          <div class="modal-header">
+            <h3 id="snapshotArchiveTitle" style="margin: 0; font-size: 1rem">
+              <i class="fa-solid fa-box-archive"></i> Kho lưu kết quả
+            </h3>
+            <button
+              class="btn btn-sm btn-outline"
+              id="snapshotArchiveClose"
+              aria-label="Đóng"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div
+            class="modal-body"
+            style="max-height: 50vh; overflow: auto; font-size: 0.7rem"
+          >
+            <div
+              class="flex gap-xs"
+              style="margin-bottom: 6px; align-items: center"
+            >
+              <input
+                id="snapshotArchiveSearch"
+                type="text"
+                placeholder="Lọc theo nhãn..."
+                class="input"
+                style="flex: 1; font-size: 0.65rem; padding: 4px 8px"
+              />
+              <button
+                id="snapshotArchiveSearchClear"
+                class="btn btn-outline btn-small"
+                aria-label="Xóa lọc"
+              >
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+            <div
+              class="text-tertiary"
+              style="font-size: 0.55rem; margin-bottom: 4px"
+            >
+              Double-click vào nhãn để đổi tên • Dùng nút 'Tiếp tục' để chạy
+              tiếp (nếu snapshot có dữ liệu allRows)
+            </div>
+            <div id="snapshotArchiveList" class="stack-sm"></div>
+          </div>
+          <div class="modal-footer flex gap-sm wrap">
+            <button
+              id="snapshotArchiveExportAll"
+              class="btn btn-outline btn-small"
+            >
+              <i class="fa-solid fa-file-export"></i
+              ><span>Xuất tất cả CSV</span>
+            </button>
+            <div style="flex: 1"></div>
+            <button
+              id="snapshotArchiveDeleteAll"
+              class="btn btn-outline btn-small"
+              style="--btn-accent: #c0392b"
+            >
+              <i class="fa-solid fa-trash"></i><span>Xóa tất cả</span>
+            </button>
+            <button
+              id="snapshotArchiveCloseFooter"
+              class="btn btn-primary btn-small"
+            >
+              <i class="fa-solid fa-check"></i><span>Đóng</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Modal: Result Detail -->
+      <div
+        id="resultDetailModal"
+        class="modal hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="resultDetailTitle"
+      >
+        <div class="modal-content glass-card" style="max-width: 720px">
+          <div class="modal-header">
+            <h3 id="resultDetailTitle" style="margin: 0; font-size: 1rem">
+              <i class="fa-solid fa-table-list"></i> Chi tiết kết quả
+            </h3>
+            <button
+              class="btn btn-sm btn-outline"
+              id="resultDetailClose"
+              aria-label="Đóng"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div
+            class="modal-body stack-sm"
+            style="max-height: 65vh; overflow: auto; font-size: 0.72rem"
+          >
+            <form
+              id="resultDetailSearchForm"
+              class="flex gap-xs wrap"
+              style="align-items: center"
+            >
+              <input
+                id="resultDetailSearchInput"
+                type="text"
+                placeholder="Nhập Order / No / Tên khách sạn / Địa chỉ..."
+                class="input"
+                style="flex: 1; font-size: 0.7rem; padding: 4px 8px"
+                autocomplete="off"
+              />
+              <button type="submit" class="btn btn-outline btn-small">
+                <i class="fa-solid fa-search"></i><span>Tìm</span>
+              </button>
+            </form>
+            <div
+              id="resultDetailMessage"
+              class="text-tertiary"
+              style="font-size: 0.65rem; min-height: 18px"
+            ></div>
+            <div
+              class="detail-grid"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 8px;
+                font-size: 0.7rem;
+              "
+            >
+              <div>
+                <strong>Order:</strong> <span id="resultDetailOrder">-</span>
+              </div>
+              <div><strong>No:</strong> <span id="resultDetailNo">-</span></div>
+              <div>
+                <strong>%:</strong>
+                <span id="resultDetailPercentage">-</span>
+              </div>
+              <div>
+                <strong>Fuzzy:</strong> <span id="resultDetailFuzzy">-</span>
+              </div>
+              <div>
+                <strong>Trạng thái:</strong>
+                <span id="resultDetailStatus">-</span>
+              </div>
+              <div>
+                <strong>Tổng link:</strong>
+                <span id="resultDetailTotalLinks">0</span>
+              </div>
+            </div>
+            <div class="stack-xs">
+              <div>
+                <strong>Tên khách sạn</strong>
+                <div id="resultDetailHotelName" style="margin-top: 2px"></div>
+              </div>
+              <div>
+                <strong>Địa chỉ</strong>
+                <div
+                  id="resultDetailHotelAddress"
+                  style="margin-top: 2px"
+                ></div>
+              </div>
+            </div>
+            <div class="stack-xs">
+              <div class="flex gap-xs wrap" style="align-items: center">
+                <strong style="font-size: 0.7rem">Matched links</strong>
+                <button
+                  type="button"
+                  id="resultDetailOpenAll"
+                  class="btn btn-outline btn-small"
+                >
+                  <i class="fa-solid fa-up-right-from-square"></i
+                  ><span>Mở tất cả</span>
+                </button>
+              </div>
+              <div id="resultDetailLinks" class="stack-xs"></div>
+            </div>
+          </div>
+          <div class="modal-footer flex gap-sm wrap">
+            <button
+              id="resultDetailPrev"
+              class="btn btn-outline btn-small"
+              type="button"
+            >
+              <i class="fa-solid fa-angle-left"></i><span>Previous</span>
+            </button>
+            <button
+              id="resultDetailNext"
+              class="btn btn-outline btn-small"
+              type="button"
+            >
+              <span>Next</span><i class="fa-solid fa-angle-right"></i>
+            </button>
+            <div style="flex: 1"></div>
+            <button
+              id="resultDetailCloseFooter"
+              class="btn btn-outline btn-small"
+              type="button"
+            >
+              <i class="fa-solid fa-xmark"></i><span>Đóng</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <section
+        id="panel-results-ddg"
+        class="tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-busy="false"
+      >
+        <div
+          id="ddgResultsSection"
+          class="glass-card hidden"
+          aria-live="polite"
+        >
+          <div class="card-header">
+            <i class="fa-brands fa-searchengin"></i> Kết quả DuckDuckGo (Live)
+          </div>
+          <div
+            class="flex wrap gap-sm"
+            style="align-items: center; margin-bottom: var(--spacing-sm)"
+          >
+            <div class="badge" style="background: rgba(255, 255, 255, 0.1)">
+              Tổng: <span id="ddgResultsCount" style="margin-left: 4px">0</span>
+            </div>
+          </div>
+          <div class="table-wrapper" style="max-height: 64vh; overflow: auto">
+            <table id="ddgResultsTable">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>No</th>
+                  <th>Best %</th>
+                  <th>All Scores</th>
+                  <th>Status</th>
+                  <th>Hotel Name</th>
+                  <th>Hotel Address</th>
+                  <th>Best Link</th>
+                </tr>
+              </thead>
+              <tbody id="ddgResultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <section
+        id="panel-results"
+        class="tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-busy="false"
+      >
+        <div
+          id="resultsSection"
+          class="glass-card hidden"
+          aria-live="polite"
+          aria-labelledby="resultsTitle"
+        >
+          <div class="card-header">
+            <i class="fa-solid fa-table"></i> Kết quả (Live)
+          </div>
+          <div
+            class="flex wrap gap-sm"
+            style="align-items: center; margin-bottom: var(--spacing-sm)"
+          >
+            <label for="filterInput" class="text-tertiary" style="margin: 0"
+              >Lọc</label
+            >
+            <input
+              id="filterInput"
+              type="search"
+              placeholder="Tìm tên khách sạn"
+              style="max-width: 260px"
+            />
+            <div class="badge" style="background: rgba(255, 255, 255, 0.1)">
+              Tổng: <span id="resultsCount" style="margin-left: 4px">0</span>
+            </div>
+            <div
+              class="flex gap-xs"
+              style="margin-left: auto; align-items: center"
+            >
+              <label
+                for="pageSizeSelect"
+                class="text-tertiary"
+                style="
+                  font-size: 0.6rem;
+                  letter-spacing: 0.5px;
+                  text-transform: uppercase;
+                "
+                >Page size</label
+              >
+              <select id="pageSizeSelect" style="width: 90px">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="2000">2000</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrapper" style="max-height: 64vh; overflow: auto">
+            <table id="resultsTable" aria-describedby="resultsTitle">
+              <thead>
+                <tr>
+                  <th>
+                    Order
+                    <span id="orderSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>
+                    No
+                    <span id="noSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>
+                    %
+                    <span id="pctSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>Fuzzy</th>
+                  <th>
+                    Status
+                    <span id="statusSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>
+                    Hotel Name
+                    <span id="nameSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>Hotel Address</th>
+                  <th>Matched Links</th>
+                  <th>
+                    Total Link
+                    <span id="linksSortIcon" class="sort-icon" title="Sắp xếp"
+                      >▲</span
+                    >
+                  </th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+          <div
+            class="flex gap-sm wrap"
+            style="
+              justify-content: flex-end;
+              align-items: center;
+              margin-top: var(--spacing-sm);
+            "
+          >
+            <button id="pagePrev" class="btn btn-outline btn-small">
+              « Prev
+            </button>
+            <div
+              id="pageInfo"
+              class="badge"
+              style="background: rgba(255, 255, 255, 0.08)"
+            >
+              Trang 1/1
+            </div>
+            <button id="pageNext" class="btn btn-outline btn-small">
+              Next »
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <!-- Confirmation Modal (for clearing results) -->
+    <div
+      id="confirmModal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmTitle"
+    >
+      <div class="modal" style="max-width: 480px">
+        <h2 id="confirmTitle" class="modal-header">Xác nhận xóa</h2>
+        <p style="margin: 0 0 12px; font-size: 0.85rem; line-height: 1.5">
+          Hành động này sẽ xóa toàn bộ kết quả và phiên đã lưu. Nhập
+          <strong>Đồng Ý Xóa</strong> để xác nhận.
+        </p>
+        <input
+          id="confirmInput"
+          type="text"
+          placeholder="Nhập: Đồng Ý Xóa"
+          style="margin-bottom: 12px"
+        />
+        <div class="modal-actions">
+          <button id="confirmCancel" type="button" class="btn btn-outline">
+            Hủy
+          </button>
+          <button
+            id="confirmOk"
+            type="button"
+            class="btn btn-danger btn-modern"
+          >
+            Xóa
+          </button>
+        </div>
+      </div>
+    </div>
+    <footer class="app-footer text-tertiary">
+      © <span id="year"></span> PuuGoo
+    </footer>
+    <script type="module" src="/ui.js"></script>
+    <script type="module" src="/hotelSearchTavily.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        const themeBtn = document.getElementById("themeToggle");
+        themeBtn.addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+        const resultsSection = document.getElementById("resultsSection");
+        const tabButtons = [...document.querySelectorAll('[role="tab"]')];
+        const resultsTab = tabButtons.find(
+          (b) => b.dataset.target === "panel-results"
+        );
+        const observer = new MutationObserver(() => {
+          if (resultsSection && !resultsSection.classList.contains("hidden")) {
+            if (resultsTab) {
+              resultsTab.click();
+              observer.disconnect();
+            }
+          }
+        });
+        observer.observe(resultsSection, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+
+        // Early bind clear button to show modal when already visible (e.g. after resume)
+        const clearBtnEarly = document.getElementById("clearResultsButton");
+        if (clearBtnEarly) {
+          clearBtnEarly.addEventListener(
+            "click",
+            (ev) => {
+              // If JS main logic already bound a handler it will override; this is a safety net
+              const modal = document.getElementById("confirmModal");
+              if (!modal) return;
+              modal.classList.remove("hidden");
+              modal.style.display = "flex";
+              const input = document.getElementById("confirmInput");
+              const ok = document.getElementById("confirmOk");
+              const cancel = document.getElementById("confirmCancel");
+              if (input) {
+                input.value = "";
+                input.focus();
+              }
+              const closeModal = () => {
+                modal.classList.add("hidden");
+                modal.style.display = "none";
+                if (ok) ok.onclick = null;
+                if (cancel) cancel.onclick = null;
+              };
+              if (cancel) cancel.onclick = closeModal;
+              if (ok)
+                ok.onclick = () => {
+                  if (input && input.value === "Đồng Ý Xóa") {
+                    closeModal();
+                  } else {
+                    alert('Bạn phải nhập đúng "Đồng Ý Xóa"');
+                    if (input) input.focus();
+                  }
+                };
+            },
+            { once: true }
+          );
+        }
+
+        // Modern file input (drag & drop + browse) – Vietnamese labels
+        const dropZone = document.getElementById("fileDropZone");
+        const fileInputModern = document.getElementById("fileInput");
+        const browseBtn = document.getElementById("browseFileBtn");
+        const fileInfo = document.getElementById("selectedFileInfo");
+        const fileError = document.getElementById("fileError");
+        function resetError() {
+          if (fileError) {
+            fileError.textContent = "";
+            fileError.classList.add("hidden");
+          }
+        }
+        function showError(msg) {
+          if (fileError) {
+            fileError.textContent = msg;
+            fileError.classList.remove("hidden");
+          }
+        }
+        function updateFileInfo(f) {
+          if (!fileInfo) return;
+          if (!f) {
+            fileInfo.classList.add("hidden");
+            fileInfo.textContent = "";
+            return;
+          }
+          const sizeKB = Math.round(f.size / 1024);
+          fileInfo.textContent = `${f.name} • ${sizeKB} KB`;
+          fileInfo.classList.remove("hidden");
+        }
+        function validateFile(f) {
+          resetError();
+          if (!f) return false;
+          const extOk = /\.(xlsx|xls)$/i.test(f.name);
+          if (!extOk) {
+            showError("Định dạng không hợp lệ. Chỉ chấp nhận .xlsx hoặc .xls");
+            return false;
+          }
+          const maxSize = 15 * 1024 * 1024; // 15MB
+          if (f.size > maxSize) {
+            showError("Tệp quá lớn (>15MB). Vui lòng chọn tệp nhỏ hơn.");
+            return false;
+          }
+          return true;
+        }
+        function handleFiles(files) {
+          if (!files || !files.length) return;
+          const f = files[0];
+          if (!validateFile(f)) {
+            if (fileInputModern) fileInputModern.value = "";
+            updateFileInfo(null);
+            return;
+          }
+          updateFileInfo(f);
+          if (dropZone) dropZone.classList.add("has-file");
+        }
+        if (browseBtn) {
+          browseBtn.addEventListener("click", (e) => {
+            // Prevent bubbling to dropZone which would trigger a second .click()
+            e.preventDefault();
+            e.stopPropagation();
+            if (fileInputModern) fileInputModern.click();
+          });
+        }
+        if (dropZone) {
+          ["dragenter", "dragover"].forEach((evt) =>
+            dropZone.addEventListener(evt, (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dropZone.classList.add("drag-over");
+            })
+          );
+          ["dragleave", "drop"].forEach((evt) =>
+            dropZone.addEventListener(evt, (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dropZone.classList.remove("drag-over");
+            })
+          );
+          dropZone.addEventListener("drop", (e) => {
+            if (e.dataTransfer && e.dataTransfer.files) {
+              if (fileInputModern) fileInputModern.files = e.dataTransfer.files;
+              handleFiles(e.dataTransfer.files);
+            }
+          });
+          dropZone.addEventListener("click", (e) => {
+            // If the click originated from the browse button, ignore here to avoid double opening
+            const target = e.target;
+            if (
+              target &&
+              typeof target.closest === "function" &&
+              target.closest("#browseFileBtn")
+            ) {
+              return;
+            }
+            if (fileInputModern) fileInputModern.click();
+          });
+        }
+        if (fileInputModern) {
+          fileInputModern.addEventListener("change", (e) =>
+            handleFiles(e.target.files)
+          );
+        }
+        // Right-click to clear
+        if (dropZone) {
+          dropZone.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            if (fileInputModern) fileInputModern.value = "";
+            updateFileInfo(null);
+            dropZone.classList.remove("has-file");
+          });
+        }
+        // Observe style change
+        if (dropZone) {
+          const observerFile = new MutationObserver(() => {
+            if (dropZone.classList.contains("has-file")) {
+              dropZone.style.borderColor = "#21d4fd";
+            } else {
+              dropZone.style.removeProperty("border-color");
+            }
+          });
+          observerFile.observe(dropZone, {
+            attributes: true,
+            attributeFilter: ["class"],
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
