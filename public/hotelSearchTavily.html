@@ -451,6 +451,9 @@
             <button id="ddgStopButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
               <i class="fa-solid fa-stop"></i><span>Dừng</span>
             </button>
+            <button id="ddgStopAllButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
+              <i class="fa-solid fa-ban"></i><span>Dừng hẳn</span>
+            </button>
             <button id="ddgResumeButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #3ba55d">
               <i class="fa-solid fa-play"></i><span>Tiếp tục</span>
             </button>
@@ -693,6 +696,15 @@
             class="flex wrap gap-sm"
             style="align-items: center; margin-bottom: var(--spacing-sm)"
           >
+            <label for="ddgFilterInput" class="text-tertiary" style="margin: 0"
+              >Lọc</label
+            >
+            <input
+              id="ddgFilterInput"
+              type="search"
+              placeholder="Tìm tên khách sạn hoặc địa chỉ"
+              style="max-width: 260px"
+            />
             <div class="badge" style="background: rgba(255, 255, 255, 0.1)">
               Tổng: <span id="ddgResultsCount" style="margin-left: 4px">0</span>
             </div>
@@ -1082,6 +1094,244 @@
           });
         }
       });
+    </script>
+
+    <!-- Chatbox -->
+    <div id="chatboxToggle" class="chatbox-toggle" title="Báo lỗi / Góp ý">
+      <i class="fa-solid fa-comment-dots"></i>
+    </div>
+    <div id="chatboxPanel" class="chatbox-panel hidden">
+      <div class="chatbox-header">
+        <span><i class="fa-solid fa-headset"></i> Báo lỗi / Góp ý</span>
+        <button id="chatboxClose" class="chatbox-close">&times;</button>
+      </div>
+      <div id="chatboxMessages" class="chatbox-messages"></div>
+      <div class="chatbox-input-area">
+        <select id="chatboxType" class="chatbox-type">
+          <option value="issue">Lỗi</option>
+          <option value="feedback">Góp ý</option>
+          <option value="question">Câu hỏi</option>
+        </select>
+        <div class="chatbox-input-row">
+          <input id="chatboxInput" type="text" placeholder="Nhập vấn đề của bạn..." />
+          <button id="chatboxSend" class="btn btn-accent btn-small">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .chatbox-toggle {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        z-index: 10000;
+        transition: transform 0.2s;
+      }
+      .chatbox-toggle:hover { transform: scale(1.1); }
+      .chatbox-panel {
+        position: fixed;
+        bottom: 90px;
+        right: 24px;
+        width: 450px;
+        max-height: 600px;
+        background: var(--surface-color, #1e1e2e);
+        border: 1px solid var(--border-color, #333);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .chatbox-header {
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .chatbox-close {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .chatbox-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        max-height: 450px;
+        min-height: 300px;
+      }
+      .chat-msg {
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        background: rgba(255,255,255,0.06);
+        border-left: 3px solid #667eea;
+      }
+      .chat-msg.resolved {
+        opacity: 0.5;
+        border-left-color: #3ba55d;
+      }
+      .chat-msg-meta {
+        font-size: 0.7rem;
+        color: var(--text-tertiary, #888);
+        margin-top: 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .chat-msg-type {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      .chat-msg-type.type-issue {
+        background: rgba(255, 77, 79, 0.2);
+        color: #ff6b6b;
+      }
+      .chat-msg-type.type-feedback {
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffd43b;
+      }
+      .chat-msg-type.type-question {
+        background: rgba(102, 126, 234, 0.2);
+        color: #748ffc;
+      }
+      .chat-msg-resolve {
+        font-size: 0.65rem;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(59, 165, 93, 0.2);
+        color: #3ba55d;
+        cursor: pointer;
+        border: none;
+      }
+      .chatbox-input-area {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-color, #333);
+      }
+      .chatbox-type {
+        background: var(--surface-color, #1e1e2e);
+        color: #fff;
+        border: 1px solid var(--border-color, #444);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.85rem;
+      }
+      .chatbox-input-row {
+        display: flex;
+        gap: 8px;
+      }
+      .chatbox-input-area input {
+        flex: 1;
+        background: var(--surface-color, #1e1e2e);
+        color: #fff;
+        border: 1px solid var(--border-color, #444);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+      }
+      .chatbox-input-area input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      .chatbox-input-area input::placeholder {
+        color: #888;
+      }
+    </style>
+
+    <script>
+      (function() {
+        const toggle = document.getElementById("chatboxToggle");
+        const panel = document.getElementById("chatboxPanel");
+        const closeBtn = document.getElementById("chatboxClose");
+        const msgContainer = document.getElementById("chatboxMessages");
+        const input = document.getElementById("chatboxInput");
+        const typeSelect = document.getElementById("chatboxType");
+        const sendBtn = document.getElementById("chatboxSend");
+
+        function formatTime(iso) {
+          const d = new Date(iso);
+          return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+        }
+
+        async function loadMessages() {
+          try {
+            const res = await axios.get("/api/chat/messages");
+            const messages = res.data || [];
+            msgContainer.innerHTML = "";
+            messages.forEach((m) => {
+              const div = document.createElement("div");
+              div.className = "chat-msg" + (m.status === "resolved" ? " resolved" : "");
+              const typeLabel = m.type === "issue" ? "Lỗi" : m.type === "feedback" ? "Góp ý" : "Câu hỏi";
+              div.innerHTML = `
+                <div>${m.text}</div>
+                <div class="chat-msg-meta">
+                  <span>
+                    <span class="chat-msg-type type-${m.type}">${typeLabel}</span>
+                    <span style="margin-left:6px">${formatTime(m.timestamp)}</span>
+                  </span>
+                  ${m.status !== "resolved" ? `<button class="chat-msg-resolve" data-id="${m.id}">Đã xử lý</button>` : '<span style="color:#3ba55d;font-size:0.65rem">&#10003; Đã xử lý</span>'}
+                </div>
+              `;
+              msgContainer.appendChild(div);
+            });
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+
+            msgContainer.querySelectorAll(".chat-msg-resolve").forEach((btn) => {
+              btn.addEventListener("click", async () => {
+                await axios.post(`/api/chat/messages/${btn.dataset.id}/resolve`);
+                loadMessages();
+              });
+            });
+          } catch (e) {
+            console.error("Load chat error:", e);
+          }
+        }
+
+        async function sendMessage() {
+          const text = input.value.trim();
+          if (!text) return;
+          try {
+            await axios.post("/api/chat/messages", { text, type: typeSelect.value });
+            input.value = "";
+            loadMessages();
+          } catch (e) {
+            console.error("Send chat error:", e);
+          }
+        }
+
+        toggle.addEventListener("click", () => {
+          panel.classList.toggle("hidden");
+          if (!panel.classList.contains("hidden")) loadMessages();
+        });
+        closeBtn.addEventListener("click", () => panel.classList.add("hidden"));
+        sendBtn.addEventListener("click", sendMessage);
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+      })();
     </script>
   </body>
 </html>

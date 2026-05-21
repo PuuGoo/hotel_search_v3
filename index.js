@@ -14,6 +14,7 @@ import cors from "cors";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { tavily } from "@tavily/core";
 import multer from "multer";
+import fs from "fs";
 
 // Get the directory name from import.meta.url
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +37,7 @@ const defaultApiProxy = createProxyMiddleware({
 });
 
 app.use("/api", (req, res, next) => {
-  if (req.path === "/case12" || req.path === "/case12/health") {
+  if (req.path === "/case12" || req.path === "/case12/health" || req.path.startsWith("/chat")) {
     return next();
   }
   return defaultApiProxy(req, res, next);
@@ -590,6 +591,63 @@ app.get("/logout", (req, res) => {
     }
     res.redirect("/"); // Redirect to login page after logout
   });
+});
+
+// Chatbox - lưu vấn đề vào file
+const CHAT_FILE = path.join(__dirname, "chatbox_data.json");
+
+app.get("/api/chat/messages", (req, res) => {
+  try {
+    let messages = [];
+    if (fs.existsSync(CHAT_FILE)) {
+      messages = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8"));
+    }
+    res.json(messages);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+app.post("/api/chat/messages", (req, res) => {
+  try {
+    let messages = [];
+    if (fs.existsSync(CHAT_FILE)) {
+      messages = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8"));
+    }
+    const newMessage = {
+      id: Date.now(),
+      text: req.body.text || "",
+      type: req.body.type || "issue",
+      timestamp: new Date().toISOString(),
+      status: "open",
+    };
+    messages.push(newMessage);
+    fs.writeFileSync(CHAT_FILE, JSON.stringify(messages, null, 2), "utf8");
+    res.json({ success: true, message: newMessage });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post("/api/chat/messages/:id/resolve", (req, res) => {
+  try {
+    let messages = [];
+    if (fs.existsSync(CHAT_FILE)) {
+      messages = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8"));
+    }
+    const id = Number(req.params.id);
+    const msg = messages.find((m) => m.id === id);
+    if (msg) {
+      msg.status = "resolved";
+      msg.resolvedAt = new Date().toISOString();
+      fs.writeFileSync(CHAT_FILE, JSON.stringify(messages, null, 2), "utf8");
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: "Not found" });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.listen(process.env.PORT || 3000, "0.0.0.0", () => {

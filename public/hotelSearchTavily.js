@@ -181,6 +181,7 @@ function getResultDetailElements() {
   const ddgPickButton = document.getElementById("ddgPickFileButton");
   const ddgRunButton = document.getElementById("ddgRunButton");
   const ddgStopButton = document.getElementById("ddgStopButton");
+  const ddgStopAllButton = document.getElementById("ddgStopAllButton");
   const ddgResumeButton = document.getElementById("ddgResumeButton");
   const ddgDownloadButton = document.getElementById("ddgDownloadButton");
   const ddgStatus = document.getElementById("ddgStatus");
@@ -191,18 +192,21 @@ function getResultDetailElements() {
   const ddgProgressText = document.getElementById("ddgProgressText");
 
   let ddgStopped = false;
+  let ddgStoppedCompletely = false;
+  let ddgAbortController = null;
   let ddgResults = [];
   let ddgAllRows = [];   // toàn bộ rows từ file
   let ddgNextIndex = 0;  // index tiếp theo cần chạy
 
   const DDG_SESSION_KEY = "ddg_session";
 
-  function saveDdgSession() {
+  function saveDdgSession(stoppedCompletely = false) {
     try {
       localStorage.setItem(DDG_SESSION_KEY, JSON.stringify({
         allRows: ddgAllRows,
         results: ddgResults,
         nextIndex: ddgNextIndex,
+        stoppedCompletely,
       }));
     } catch (e) {}
   }
@@ -243,8 +247,25 @@ function getResultDetailElements() {
   if (ddgStopButton) {
     ddgStopButton.addEventListener("click", () => {
       ddgStopped = true;
+      if (ddgAbortController) ddgAbortController.abort();
       setDdgStatus("Đã dừng", "error");
       ddgStopButton.classList.add("hidden");
+      ddgStopAllButton.classList.add("hidden");
+      if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+    });
+  }
+
+  if (ddgStopAllButton) {
+    ddgStopAllButton.addEventListener("click", () => {
+      ddgStopped = true;
+      ddgStoppedCompletely = true;
+      if (ddgAbortController) ddgAbortController.abort();
+      saveDdgSession(true); // lưu session với flag stoppedCompletely
+      setDdgStatus("Đã dừng hẳn", "error");
+      ddgRunButton.disabled = false;
+      ddgStopButton.classList.add("hidden");
+      ddgStopAllButton.classList.add("hidden");
+      ddgResumeButton.classList.add("hidden");
       if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
     });
   }
@@ -287,11 +308,53 @@ function getResultDetailElements() {
       <td style="color:${pctColor};font-weight:600">${result.percentage}%</td>
       <td style="font-size:0.65rem;color:var(--text-tertiary)">${result.allScores || ""}</td>
       <td style="color:${statusColor}">${result.status}</td>
-      <td>${result.hotelName || ""}</td>
-      <td style="font-size:0.72rem">${result.hotelAddress || ""}</td>
+      <td data-field="hotelName">${result.hotelName || ""}</td>
+      <td data-field="hotelAddress" style="font-size:0.72rem">${result.hotelAddress || ""}</td>
       <td style="font-size:0.68rem">${bestLink ? `<a href="${bestLink}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${bestLink}</a>` : "-"}</td>
     `;
     ddgResultsBody.appendChild(tr);
+
+    // Apply current filter to new row
+    applyDdgFilter();
+  }
+
+  function normalizeText(text) {
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\uFF08\uFF09]/g, "")
+      .replace(/[()]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function applyDdgFilter() {
+    const filterInput = document.getElementById("ddgFilterInput");
+    if (!filterInput || !ddgResultsBody) return;
+    const query = normalizeText(filterInput.value);
+    const rows = Array.from(ddgResultsBody.querySelectorAll("tr"));
+    let visible = 0;
+
+    for (const tr of rows) {
+      const nameTd = tr.querySelector('td[data-field="hotelName"]');
+      const addressTd = tr.querySelector('td[data-field="hotelAddress"]');
+      const name = nameTd ? normalizeText(nameTd.textContent) : "";
+      const address = addressTd ? normalizeText(addressTd.textContent) : "";
+      const match = !query || name.includes(query) || address.includes(query);
+      tr.style.display = match ? "" : "none";
+      if (match) visible++;
+    }
+
+    if (ddgResultsCount) ddgResultsCount.textContent = query ? String(visible) : String(ddgResultsRowCount);
+  }
+
+  // DDG Filter input event listener
+  const ddgFilterInput = document.getElementById("ddgFilterInput");
+  if (ddgFilterInput) {
+    ddgFilterInput.addEventListener("input", () => {
+      applyDdgFilter();
+    });
   }
 
   function triggerDdgDownload() {
@@ -314,9 +377,12 @@ function getResultDetailElements() {
 
   async function runDdg(startIndex) {
     ddgStopped = false;
+    ddgStoppedCompletely = false;
+    ddgAbortController = new AbortController();
     ddgRunButton.disabled = true;
     if (ddgResumeButton) ddgResumeButton.classList.add("hidden");
     ddgStopButton.classList.remove("hidden");
+    if (ddgStopAllButton) ddgStopAllButton.classList.remove("hidden");
     if (ddgDownloadButton) ddgDownloadButton.classList.add("hidden");
     setDdgStatus("Đang tìm kiếm...");
 
@@ -344,7 +410,9 @@ function getResultDetailElements() {
       let matchedLink = [];
       try {
         await new Promise((r) => setTimeout(r, 1000));
-        const response = await axios.get(searchURL);
+        if (ddgStopped) { ddgNextIndex = i; break; }
+        const response = await axios.get(searchURL, { signal: ddgAbortController.signal });
+        if (ddgStopped) { ddgNextIndex = i; break; }
         const data = response.data;
         const resultsFromDDG = data.results;
 
@@ -355,6 +423,7 @@ function getResultDetailElements() {
           matchedLink = [{ url: best.url, percentage: best.match_percentage || 0, title: best.title || "", allScores }];
         }
       } catch (e) {
+        if (ddgStopped) { ddgNextIndex = i; break; }
         console.log("DDG search error:", e);
       }
 
@@ -380,12 +449,15 @@ function getResultDetailElements() {
 
     ddgRunButton.disabled = false;
     ddgStopButton.classList.add("hidden");
+    if (ddgStopAllButton) ddgStopAllButton.classList.add("hidden");
     if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
 
     if (ddgStopped) {
-      saveDdgSession();
-      if (ddgNextIndex < rows.length && ddgResumeButton) {
-        ddgResumeButton.classList.remove("hidden");
+      if (!ddgStoppedCompletely) {
+        saveDdgSession();
+        if (ddgNextIndex < rows.length && ddgResumeButton) {
+          ddgResumeButton.classList.remove("hidden");
+        }
       }
     } else {
       setDdgStatus("Hoàn thành!", "success");
@@ -2127,8 +2199,8 @@ document.addEventListener("DOMContentLoaded", function () {
             <td style="color:${pctColor};font-weight:600">${r.percentage}%</td>
             <td style="font-size:0.65rem;color:var(--text-tertiary)">${r.allScores || ""}</td>
             <td style="color:${statusColor}">${r.status}</td>
-            <td>${r.hotelName || ""}</td>
-            <td style="font-size:0.72rem">${r.hotelAddress || ""}</td>
+            <td data-field="hotelName">${r.hotelName || ""}</td>
+            <td data-field="hotelAddress" style="font-size:0.72rem">${r.hotelAddress || ""}</td>
             <td style="font-size:0.68rem">${bestLink ? `<a href="${bestLink}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${bestLink}</a>` : "-"}</td>
           `;
           if (ddgResultsBody) ddgResultsBody.appendChild(tr);
@@ -2138,8 +2210,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
       setDdgProgress(ddgNextIndex, ddgAllRows.length);
 
+      // If stopped completely, don't auto-resume
+      if (ddgSaved.stoppedCompletely) {
+        setDdgStatus("Đã dừng hẳn (đã khôi phục)", "error");
+        ddgRunButton.disabled = false;
+        if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      }
       // If not finished, auto-resume
-      if (ddgNextIndex < ddgAllRows.length) {
+      else if (ddgNextIndex < ddgAllRows.length) {
         setDdgStatus("Đang tiếp tục từ dòng " + (ddgNextIndex + 1) + "...");
         (async () => {
           try {
