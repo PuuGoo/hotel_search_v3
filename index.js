@@ -15,6 +15,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { tavily } from "@tavily/core";
 import multer from "multer";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 
 // Get the directory name from import.meta.url
 const __filename = fileURLToPath(import.meta.url);
@@ -37,7 +38,7 @@ const defaultApiProxy = createProxyMiddleware({
 });
 
 app.use("/api", (req, res, next) => {
-  if (req.path === "/case12" || req.path === "/case12/health" || req.path.startsWith("/chat")) {
+  if (req.path === "/case12" || req.path === "/case12/health" || req.path.startsWith("/chat") || req.path.startsWith("/users") || req.path === "/me") {
     return next();
   }
   return defaultApiProxy(req, res, next);
@@ -249,7 +250,7 @@ async function searchWithRetryGo(query) {
   throw new Error("Không thể thực hiện tìm kiếm sau khi thử tất cả API key.");
 }
 
-app.get("/api/case12/health", async (req, res) => {
+app.get("/api/case12/health", checkAuthenticated, checkFeature("case12"), async (req, res) => {
   try {
     const response = await fetch(CASE12_API_URL);
     const body = await response.text();
@@ -263,7 +264,7 @@ app.get("/api/case12/health", async (req, res) => {
   }
 });
 
-app.post("/api/case12", upload.single("file"), async (req, res) => {
+app.post("/api/case12", checkAuthenticated, checkFeature("case12"), upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res
@@ -498,7 +499,7 @@ async function startDdgServer() {
   throw new Error("DDG server không khởi động được.");
 }
 
-app.get("/searchApiDDG", checkAuthenticated, async (req, res) => {
+app.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), async (req, res) => {
   const query = req.query.q;
   const hotelName = req.query.hotel_name || "";
   const hotelAddress = req.query.hotel_address || "";
@@ -550,36 +551,35 @@ app.get("/searchApiTavily", checkAuthenticated, async (req, res) => {
 
 // Xử lý yêu cầu đăng nhập
 app.post("/login", async (req, res) => {
-  const usernameEnv = process.env.MY_USERNAME;
-  const passwordEnv = process.env.MY_PASSWORD;
   const { username, password } = req.body;
 
   try {
-    if (username == usernameEnv && password == passwordEnv) {
-      req.session.isAuthenticated = true; // Đánh dấu user đã đăng nhập
-      res.redirect("/SEARCHTAVILY"); // Redirect to a protected page after successful login
+    const users = readUsers();
+    const user = users.find((u) => u.username === username);
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+      req.session.isAuthenticated = true;
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        displayName: user.displayName,
+        features: user.features || [],
+      };
+      res.redirect("/searchTavily");
     } else {
-      // Trả về trang thông báo rồi tự động redirect sau 5 giây
       res.status(401).send(`
-      <h1>Sai tên đăng nhập hoặc mật khẩu</h1>
-      <p>Trang sẽ tự động chuyển về trang đăng nhập sau 3 giây...</p>
-      <script>
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 3000);
-      </script>
-    `);
+        <h1>Sai tên đăng nhập hoặc mật khẩu</h1>
+        <p>Trang sẽ tự động chuyển về trang đăng nhập sau 3 giây...</p>
+        <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
+      `);
     }
   } catch (error) {
     console.error("Lỗi khi kiểm tra đăng nhập:", error);
     res.status(500).send(`
       <h1>Lỗi máy chủ.</h1>
       <p>Trang sẽ tự động chuyển về trang đăng nhập sau 3 giây...</p>
-      <script>
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 3000);
-      </script>
+      <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
     `);
   }
 });
@@ -592,6 +592,49 @@ app.get("/logout", (req, res) => {
     res.redirect("/"); // Redirect to login page after logout
   });
 });
+
+// ---- Multi-user system ----
+const USERS_FILE = path.join(__dirname, "users.json");
+
+function readUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
+    }
+  } catch (e) {
+    console.error("Lỗi đọc users.json:", e.message);
+  }
+  return [];
+}
+
+function writeUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
+}
+
+function checkRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.isAuthenticated) {
+      return res.redirect("/");
+    }
+    if (!roles.includes(req.session.user?.role)) {
+      return res.status(403).json({ error: "Không có quyền truy cập" });
+    }
+    next();
+  };
+}
+
+function checkFeature(...features) {
+  return (req, res, next) => {
+    if (!req.session.isAuthenticated) {
+      return res.redirect("/");
+    }
+    const userFeatures = req.session.user?.features || [];
+    if (!features.some(f => userFeatures.includes(f))) {
+      return res.status(403).json({ error: "Không có quyền truy cập chức năng này" });
+    }
+    next();
+  };
+}
 
 // Chatbox - lưu vấn đề vào file
 const CHAT_FILE = path.join(__dirname, "chatbox_data.json");
@@ -648,6 +691,100 @@ app.post("/api/chat/messages/:id/resolve", (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
+});
+
+// ---- User Management API (admin only) ----
+app.get("/api/me", checkAuthenticated, (req, res) => {
+  res.json(req.session.user);
+});
+
+app.get("/admin", checkRole("admin"), (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
+app.get("/api/users", checkRole("admin"), (req, res) => {
+  const users = readUsers().map(({ password, ...u }) => u);
+  res.json(users);
+});
+
+app.post("/api/users", checkRole("admin"), async (req, res) => {
+  const { username, password, displayName, role, features } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Thiếu username hoặc password" });
+  }
+  const users = readUsers();
+  if (users.find((u) => u.username === username)) {
+    return res.status(400).json({ error: "Username đã tồn tại" });
+  }
+  const newUser = {
+    id: users.length ? Math.max(...users.map((u) => u.id)) + 1 : 1,
+    username,
+    password: await bcrypt.hash(password, 10),
+    displayName: displayName || username,
+    role: role === "admin" ? "admin" : "user",
+    features: Array.isArray(features) ? features : [],
+    createdAt: new Date().toISOString(),
+  };
+  users.push(newUser);
+  writeUsers(users);
+  const { password: _, ...safe } = newUser;
+  res.json({ success: true, user: safe });
+});
+
+app.put("/api/users/:id", checkRole("admin"), async (req, res) => {
+  const id = Number(req.params.id);
+  const users = readUsers();
+  const user = users.find((u) => u.id === id);
+  if (!user) return res.status(404).json({ error: "Không tìm thấy user" });
+
+  const { displayName, role, password, features } = req.body;
+  if (displayName !== undefined) user.displayName = displayName;
+  if (role !== undefined) user.role = role === "admin" ? "admin" : "user";
+  if (password) user.password = await bcrypt.hash(password, 10);
+  if (Array.isArray(features)) user.features = features;
+  writeUsers(users);
+  const { password: _, ...safe } = user;
+  res.json({ success: true, user: safe });
+});
+
+app.delete("/api/users/:id", checkRole("admin"), (req, res) => {
+  const id = Number(req.params.id);
+  let users = readUsers();
+  if (users.length <= 1) {
+    return res.status(400).json({ error: "Không thể xóa user cuối cùng" });
+  }
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) return res.status(404).json({ error: "Không tìm thấy user" });
+  if (users[idx].username === "admin") {
+    return res.status(400).json({ error: "Không thể xóa tài khoản admin gốc" });
+  }
+  users.splice(idx, 1);
+  writeUsers(users);
+  res.json({ success: true });
+});
+
+app.put("/api/users/:id/password", checkAuthenticated, async (req, res) => {
+  const id = Number(req.params.id);
+  const currentUser = req.session.user;
+  if (currentUser.role !== "admin" && currentUser.id !== id) {
+    return res.status(403).json({ error: "Không có quyền đổi mật khẩu người khác" });
+  }
+  const { oldPassword, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: "Mật khẩu mới phải có ít nhất 4 ký tự" });
+  }
+  const users = readUsers();
+  const user = users.find((u) => u.id === id);
+  if (!user) return res.status(404).json({ error: "Không tìm thấy user" });
+
+  if (currentUser.role !== "admin") {
+    if (!oldPassword || !(await bcrypt.compare(oldPassword, user.password))) {
+      return res.status(400).json({ error: "Mật khẩu cũ không đúng" });
+    }
+  }
+  user.password = await bcrypt.hash(newPassword, 10);
+  writeUsers(users);
+  res.json({ success: true });
 });
 
 app.listen(process.env.PORT || 3000, "0.0.0.0", () => {

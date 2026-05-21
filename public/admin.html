@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quản lý Users | Hotel Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  </head>
+  <body>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/admin" class="btn btn-primary btn-small"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <a href="/logout" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container" style="padding: var(--spacing-lg) var(--spacing-md)">
+      <div class="glass-card gradient animate-fade-in" style="max-width: 900px; margin: 0 auto">
+        <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md)">
+          <h1 class="gradient-text" style="font-size: 1.4rem; margin: 0">
+            <i class="fa-solid fa-users-gear"></i> Quản lý người dùng
+          </h1>
+          <button id="btnAddUser" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-user-plus"></i> Thêm user
+          </button>
+        </div>
+
+        <div id="userTable" style="overflow-x: auto">
+          <table style="width: 100%; border-collapse: collapse">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border)">
+                <th style="text-align: left; padding: 8px">ID</th>
+                <th style="text-align: left; padding: 8px">Username</th>
+                <th style="text-align: left; padding: 8px">Tên hiển thị</th>
+                <th style="text-align: left; padding: 8px">Vai trò</th>
+                <th style="text-align: left; padding: 8px">Chức năng</th>
+                <th style="text-align: left; padding: 8px">Ngày tạo</th>
+                <th style="text-align: center; padding: 8px">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="userList"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal thêm/sửa user -->
+    <div id="userModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 440px; width: 90%">
+        <h2 id="modalTitle" class="modal-header gradient-text" style="font-size: 1.2rem">Thêm user</h2>
+        <form id="userForm">
+          <input type="hidden" id="editUserId" />
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="modalUsername">Username</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-user"></i></span>
+              <input id="modalUsername" type="text" class="has-icon" required placeholder="Tên đăng nhập" />
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="modalDisplayName">Tên hiển thị</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-id-card"></i></span>
+              <input id="modalDisplayName" type="text" class="has-icon" placeholder="Tên hiển thị" />
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="modalPassword">Mật khẩu</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+              <input id="modalPassword" type="password" class="has-icon" placeholder="••••••••" />
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 16px">
+            <label for="modalRole">Vai trò</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-shield-halved"></i></span>
+              <select id="modalRole" class="has-icon" style="width: 100%; background: transparent; border: none; color: inherit; padding: 10px 10px 10px 40px">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 16px">
+            <label>Chức năng được phép</label>
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px; background: var(--surface-2); border-radius: 8px">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                <input type="checkbox" id="featureTavily" value="tavily" style="width: 18px; height: 18px">
+                <span><i class="fa-solid fa-hotel"></i> Tavily Hotel Search</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                <input type="checkbox" id="featureDDG" value="ddg" style="width: 18px; height: 18px">
+                <span><i class="fa-brands fa-searchengin"></i> DuckDuckGo</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                <input type="checkbox" id="featureCase12" value="case12" style="width: 18px; height: 18px">
+                <span><i class="fa-solid fa-file-excel"></i> Case12 API</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Lưu
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal đổi mật khẩu -->
+    <div id="passwordModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 400px; width: 90%">
+        <h2 class="modal-header gradient-text" style="font-size: 1.2rem">Đổi mật khẩu</h2>
+        <form id="passwordForm">
+          <input type="hidden" id="pwUserId" />
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="newPassword">Mật khẩu mới</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+              <input id="newPassword" type="password" class="has-icon" required placeholder="Mật khẩu mới" />
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Đổi mật khẩu
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      const API = "/api/users";
+      let currentUserId = null;
+
+      async function loadCurrentUser() {
+        try {
+          const res = await fetch("/api/me");
+          const user = await res.json();
+          currentUserId = user.id;
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        } catch { window.location.href = "/"; }
+      }
+
+      let allUsers = [];
+
+      async function loadUsers() {
+        const res = await fetch(API);
+        allUsers = await res.json();
+        const tbody = document.getElementById("userList");
+        tbody.innerHTML = allUsers.map(u => `
+          <tr style="border-bottom: 1px solid var(--border)">
+            <td style="padding: 8px">${u.id}</td>
+            <td style="padding: 8px">${u.username}</td>
+            <td style="padding: 8px">${u.displayName || "-"}</td>
+            <td style="padding: 8px">
+              <span style="padding: 2px 8px; border-radius: 12px; font-size: 0.78rem; background: ${u.role === 'admin' ? 'var(--accent)' : 'var(--surface-2)'}; color: ${u.role === 'admin' ? '#fff' : 'var(--text)'}">
+                ${u.role === 'admin' ? 'Admin' : 'User'}
+              </span>
+            </td>
+            <td style="padding: 8px; font-size: 0.75rem">
+              ${(u.features || []).map(f => {
+                const labels = { tavily: 'Tavily', ddg: 'DDG', case12: 'Case12' };
+                return `<span style="padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; background: var(--accent-2, #3ba55d); color: #fff; margin-right: 4px">${labels[f] || f}</span>`;
+              }).join('')}
+            </td>
+            <td style="padding: 8px; font-size: 0.82rem">${u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '-'}</td>
+            <td style="padding: 8px; text-align: center">
+              <button class="btn btn-outline btn-small" onclick="editUser(${u.id})" title="Sửa">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn btn-outline btn-small" onclick="changePassword(${u.id})" title="Đổi mật khẩu">
+                <i class="fa-solid fa-key"></i>
+              </button>
+              ${u.username !== 'admin' ? `
+                <button class="btn btn-outline btn-small" onclick="deleteUser(${u.id}, '${u.username}')" title="Xóa" style="color: var(--danger, #ef4444)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              ` : ''}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      function openModal(title, user) {
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("editUserId").value = user?.id || "";
+        document.getElementById("modalUsername").value = user?.username || "";
+        document.getElementById("modalDisplayName").value = user?.displayName || "";
+        document.getElementById("modalPassword").value = "";
+        document.getElementById("modalRole").value = user?.role || "user";
+        document.getElementById("modalUsername").disabled = !!user;
+
+        // Set features checkboxes
+        const features = user?.features || [];
+        document.getElementById("featureTavily").checked = features.includes("tavily");
+        document.getElementById("featureDDG").checked = features.includes("ddg");
+        document.getElementById("featureCase12").checked = features.includes("case12");
+
+        document.getElementById("userModal").style.display = "flex";
+      }
+
+      function closeModal(id) {
+        document.getElementById(id).style.display = "none";
+      }
+
+      document.getElementById("btnAddUser").onclick = () => openModal("Thêm user");
+      document.querySelectorAll("[data-close]").forEach(btn => {
+        btn.onclick = () => btn.closest(".modal-overlay").style.display = "none";
+      });
+
+      window.editUser = (id) => {
+        const user = allUsers.find(u => u.id === id);
+        if (user) openModal("Sửa user", user);
+      };
+
+      window.changePassword = (id) => {
+        document.getElementById("pwUserId").value = id;
+        document.getElementById("newPassword").value = "";
+        document.getElementById("passwordModal").style.display = "flex";
+      };
+
+      window.deleteUser = async (id, username) => {
+        if (!confirm(`Xóa user "${username}"?`)) return;
+        const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) loadUsers();
+        else alert(data.error);
+      };
+
+      document.getElementById("userForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("editUserId").value;
+        const features = [];
+        if (document.getElementById("featureTavily").checked) features.push("tavily");
+        if (document.getElementById("featureDDG").checked) features.push("ddg");
+        if (document.getElementById("featureCase12").checked) features.push("case12");
+
+        const body = {
+          username: document.getElementById("modalUsername").value,
+          displayName: document.getElementById("modalDisplayName").value,
+          role: document.getElementById("modalRole").value,
+          features: features,
+        };
+        const pw = document.getElementById("modalPassword").value;
+        if (pw) body.password = pw;
+
+        if (id) {
+          const res = await fetch(`${API}/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (data.success) { closeModal("userModal"); loadUsers(); }
+          else alert(data.error);
+        } else {
+          if (!pw) { alert("Cần nhập mật khẩu"); return; }
+          body.password = pw;
+          const res = await fetch(API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (data.success) { closeModal("userModal"); loadUsers(); }
+          else alert(data.error);
+        }
+      };
+
+      document.getElementById("passwordForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("pwUserId").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const res = await fetch(`${API}/${id}/password`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newPassword }),
+        });
+        const data = await res.json();
+        if (data.success) { closeModal("passwordModal"); alert("Đổi mật khẩu thành công"); }
+        else alert(data.error);
+      };
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      loadCurrentUser();
+      loadUsers();
+    </script>
+  </body>
+</html>

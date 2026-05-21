@@ -32,6 +32,10 @@
         </div>
         <div class="flex gap-sm center" style="margin-left: auto">
           <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"
+            ><i class="fa-solid fa-users-gear"></i></a
+          >
           <button
             id="themeToggle"
             type="button"
@@ -68,7 +72,7 @@
         <button role="tab" aria-selected="false" data-target="panel-results">
           <i class="fa-solid fa-table"></i> <span>Kết quả</span>
         </button>
-        <button role="tab" aria-selected="false" data-target="panel-results-ddg">
+        <button id="ddgTabButton" role="tab" aria-selected="false" data-target="panel-results-ddg" style="display: none">
           <i class="fa-brands fa-searchengin"></i> <span>Kết quả DDG</span>
         </button>
       </div>
@@ -351,10 +355,11 @@
         </div>
 
         <div
+          id="case12Section"
           class="glass-card"
           role="region"
           aria-labelledby="case12ApiSectionTitle"
-          style="margin-top: var(--spacing-md)"
+          style="margin-top: var(--spacing-md); display: none"
         >
           <div class="card-header" id="case12ApiSectionTitle">
             <i class="fa-solid fa-cloud-arrow-up"></i> Chức năng 1 API (Case
@@ -416,10 +421,11 @@
           </div>
         </div>
         <div
+          id="ddgSection"
           class="glass-card"
           role="region"
           aria-labelledby="ddgSectionTitle"
-          style="margin-top: var(--spacing-md)"
+          style="margin-top: var(--spacing-md); display: none"
         >
           <div class="card-header" id="ddgSectionTitle">
             <i class="fa-brands fa-searchengin"></i> Chức năng DuckDuckGo (Tìm website chính thức)
@@ -902,6 +908,26 @@
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("year").textContent = new Date().getFullYear();
+
+        // Load current user info
+        fetch("/api/me")
+          .then((r) => r.json())
+          .then((user) => {
+            document.getElementById("currentUser").textContent = user.displayName || user.username;
+            if (user.role === "admin") {
+              document.getElementById("adminLink").style.display = "";
+            }
+            // Check user features
+            const features = user.features || [];
+            if (features.includes("ddg")) {
+              document.getElementById("ddgTabButton").style.display = "";
+              document.getElementById("ddgSection").style.display = "";
+            }
+            if (features.includes("case12")) {
+              document.getElementById("case12Section").style.display = "";
+            }
+          })
+          .catch(() => {});
         const stored = localStorage.getItem("theme");
         if (stored) document.documentElement.setAttribute("data-theme", stored);
         const themeBtn = document.getElementById("themeToggle");
