@@ -6,6 +6,7 @@ import { tavily } from "@tavily/core";
 import { checkAuthenticated, checkFeature } from "../middleware/auth.js";
 import { validateSearchQuery } from "../middleware/validation.js";
 import { rateLimitSearch } from "../middleware/rateLimit.js";
+import config from "../utils/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -221,7 +222,7 @@ async function searchWithRetryGo(query) {
 }
 
 // ---- DDG Server management ----
-const DDG_SERVER_URL = "http://localhost:5001";
+const DDG_SERVER_URL = config.ddg.serverUrl;
 let ddgServerProcess = null;
 
 async function isDdgServerRunning() {

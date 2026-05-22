@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { checkAuthenticated, checkFeature } from "../middleware/auth.js";
+import config from "../utils/config.js";
 
 const router = Router();
 const upload = multer({
@@ -8,7 +9,7 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
-const CASE12_API_URL = process.env.CASE12_API_URL || "https://hotel-search-v2-api.vercel.app/api/case12";
+const CASE12_API_URL = config.case12.apiUrl || "https://hotel-search-v2-api.vercel.app/api/case12";
 
 // Health check
 router.get("/api/case12/health", checkAuthenticated, checkFeature("case12"), async (_req, res) => {

@@ -15,13 +15,9 @@ ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 WORKDIR /app
 
 COPY ddg_server.py ddg_search.py ./
-COPY requirements.txt* ./
+COPY requirements.txt ./
 
-RUN pip install --no-cache-dir \
-    selenium \
-    beautifulsoup4 \
-    requests \
-    webdriver-manager
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create non-root user
 RUN useradd -m appuser

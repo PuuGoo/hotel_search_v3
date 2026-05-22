@@ -36,8 +36,12 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // We set CSP manually below
     crossOriginEmbedderPolicy: false,
+    hsts: config.isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
   })
 );
+
+// Favicon (avoid 404 noise)
+app.get("/favicon.ico", (_req, res) => res.status(204).end());
 
 // Content Security Policy
 app.use((req, res, next) => {
@@ -51,6 +55,9 @@ app.use((req, res, next) => {
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
         "img-src 'self' data: https://placehold.co",
         "connect-src 'self' https://va.vercel-scripts.com",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
       ].join("; ")
     );
   }
@@ -116,7 +123,7 @@ app.get("/health", async (_req, res) => {
 
   // Check DDG server
   try {
-    const ddgResp = await fetch("http://localhost:5001/health", { signal: AbortSignal.timeout(2000) });
+    const ddgResp = await fetch(`${config.ddg.serverUrl}/health`, { signal: AbortSignal.timeout(2000) });
     checks.ddg = { status: ddgResp.ok ? "ok" : "degraded" };
   } catch {
     checks.ddg = { status: "unavailable" };

@@ -62,7 +62,7 @@ def reset_driver():
     try:
         if driver:
             driver.quit()
-    except:
+    except Exception:
         pass
     driver = create_driver()
 
@@ -74,7 +74,7 @@ def extract_ddg_url(ddg_url):
             if uddg:
                 return unquote(uddg)
         return ddg_url
-    except:
+    except Exception:
         return ddg_url
 
 def is_blacklisted(url):
@@ -88,7 +88,7 @@ def is_blacklisted(url):
             if len(parts) >= len(bl_parts) and parts[-len(bl_parts):] == bl_parts:
                 return True
         return False
-    except:
+    except Exception:
         return True
 
 def normalize_text(text):
@@ -125,7 +125,7 @@ def fetch_page_text(url, timeout=6):
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
         return soup.get_text(separator=" ", strip=True)
-    except:
+    except Exception:
         return ""
 
 def score_candidate(item, hotel_name, hotel_address):
@@ -167,7 +167,7 @@ def do_search(query, hotel_name, hotel_address):
                     title = link.text.strip()
                     snippet = snippet_els[i].text.strip() if i < len(snippet_els) else ""
                     candidates.append({"url": url, "title": title, "snippet": snippet})
-                except:
+                except Exception:
                     continue
         except Exception as e:
             # Driver bị lỗi, reset lại
@@ -185,7 +185,7 @@ def do_search(query, hotel_name, hotel_address):
         for future in as_completed(futures):
             try:
                 results.append(future.result())
-            except:
+            except Exception:
                 pass
 
     results.sort(key=lambda x: x["match_percentage"], reverse=True)

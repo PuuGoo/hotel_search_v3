@@ -133,7 +133,13 @@ const Toasts = (() => {
   function error(msg, opts = {}) {
     return show(msg, { type: "error", title: opts.title || "Lỗi", ...opts });
   }
-  return { show, success, error };
+  function warning(msg, opts = {}) {
+    return show(msg, { type: "warning", title: opts.title || "Cảnh báo", ...opts });
+  }
+  function info(msg, opts = {}) {
+    return show(msg, { type: "info", title: opts.title || "Thông tin", ...opts });
+  }
+  return { show, success, error, warning, info };
 })();
 
 // MODAL MANAGER -----------------------------------------------------------

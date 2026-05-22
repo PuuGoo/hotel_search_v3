@@ -8,16 +8,20 @@
 
 ## Phase 1: Security Hardening
 - [x] Session-based auth with bcrypt
+- [x] Session fixation protection (regenerate ID after login)
 - [x] Rate limiting (login + search + user endpoints)
 - [x] Input validation middleware
-- [x] XSS protection (escapeHtml, CSP headers)
+- [x] XSS protection (escapeHtml, CSP headers with frame-ancestors, base-uri, form-action)
 - [x] Security headers (helmet + X-Content-Type, X-Frame, X-XSS)
+- [x] HSTS in production (Strict-Transport-Security)
 - [x] CORS configuration (CORS_ORIGINS env var)
 - [x] Request body size limits (2mb)
 - [x] CSRF protection (Origin/Referer + token-based)
 - [x] Remove error.message from API responses
+- [x] Failed login attempt logging with IP for security monitoring
+- [x] Favicon route to avoid 404 noise
 
-## Phase 2: Test Coverage (274 tests, 15 suites, 93.68% statements)
+## Phase 2: Test Coverage (276 tests, 15 suites, 96.59% statements)
 - [x] Auth routes tests (97.36%)
 - [x] User management tests (97.53%)
 - [x] Chat routes tests (100%)
@@ -51,8 +55,14 @@
 - [x] Middleware layer (auth, validation, rateLimit, logger, requestId, timeout, csrf)
 - [x] Utility extraction (ddg.js, config.js, logger.js, circuitBreaker.js)
 - [x] Environment-based config management
+- [x] Rate limiter uses config module (login/search window + max)
+- [x] Centralized DDG_SERVER_URL via config (search routes + health endpoint)
+- [x] Centralized CASE12_API_URL via config
 - [x] Structured logging (JSON in production)
 - [x] Add OpenAPI/Swagger documentation
+- [x] Python requirements.txt for reproducible builds
+- [x] Meta description tags on all HTML pages
+- [x] Autocomplete attributes on password fields
 
 ## Phase 5: Reliability
 - [x] Error handling on all routes
@@ -60,3 +70,5 @@
 - [x] Tavily/Google API key rotation with retry
 - [x] Circuit breaker for external APIs
 - [x] Health check dependencies (DDG server)
+- [x] Python bare except clauses fixed (ddg_server.py, ddg_search.py)
+- [x] Generic error messages in test routes (no e.message exposure)

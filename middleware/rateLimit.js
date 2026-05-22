@@ -1,7 +1,9 @@
 // Simple in-memory rate limiter
+import config from "../utils/config.js";
+
 const loginAttempts = new Map();
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW = config.rateLimit.loginWindow;
+const MAX_ATTEMPTS = config.rateLimit.loginMax;
 
 // Export for testing
 export const _loginAttempts = loginAttempts;
@@ -38,8 +40,8 @@ export function rateLimitLogin(req, res, next) {
 
 // Search API rate limiter - prevents abuse of expensive search endpoints
 const searchRequests = new Map();
-const SEARCH_RATE_WINDOW = 60 * 1000; // 1 minute
-const MAX_SEARCH_PER_MINUTE = 30;
+const SEARCH_RATE_WINDOW = config.rateLimit.searchWindow;
+const MAX_SEARCH_PER_MINUTE = config.rateLimit.searchMax;
 
 export const _searchRequests = searchRequests;
 export const _SEARCH_RATE_WINDOW = SEARCH_RATE_WINDOW;

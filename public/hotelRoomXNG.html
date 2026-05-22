@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Room XNG Hotel Search</title>
+    <meta name="description" content="Tìm kiếm phòng khách sạn từ Excel với SearXNG" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.2/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tldts@7.0.2/dist/index.umd.min.js"></script>
@@ -116,6 +117,8 @@
           show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
           success: function(msg) { console.log("[Toast] success", msg); },
           error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
         };
       }
     </script>

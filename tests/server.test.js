@@ -96,7 +96,7 @@ function createTestApp() {
       fs.writeFileSync(CHAT_FILE, JSON.stringify(messages, null, 2), "utf8");
       res.json({ success: true, message: newMessage });
     } catch (e) {
-      res.status(500).json({ success: false, error: e.message });
+      res.status(500).json({ success: false, error: "Failed to create message" });
     }
   });
 
@@ -117,7 +117,7 @@ function createTestApp() {
         res.status(404).json({ success: false, error: "Not found" });
       }
     } catch (e) {
-      res.status(500).json({ success: false, error: e.message });
+      res.status(500).json({ success: false, error: "Failed to resolve message" });
     }
   });
 

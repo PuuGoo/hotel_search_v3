@@ -32,7 +32,7 @@ HEADERS = {
 def extract_domain(url):
     try:
         return urlparse(url).netloc.lower().replace("www.", "", 1)
-    except:
+    except Exception:
         return ""
 
 def is_blacklisted(url):
@@ -46,7 +46,7 @@ def is_blacklisted(url):
             if len(parts) >= len(bl_parts) and parts[-len(bl_parts):] == bl_parts:
                 return True
         return False
-    except:
+    except Exception:
         return True
 
 def extract_ddg_url(ddg_url):
@@ -57,7 +57,7 @@ def extract_ddg_url(ddg_url):
             if uddg:
                 return unquote(uddg)
         return ddg_url
-    except:
+    except Exception:
         return ddg_url
 
 def normalize_text(text):
@@ -96,7 +96,7 @@ def fetch_page_text_requests(url, timeout=6):
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
         return soup.get_text(separator=" ", strip=True)
-    except:
+    except Exception:
         return ""
 
 def search_ddg_selenium(query):
@@ -130,7 +130,7 @@ def search_ddg_selenium(query):
                 title = link.text.strip()
                 snippet = snippet_els[i].text.strip() if i < len(snippet_els) else ""
                 candidates.append({"url": url, "title": title, "snippet": snippet})
-            except:
+            except Exception:
                 continue
     finally:
         driver.quit()
@@ -170,7 +170,7 @@ def search(query, hotel_name, hotel_address):
         for future in as_completed(futures):
             try:
                 results.append(future.result())
-            except:
+            except Exception:
                 pass
 
     # Sắp xếp theo điểm giảm dần

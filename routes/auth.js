@@ -63,16 +63,25 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
     const user = users.find((u) => u.username === username);
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      req.session.isAuthenticated = true;
-      req.session.user = {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        displayName: user.displayName,
-        features: user.features || [],
-      };
-      res.redirect("/searchTavily?success=1");
+      // Regenerate session ID to prevent session fixation
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error("Session regeneration error:", err);
+          return res.redirect("/?error=2");
+        }
+        req.session.isAuthenticated = true;
+        req.session.user = {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          displayName: user.displayName,
+          features: user.features || [],
+        };
+        res.redirect("/searchTavily?success=1");
+      });
     } else {
+      // Log failed login attempt for security monitoring
+      console.warn(`Failed login attempt for username: ${username} from IP: ${req.ip}`);
       res.redirect("/?error=1");
     }
   } catch (error) {
