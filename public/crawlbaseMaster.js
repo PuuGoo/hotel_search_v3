@@ -1,3 +1,4 @@
+/* global Toasts */
 // Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
   document
@@ -5,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
     .addEventListener("click", async () => {
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        alert("Vui lòng chọn một file Excel!");
+        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" }); else alert("Vui lòng chọn một file Excel!");
         return;
       }
 
@@ -16,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const subscriptionKey = document.getElementById("subscriptionKey").value;
 
       // Cập nhật endpoint cho Brave Search API
-      const endpoint = "https://api.search.brave.com/res/v1/web/search";
+      const _endpoint = "https://api.search.brave.com/res/v1/web/search";
 
       reader.onload = async (e) => {
         const data = new Uint8Array(e.target.result);
@@ -29,12 +30,13 @@ document.addEventListener("DOMContentLoaded", function () {
         );
         jsonData.shift();
         console.log(jsonData.length);
-        let results = [];
+        const results = [];
         let order = 1;
         let currentIndex = 0;
 
-        for (let row of jsonData) {
-          let [hotelNo, hotelName, hotelAddress] = row;
+        for (const row of jsonData) {
+          const [hotelNo, hotelNameRaw, hotelAddress] = row;
+          let hotelName = hotelNameRaw;
           if (!hotelName || !hotelAddress) continue;
 
           hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
@@ -47,6 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .replace(")", "")
                 .toLowerCase()
             );
+          void hotelNameArray; // used in isHotelNameInPage
 
           const query = `${hotelName} ${hotelAddress} on agoda page`;
           const searchURL = `https://cors-anywhere-7jt3.onrender.com/https://api.crawlbase.com/?token=${subscriptionKey}&url=https://www.google.com/search?q=${encodeURIComponent(
@@ -114,7 +117,7 @@ document.addEventListener("DOMContentLoaded", function () {
 if (results.length > 0) {
   setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
 } else {
-  alert("Không tìm thấy kết quả nào khớp với tên khách sạn.");
+  if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
 }
 
       };
@@ -167,25 +170,6 @@ function downloadCSV(results) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
-
-// Hàm kiểm tra tên khách sạn có nằm trong tiêu đề trang hay không
-function isHotelNameInPage(hotelNameArray, pageTitle) {
-  let matchCount = 0;
-
-  for (let i = 0; i < hotelNameArray.length; i++) {
-    const part = hotelNameArray[i];
-    if (pageTitle.includes(part)) {
-      matchCount++;
-    }
-  }
-
-  const matchPercentage = (matchCount / hotelNameArray.length) * 100;
-
-  return {
-    status: true,
-    percentage: matchPercentage,
-  };
 }
 
 // Cấu hình các trang và các nút liên quan

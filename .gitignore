@@ -1,6 +1,36 @@
-/node_modules/
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
 .env
-.vercel
+.env.local
 .env*.local
+
+# Vercel
+.vercel
+
+# IDE
 .vs/
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Sensitive files
 users.json
+chatbox_data.json
+*_chpw*.txt

@@ -1,4 +1,5 @@
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/esm/axios.min.js";
+import { Toasts } from "/ui.js";
 
 // Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
@@ -14,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
     .addEventListener("click", async () => {
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        alert("Vui lòng chọn một file Excel!");
+        Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
         return;
       }
 
@@ -27,7 +28,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Cập nhật endpoint cho Brave Search API
       // const endpoint = "http://127.0.0.1:8080/search";
       // const endpoint = "https://searxng-production-3523.up.railway.app/search";
-      const endpoint = "/api/search";
+      const _endpoint = "/api/search";
 
       reader.onload = async (e) => {
         const data = new Uint8Array(e.target.result);
@@ -46,9 +47,10 @@ document.addEventListener("DOMContentLoaded", function () {
         MAX_RUNS = jsonData.length;
 
         updateCounter(counterEl, runCount, MAX_RUNS);
-        for (let row of jsonData) {
+        for (const row of jsonData) {
           // await new Promise((resolve) => setTimeout(resolve, 10000)); // Delay 15s mỗi lần
-          let [hotelNo, hotelName, hotelAddress, hotelUrlType] = row;
+          const [hotelNo, hotelNameRaw, hotelAddress, hotelUrlType] = row;
+          let hotelName = hotelNameRaw;
           if (!hotelName || !hotelAddress) continue;
 
           hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
@@ -62,7 +64,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .toLowerCase()
             );
           let query = "";
-          if (hotelUrlType == "CTrip SuperAgg") {
+          if (hotelUrlType === "CTrip SuperAgg") {
             query = `${hotelName} ${hotelAddress} trip`; // Điều kiện tìm kiếm
           } else {
             query = `${hotelName} ${hotelAddress}`; // Điều kiện tìm kiếm
@@ -98,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (resultsFromBrave && resultsFromBrave.length > 0) {
               let resultsFromBraveArray = [];
-              for (let result of resultsFromBrave) {
+              for (const result of resultsFromBrave) {
                 const pageTitle = result.title.toLowerCase();
                 const pageUrl = result.link;
                 const isMatch = isHotelNameInPage(hotelNameArray, pageTitle);
@@ -141,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
               resultsFromBraveArray = resultsFromBraveArray
                 .filter(
                   (row) =>
-                    row.percentage == maxPercentageResult.percentage &&
+                    row.percentage === maxPercentageResult.percentage &&
                     !row.matchedLink.includes("tripadvisor") &&
                     !row.matchedLink.includes("makemytrip")
                 )
@@ -173,7 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
 
               matchedLink = resultsFromBraveArray.map(
-                ({ percentage, ...rest }) => rest["matchedLink"]
+                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
               );
             }
           } catch (error) {
@@ -194,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (results.length > 0) {
           setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
         } else {
-          alert("Không tìm thấy kết quả nào khớp với tên khách sạn.");
+          Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
         }
       };
 

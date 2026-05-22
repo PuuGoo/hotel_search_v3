@@ -1,10 +1,11 @@
+/* global Toasts */
 document.addEventListener("DOMContentLoaded", function () {
   document
     .getElementById("searchButton")
     .addEventListener("click", async () => {
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        alert("Vui lòng chọn một file Excel!");
+        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" }); else alert("Vui lòng chọn một file Excel!");
         return;
       }
 
@@ -48,9 +49,10 @@ document.addEventListener("DOMContentLoaded", function () {
         let order = 1;
         let currentIndex = 0;
 
-        for (let row of jsonData) {
+        for (const row of jsonData) {
           // await new Promise((resolve) => setTimeout(resolve, 3000)); // Delay 15s mỗi lần
-          let [hotelNo, hotelName, hotelCountry, hotelCity, hotelUrlType] = row;
+          const [hotelNo, hotelNameRaw, hotelCountry, hotelCity, hotelUrlType] = row;
+          let hotelName = hotelNameRaw;
           if (!hotelName || !hotelCountry || !hotelCity) continue;
 
           hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
@@ -102,15 +104,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const resultsFromBrave = data.results;
             if (resultsFromBrave && resultsFromBrave.length > 0) {
-              let resultsFromBraveArray = [];
-              let officialSite = null;
+              const resultsFromBraveArray = [];
+              let _officialSite = null;
 
-              for (let result of resultsFromBrave) {
+              for (const result of resultsFromBrave) {
                 const pageTitle = result.title.toLowerCase();
                 const pageUrl = result.url;
                 const urlObj = new URL(pageUrl);
                 const parsed = tldts.parse(urlObj.hostname);
-                const fullHostname = parsed.hostname || ""; // full hostname, ví dụ: sub.wellcommhotels.com
+                const _fullHostname = parsed.hostname || ""; // full hostname, ví dụ: sub.wellcommhotels.com
                 const rootDomain = parsed.domain || ""; // root domain, ví dụ: wellcommhotels.com
                 if (
                   !excludedDomains.some((domain) => pageUrl.includes(domain)) &&
@@ -118,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   (requireTripDomainOnly ||
                     hotelNameArray.some((part) => rootDomain.includes(part)))
                 ) {
-                  officialSite = pageUrl;
+                  _officialSite = pageUrl;
                   // console.log("Đường dẫn tìm được: ", pageUrl);
                   // console.log("Domain chính tìm được: ", rootDomain);
 
@@ -141,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
               }
 
-              const maxPercentageResult = resultsFromBraveArray.reduce(
+              const _maxPercentageResult = resultsFromBraveArray.reduce(
                 (max, item) => (item.percentage > max.percentage ? item : max),
                 { percentage: -Infinity }
               );
@@ -160,7 +162,7 @@ document.addEventListener("DOMContentLoaded", function () {
               );
 
               matchedLink = resultsFromBraveArray.map(
-                ({ percentage, ...rest }) => rest["matchedLink"]
+                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
               );
             }
           } catch (error) {
@@ -182,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (results.length > 0) {
           setupDownloadButton(results);
         } else {
-          alert("Không tìm thấy kết quả nào khớp với tên khách sạn.");
+          if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
         }
       };
 
@@ -212,11 +214,11 @@ function downloadCSV(results) {
     header +
     results
       .map((row) => {
-        const links = row.matchedLinks.map((link) => `\"${link}\"`);
+        const links = row.matchedLinks.map((link) => `"${link}"`);
         while (links.length < maxMatchedLinks) links.push('""');
-        return `\"${row.order}\",\"${row.hotelNo}\", Child,\"${
+        return `"${row.order}","${row.hotelNo}", Child,"${
           row.hotelName
-        }\",\"${row.hotelCountry}\",\"${row.hotelCity}\",${links.join(",")}`;
+        }","${row.hotelCountry}","${row.hotelCity}",${links.join(",")}`;
       })
       .join("\n");
 
@@ -231,7 +233,7 @@ function downloadCSV(results) {
 
 function isHotelNameInPage(hotelNameArray, pageTitle) {
   let matchCount = 0;
-  for (let part of hotelNameArray) if (pageTitle.includes(part)) matchCount++;
+  for (const part of hotelNameArray) if (pageTitle.includes(part)) matchCount++;
   return {
     status: true,
     percentage: (matchCount / hotelNameArray.length) * 100,
@@ -244,35 +246,6 @@ function countHotelNameMatches(hotelNameArray, hostname) {
     if (hostname.includes(part)) count++;
   }
   return count;
-}
-
-function getRootDomain(hostname) {
-  const parts = hostname.split(".").reverse();
-  if (parts.length >= 2) {
-    return `${parts[1]}.${parts[0]}`;
-  }
-  return hostname;
-}
-
-function getPriority(link) {
-  const priorities = [
-    "agoda",
-    "booking",
-    "trip",
-    "trivago",
-    "expedia",
-    "zenhotels",
-    "skyscanner",
-    "airpaz",
-    "readytotrip",
-    "lodging-world",
-    "yatra",
-    "rentbyowner",
-    "goibibo",
-    "laterooms",
-    "tiket",
-  ];
-  return priorities.findIndex((domain) => link.includes(domain)) + 1 || 18;
 }
 
 const pages = { AZURE_CHILD: ["AZURE_MASTER"], AZURE_MASTER: ["AZURE_CHILD"] };

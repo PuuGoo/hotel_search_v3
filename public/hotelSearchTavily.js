@@ -1,11 +1,11 @@
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/esm/axios.min.js";
-import { Toasts } from "/ui.js";
+import { Toasts, escapeHtml } from "/ui.js";
 
 // Global fuzzy config so helper functions outside DOMContentLoaded can access
 let fuzzyEnabled = false; // persisted via localStorage tavily_fuzzy_cfg
 let fuzzyThreshold = 0.78; // 0 - 1
 let fuzzyWorker = null; // worker instance
-let pendingFuzzyQueue = [];
+const pendingFuzzyQueue = [];
 let lastFilterQueryRaw = ""; // active search query persisted across rerenders
 const resultDetailState = {
   currentOrder: null,
@@ -303,14 +303,14 @@ function getResultDetailElements() {
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${result.order}</td>
-      <td>${result.hotelNo || ""}</td>
+      <td>${escapeHtml(String(result.order))}</td>
+      <td>${escapeHtml(result.hotelNo || "")}</td>
       <td style="color:${pctColor};font-weight:600">${result.percentage}%</td>
-      <td style="font-size:0.65rem;color:var(--text-tertiary)">${result.allScores || ""}</td>
-      <td style="color:${statusColor}">${result.status}</td>
-      <td data-field="hotelName">${result.hotelName || ""}</td>
-      <td data-field="hotelAddress" style="font-size:0.72rem">${result.hotelAddress || ""}</td>
-      <td style="font-size:0.68rem">${bestLink ? `<a href="${bestLink}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${bestLink}</a>` : "-"}</td>
+      <td style="font-size:0.65rem;color:var(--text-tertiary)">${escapeHtml(result.allScores || "")}</td>
+      <td style="color:${statusColor}">${escapeHtml(result.status)}</td>
+      <td data-field="hotelName">${escapeHtml(result.hotelName || "")}</td>
+      <td data-field="hotelAddress" style="font-size:0.72rem">${escapeHtml(result.hotelAddress || "")}</td>
+      <td style="font-size:0.68rem">${bestLink ? `<a href="${escapeHtml(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
     `;
     ddgResultsBody.appendChild(tr);
 
@@ -396,7 +396,8 @@ function getResultDetailElements() {
         break;
       }
 
-      let [hotelNo, hotelName, hotelAddress, hotelUrlType] = rows[i];
+      const [hotelNo, hotelNameRaw, hotelAddress, hotelUrlType] = rows[i];
+      let hotelName = hotelNameRaw;
       if (!hotelName || !hotelAddress) { setDdgProgress(i + 1, rows.length); ddgNextIndex = i + 1; continue; }
 
       hotelName = String(hotelName).replace(/[^\x00-\x7F]/g, "");
@@ -837,13 +838,13 @@ document.addEventListener("DOMContentLoaded", function () {
                     flagsDesc ? "\n" + flagsDesc : ""
                   }`
                 : "";
-              cell.innerHTML = `<span class=\"badge\" title=\"${tip}\" style=\"background:${
+              cell.innerHTML = `<span class="badge" title="${escapeHtml(tip)}" style="background:${
                 max >= fuzzyThreshold
                   ? "rgba(46,204,113,0.18)"
                   : "rgba(255,255,255,0.08)"
               };color:${
                 max >= fuzzyThreshold ? "#27ae60" : "var(--text-tertiary)"
-              }\">${max.toFixed(3)}</span>`;
+              }">${max.toFixed(3)}</span>`;
             }
           }
         }
@@ -893,7 +894,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
     return arr[arr.length - 1];
   }
-  function formatDate(ts) {
+  function _formatDate(ts) {
     const d = new Date(ts);
     return d.toLocaleString();
   }
@@ -1453,13 +1454,7 @@ document.addEventListener("DOMContentLoaded", function () {
       ensureNewestFirstOrdering();
       const searchBtn = document.getElementById("searchButton");
       const spinnerEl = document.getElementById("spinner");
-      const downloadBtn = document.getElementById("downloadCSVButton");
-      const clearBtn = document.getElementById("clearResultsButton");
-      const pauseBtn = document.getElementById("pauseResumeButton");
       const stopBtn = document.getElementById("stopButton");
-      const progressContainer = document.getElementById("progressContainer");
-      const progressBar = document.getElementById("progressBar");
-      const progressText = document.getElementById("progressText");
       // Disable button and show spinner
       if (searchBtn) searchBtn.disabled = true;
       // reveal spinner & pause button early
@@ -1663,7 +1658,6 @@ document.addEventListener("DOMContentLoaded", function () {
   async function processRows(jsonData, startIndex = 0) {
     const searchBtn = document.getElementById("searchButton");
     const spinnerEl = document.getElementById("spinner");
-    const downloadBtn = document.getElementById("downloadCSVButton");
     const clearBtn = document.getElementById("clearResultsButton");
     const pauseBtn = document.getElementById("pauseResumeButton");
     const stopBtn = document.getElementById("stopButton");
@@ -1701,7 +1695,8 @@ document.addEventListener("DOMContentLoaded", function () {
       if (shouldStop) break;
       const row = jsonData[rowIndex];
       isProcessingRow = true;
-      let [hotelNo, hotelName, hotelAddress, hotelUrlType] = row;
+      const [hotelNo, hotelNameRaw2, hotelAddress, hotelUrlType] = row;
+      let hotelName = hotelNameRaw2;
       if (!hotelName || !hotelAddress) {
         isProcessingRow = false;
         continue;
@@ -1713,12 +1708,12 @@ document.addEventListener("DOMContentLoaded", function () {
         .map((part) =>
           part.replace(",", "").replace("(", "").replace(")", "").toLowerCase()
         );
-      let query =
-        hotelUrlType == "CTrip SuperAgg"
+      const query =
+        hotelUrlType === "CTrip SuperAgg"
           ? `${hotelName} ${hotelAddress} trip`
           : `${hotelName} ${hotelAddress}`;
 
-      let searchURL =
+      const searchURL =
         window.location.hostname === "localhost"
           ? `http://localhost:3000/searchApiTavily?q=${encodeURIComponent(
               query
@@ -1734,7 +1729,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const resultsFromBrave = data.results;
         if (resultsFromBrave && resultsFromBrave.length > 0) {
           let resultsFromBraveArray = [];
-          for (let result of resultsFromBrave) {
+          for (const result of resultsFromBrave) {
             const pageTitle = (result.title || "").toLowerCase();
             const pageUrl = result.url || "";
             const pageContent = (
@@ -1766,7 +1761,7 @@ document.addEventListener("DOMContentLoaded", function () {
           resultsFromBraveArray = resultsFromBraveArray
             .filter(
               (row) =>
-                row.percentage == maxPercentageResult.percentage &&
+                row.percentage === maxPercentageResult.percentage &&
                 !row.matchedLink.includes("tripadvisor") &&
                 !row.matchedLink.includes("guestreservations")
             )
@@ -2048,7 +2043,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (downloadBtnEl) show(downloadBtnEl, "inline-flex");
           // prepare filename containing timestamp and current count
           const now = new Date();
-          const ts = now.toISOString().replace(/[:\.]/g, "-");
+          const ts = now.toISOString().replace(/[:.]/g, "-");
           const count = (window.currentResults || []).length || 0;
           const filename = `hotel_search_partial_${count}_${ts}.csv`;
           try {
@@ -2194,14 +2189,14 @@ document.addEventListener("DOMContentLoaded", function () {
           const pctColor = r.percentage >= 70 ? "#9df3c4" : r.percentage >= 40 ? "#ffd580" : "#ff9c9c";
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${r.order}</td>
-            <td>${r.hotelNo || ""}</td>
+            <td>${escapeHtml(String(r.order))}</td>
+            <td>${escapeHtml(r.hotelNo || "")}</td>
             <td style="color:${pctColor};font-weight:600">${r.percentage}%</td>
-            <td style="font-size:0.65rem;color:var(--text-tertiary)">${r.allScores || ""}</td>
-            <td style="color:${statusColor}">${r.status}</td>
-            <td data-field="hotelName">${r.hotelName || ""}</td>
-            <td data-field="hotelAddress" style="font-size:0.72rem">${r.hotelAddress || ""}</td>
-            <td style="font-size:0.68rem">${bestLink ? `<a href="${bestLink}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${bestLink}</a>` : "-"}</td>
+            <td style="font-size:0.65rem;color:var(--text-tertiary)">${escapeHtml(r.allScores || "")}</td>
+            <td style="color:${statusColor}">${escapeHtml(r.status)}</td>
+            <td data-field="hotelName">${escapeHtml(r.hotelName || "")}</td>
+            <td data-field="hotelAddress" style="font-size:0.72rem">${escapeHtml(r.hotelAddress || "")}</td>
+            <td style="font-size:0.68rem">${bestLink ? `<a href="${escapeHtml(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
           `;
           if (ddgResultsBody) ddgResultsBody.appendChild(tr);
         });
@@ -2300,34 +2295,34 @@ document.addEventListener("DOMContentLoaded", function () {
             s.allRows &&
             Array.isArray(s.allRows) &&
             s.allRows.length > s.runCount;
-          return `<div class=\"glass-card\" data-id=\"${
+          return `<div class="glass-card" data-id="${
             s.id
-          }\" style=\"padding:8px;display:flex;gap:8px;align-items:center\">
-          <div class=\"snap-meta\" style=\"flex:1;min-width:160px;cursor:text\" data-act=\"rename\" data-id=\"${
+          }" style="padding:8px;display:flex;gap:8px;align-items:center">
+          <div class="snap-meta" style="flex:1;min-width:160px;cursor:text" data-act="rename" data-id="${
             s.id
-          }\" title=\"Double-click để đổi tên\">
-            <div class=\"snap-label\" style=\"font-weight:600;font-size:.75rem;word-break:break-word\">${
+          }" title="Double-click để đổi tên">
+            <div class="snap-label" style="font-weight:600;font-size:.75rem;word-break:break-word">${
               s.label
             }</div>
-            <div style=\"font-size:.6rem;color:var(--text-tertiary)\">${new Date(
+            <div style="font-size:.6rem;color:var(--text-tertiary)">${new Date(
               s.ts
             ).toLocaleString()} • ${s.runCount}/${s.maxRuns} • ${pct}%</div>
           </div>
-          <div class=\"flex gap-xs\">
-            <button class=\"btn btn-outline btn-small\" data-act=\"restore\" data-id=\"${
+          <div class="flex gap-xs">
+            <button class="btn btn-outline btn-small" data-act="restore" data-id="${
               s.id
-            }\"><i class=\"fa-solid fa-rotate-left\"></i><span>Xem</span></button>
-            <button class=\"btn btn-outline btn-small\" data-act=\"csv\" data-id=\"${
+            }"><i class="fa-solid fa-rotate-left"></i><span>Xem</span></button>
+            <button class="btn btn-outline btn-small" data-act="csv" data-id="${
               s.id
-            }\"><i class=\"fa-solid fa-file-csv\"></i></button>
+            }"><i class="fa-solid fa-file-csv"></i></button>
             ${
               canContinue
-                ? `<button class=\"btn btn-outline btn-small\" data-act=\"continue\" data-id=\"${s.id}\"><i class=\"fa-solid fa-play\"></i></button>`
+                ? `<button class="btn btn-outline btn-small" data-act="continue" data-id="${s.id}"><i class="fa-solid fa-play"></i></button>`
                 : ""
             }
-            <button class=\"btn btn-outline btn-small\" data-act=\"delete\" data-id=\"${
+            <button class="btn btn-outline btn-small" data-act="delete" data-id="${
               s.id
-            }\" style=\"--btn-accent:#c0392b\"><i class=\"fa-solid fa-xmark\"></i></button>
+            }" style="--btn-accent:#c0392b"><i class="fa-solid fa-xmark"></i></button>
           </div>
         </div>`;
         })
@@ -2356,7 +2351,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!t) return;
         const id = t.getAttribute("data-id");
         const act = t.getAttribute("data-act");
-        let arr = loadArchivedSnapshots();
+        const arr = loadArchivedSnapshots();
         const idx = arr.findIndex((s) => s.id === id);
         if (idx === -1) return;
         const snap = arr[idx];
@@ -2436,7 +2431,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Trigger processing of remaining rows asynchronously
             setTimeout(() => {
               try {
-                processRows(snap.allRows, snap.runRate || 0);
+                processRows(snap.allRows, snap.runCount || 0);
               } catch (e) {}
             }, 100);
           } catch (e) {
@@ -2727,16 +2722,6 @@ function updateResultsCountDisplay() {
     (r) => !r.classList.contains("detail-row")
   ).length;
   resultsCountEl.textContent = String(total);
-}
-
-function escapeHtml(str) {
-  if (!str && str !== 0) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function appendResultRow(row, options = {}) {
@@ -3107,9 +3092,9 @@ if (filterInput) {
 function isHotelNameInPage(
   hotelNameArray,
   pageTitle,
-  pageUrl = "",
-  pageContent = "",
-  apiScore = 0
+  _pageUrl = "",
+  _pageContent = "",
+  _apiScore = 0
 ) {
   // Title-only scoring: percentage = (number of title tokens matched) / total tokens * 100
   const tokens = (hotelNameArray || [])
@@ -3234,7 +3219,7 @@ window.addEventListener("load", () => {
         );
         return;
       }
-      const html = `<div style=\"text-align:left;line-height:1.45;font-size:.7rem;max-height:55vh;overflow:auto\">
+      const html = `<div style="text-align:left;line-height:1.45;font-size:.7rem;max-height:55vh;overflow:auto">
   <strong>Fuzzy Score (Phiên bản Title-Only)</strong><br/>
   Đo mức độ giống giữa <em>Tên khách sạn trong file</em> và <em>Tiêu đề trang</em> của từng link tìm được.<br/><br/>
   <strong>1. Thành phần cơ bản</strong><br/>
@@ -3293,11 +3278,11 @@ window.addEventListener("load", () => {
       const valText = cell.textContent.trim();
       const v = parseFloat(valText);
       if (isNaN(v)) return;
-      cell.innerHTML = `<span class=\"badge\" style=\"background:${
+      cell.innerHTML = `<span class="badge" style="background:${
         v >= fuzzyThreshold ? "rgba(46,204,113,0.18)" : "rgba(255,255,255,0.08)"
       };color:${
         v >= fuzzyThreshold ? "#27ae60" : "var(--text-tertiary)"
-      }\">${v.toFixed(3)}</span>`;
+      }">${v.toFixed(3)}</span>`;
     });
   }
 

@@ -1,3 +1,4 @@
+/* global Toasts */
 // Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
   document
@@ -5,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
     .addEventListener("click", async () => {
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        alert("Vui lòng chọn một file Excel!");
+        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" }); else alert("Vui lòng chọn một file Excel!");
         return;
       }
 
@@ -32,8 +33,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const results = [];
         let order = 1;
         let currentIndex = 0;
-        for (let row of jsonData) {
-          let [hotelNo, hotelName, hotelCountry, hotelCity] = row;
+        for (const row of jsonData) {
+          const [hotelNo, hotelNameRaw, hotelCountry, hotelCity] = row;
+          let hotelName = hotelNameRaw;
           if (!hotelName || !hotelCountry || !hotelCity) continue;
 
           hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
@@ -78,7 +80,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (resultsFromBrave && resultsFromBrave.length > 0) {
               let resultsFromBraveArray = [];
-              for (let result of resultsFromBrave) {
+              for (const result of resultsFromBrave) {
                 const pageTitle = result.title.toLowerCase();
                 const pageUrl = result.url;
                 const isMatch = isHotelNameInPage(hotelNameArray, pageTitle);
@@ -121,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
               resultsFromBraveArray = resultsFromBraveArray
                 .filter(
                   (row) =>
-                    row.percentage == maxPercentageResult.percentage &&
+                    row.percentage === maxPercentageResult.percentage &&
                     !row.matchedLink.includes("tripadvisor")
                 )
                 .sort((a, b) => {
@@ -137,7 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
 
               matchedLink = resultsFromBraveArray.map(
-                ({ percentage, ...rest }) => rest["matchedLink"]
+                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
               );
             }
           } catch (error) {
@@ -159,7 +161,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (results.length > 0) {
           setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
         } else {
-          alert("Không tìm thấy kết quả nào khớp với tên khách sạn.");
+          if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
         }
       };
 
@@ -191,11 +193,11 @@ function downloadCSV(results) {
     header +
     results
       .map((row) => {
-        const links = row.matchedLinks.map((link) => `\"${link}\"`);
+        const links = row.matchedLinks.map((link) => `"${link}"`);
         while (links.length < maxMatchedLinks) links.push('""');
-        return `\"${row.order}\",\"${row.hotelNo}\", Child,\"${
+        return `"${row.order}","${row.hotelNo}", Child,"${
           row.hotelName
-        }\",\"${row.hotelCountry}\",\"${row.hotelCity}\",${links.join(",")}`;
+        }","${row.hotelCountry}","${row.hotelCity}",${links.join(",")}`;
       })
       .join("\n");
 

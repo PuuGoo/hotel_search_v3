@@ -108,6 +108,7 @@
         background-color: #2575fc;
       }
     </style>
+    <script defer src="/ui.js"></script>
   </head>
   <body>
     <div
@@ -133,11 +134,11 @@
           <button type="submit" class="btn btn-success w-100" id="searchButton">
             Bắt đầu tìm kiếm
           </button>
-          <a href="/logout" class="hr">
-            <button type="button" class="btn btn-danger w-100">
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-danger w-100">
               Đăng Xuất
             </button>
-          </a>
+          </form>
         </div>
       </div>
 

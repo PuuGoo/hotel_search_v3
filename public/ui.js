@@ -1,4 +1,5 @@
 /* ui.js - Shared UI behaviors: theme, clock, tabs, modals, ripple, toasts, drag-drop helpers */
+import { escapeHtml } from "/utils.js";
 
 // THEME MANAGER -----------------------------------------------------------
 const Theme = (() => {
@@ -87,9 +88,9 @@ const Toasts = (() => {
     ensure();
     const el = document.createElement("div");
     el.className = "toast" + (type ? ` ${type}` : "");
-    el.innerHTML = `<div style="flex:1;min-width:0"><div class="title">${
-      title || ""
-    }</div><div class="message">${message}</div></div>`;
+    const safeTitle = escapeHtml(title || "");
+    const safeMsg = escapeHtml(message);
+    el.innerHTML = `<div style="flex:1;min-width:0"><div class="title">${safeTitle}</div><div class="message">${safeMsg}</div></div>`;
     if (actions) {
       const wrap = document.createElement("div");
       wrap.style.display = "flex";
@@ -272,4 +273,5 @@ export {
   initTabs,
   updateProgress,
   focusTrap,
+  escapeHtml,
 };

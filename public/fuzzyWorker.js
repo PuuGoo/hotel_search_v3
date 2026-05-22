@@ -37,7 +37,6 @@ self.addEventListener("message", (e) => {
       let jw = jaroWinkler(normQ, normTitle);
       let nameSim = (lev + jw) / 2; // internal blend
       const { host, path } = splitUrl(url);
-      const domain = host;
       const isAggregator = aggregatorDomains.some((d) => host.endsWith(d));
       const { hostPathScore, domainScore, flagsPartial } = titleOnly
         ? {
@@ -192,8 +191,8 @@ function hostPathHeuristic(qTokens, host, path, isAggregator) {
   let pathScore = 0;
   if (isAggregator) {
     const rawTokens = path
-      .replace(/[^a-z0-9\/\-_.]/g, " ")
-      .split(/[\/_\-.]+/)
+      .replace(/[^a-z0-9/\-_.]/g, " ")
+      .split(/[/_\-.]+/)
       .filter(Boolean);
     let match = 0;
     for (const qt of qTokens) {

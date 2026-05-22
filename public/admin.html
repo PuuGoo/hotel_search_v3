@@ -25,7 +25,9 @@
           <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
             <i class="fa-solid fa-circle-half-stroke"></i>
           </button>
-          <a href="/logout" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></a>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
         </nav>
       </div>
     </header>
@@ -152,6 +154,17 @@
       const API = "/api/users";
       let currentUserId = null;
 
+      // Escape HTML to prevent XSS
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
       async function loadCurrentUser() {
         try {
           const res = await fetch("/api/me");
@@ -170,8 +183,8 @@
         tbody.innerHTML = allUsers.map(u => `
           <tr style="border-bottom: 1px solid var(--border)">
             <td style="padding: 8px">${u.id}</td>
-            <td style="padding: 8px">${u.username}</td>
-            <td style="padding: 8px">${u.displayName || "-"}</td>
+            <td style="padding: 8px">${escapeHtml(u.username)}</td>
+            <td style="padding: 8px">${escapeHtml(u.displayName || "-")}</td>
             <td style="padding: 8px">
               <span style="padding: 2px 8px; border-radius: 12px; font-size: 0.78rem; background: ${u.role === 'admin' ? 'var(--accent)' : 'var(--surface-2)'}; color: ${u.role === 'admin' ? '#fff' : 'var(--text)'}">
                 ${u.role === 'admin' ? 'Admin' : 'User'}
@@ -180,25 +193,36 @@
             <td style="padding: 8px; font-size: 0.75rem">
               ${(u.features || []).map(f => {
                 const labels = { tavily: 'Tavily', ddg: 'DDG', case12: 'Case12' };
-                return `<span style="padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; background: var(--accent-2, #3ba55d); color: #fff; margin-right: 4px">${labels[f] || f}</span>`;
+                return `<span style="padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; background: var(--accent-2, #3ba55d); color: #fff; margin-right: 4px">${escapeHtml(labels[f] || f)}</span>`;
               }).join('')}
             </td>
             <td style="padding: 8px; font-size: 0.82rem">${u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '-'}</td>
             <td style="padding: 8px; text-align: center">
-              <button class="btn btn-outline btn-small" onclick="editUser(${u.id})" title="Sửa">
+              <button class="btn btn-outline btn-small btn-edit-user" data-id="${u.id}" title="Sửa">
                 <i class="fa-solid fa-pen"></i>
               </button>
-              <button class="btn btn-outline btn-small" onclick="changePassword(${u.id})" title="Đổi mật khẩu">
+              <button class="btn btn-outline btn-small btn-change-pw" data-id="${u.id}" title="Đổi mật khẩu">
                 <i class="fa-solid fa-key"></i>
               </button>
               ${u.username !== 'admin' ? `
-                <button class="btn btn-outline btn-small" onclick="deleteUser(${u.id}, '${u.username}')" title="Xóa" style="color: var(--danger, #ef4444)">
+                <button class="btn btn-outline btn-small btn-delete-user" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Xóa" style="color: var(--danger, #ef4444)">
                   <i class="fa-solid fa-trash"></i>
                 </button>
               ` : ''}
             </td>
           </tr>
         `).join('');
+
+        // Bind event listeners using delegation
+        tbody.querySelectorAll('.btn-edit-user').forEach(btn => {
+          btn.onclick = () => editUser(parseInt(btn.dataset.id));
+        });
+        tbody.querySelectorAll('.btn-change-pw').forEach(btn => {
+          btn.onclick = () => changePassword(parseInt(btn.dataset.id));
+        });
+        tbody.querySelectorAll('.btn-delete-user').forEach(btn => {
+          btn.onclick = () => deleteUser(parseInt(btn.dataset.id), btn.dataset.username);
+        });
       }
 
       function openModal(title, user) {

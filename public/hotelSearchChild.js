@@ -1,36 +1,37 @@
+/* global Toasts */
 // Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
   // Phần Javascript thao tác trên trình duyệt (client-side)
   document
     .getElementById("searchButton")
     .addEventListener("click", async () => {
-      // Kiểm tra người dùng có chọn file Excel hay không
+      // Kiểm tra người dùng có chọn file Excel hay không
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        alert("Vui lòng chọn một file Excel!");
+        typeof Toasts !== "undefined" ? Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" }) : alert("Vui lòng chọn một file Excel!");
         return;
       }
 
-      // Đọc dữ liệu từ file Excel
+      // Đọc dữ liệu từ file Excel
       const file = fileInput.files[0];
-      const reader = new FileReader(); // Tạo một FileReader để đọc nội dung file Excel.
+      const reader = new FileReader(); // Tạo một FileReader để đọc nội dung file Excel.
 
       // Cài đặt một số thông số từ BING SEARCH
       const subscriptionKey = document.getElementById("subscriptionKey").value;
 
       const endpoint = "https://api.bing.microsoft.com/v7.0/search";
 
-      // Sau khi đọc file Excel hoàn tất ta dùng sự kiện onload xử lý dữ liệu data.
+      // Sau khi đọc file Excel hoàn tất ta dùng sự kiện onload xử lý dữ liệu data.
       reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result); // Chuyển dữ liệu file thành mãng nhị phân(Unit8Array).
-        const workbook = XLSX.read(data, { type: "array" }); // Đọc toàn bộ file Excel
-        const sheetName = workbook.SheetNames[0]; // Lấy tên của sheet đầu tiên trong file Excel
-        const sheet = workbook.Sheets[sheetName]; // Đọc dữ liệu của sheet đầu tiên trong file Excel
-        let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // Theo mặc định sheet_to_json sẽ lấy dòng đầu tiên và sự dụng giá trị như key cho tất cả các dòng còn lại giống mãng kết hợp. Nếu lựa chọn thuộc tính {header: 1} thì nó sẽ xuất thành một mãng các giá trị theo từng dòng file Excel.
+        const data = new Uint8Array(e.target.result); // Chuyển dữ liệu file thành mãng nhị phân(Unit8Array).
+        const workbook = XLSX.read(data, { type: "array" }); // Đọc toàn bộ file Excel
+        const sheetName = workbook.SheetNames[0]; // Lấy tên của sheet đầu tiên trong file Excel
+        const sheet = workbook.Sheets[sheetName]; // Đọc dữ liệu của sheet đầu tiên trong file Excel
+        let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // Theo mặc định sheet_to_json sẽ lấy dòng đầu tiên và sự dụng giá trị như key cho tất cả các dòng còn lại giống mãng kết hợp. Nếu lựa chọn thuộc tính {header: 1} thì nó sẽ xuất thành một mãng các giá trị theo từng dòng file Excel.
         jsonData = jsonData.filter((row) =>
           row.some((cell) => cell !== undefined && cell !== null && cell !== "")
         );
-        jsonData.shift(); // Bỏ dòng tiêu đề tức dòng đầu tiên
+        jsonData.shift(); // Bỏ dòng tiêu đề tức dòng đầu tiên
         console.log(jsonData.length);
 
         const excludedDomains = [
@@ -54,11 +55,11 @@ document.addEventListener("DOMContentLoaded", function () {
         let order = 1; // Biến lưu số thứ tự khách sạn từ file
         let currentIndex = 0;
         // Duyệt qua từng dòng trong file Excel
-        for (let row of jsonData) {
-          let [hotelNo, hotelName, hotelCountry, hotelCity, hotelUrlType] = row;
+        for (const row of jsonData) {
+          const [hotelNo, hotelNameRaw, hotelCountry, hotelCity, hotelUrlType] = row;
+          let hotelName = hotelNameRaw;
           if (!hotelName || !hotelCountry || !hotelCity) continue;
 
-          hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
           hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
           const hotelNameArray = hotelName
             .split(" ")
@@ -97,10 +98,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const resultsFromBing = response.data.webPages.value;
 
             if (resultsFromBing && resultsFromBing.length > 0) {
-              let resultsFromBingArray = [];
-              let officialSite = null;
+              const resultsFromBingArray = [];
+              let _officialSite = null;
               // Lặp qua các kết quả tìm kiếm từ Bing
-              for (let result of resultsFromBing) {
+              for (const result of resultsFromBing) {
                 const pageTitle = result.name.toLowerCase(); // Tiêu đề của trang
                 // const pageSnippet = result.snippet.toLowerCase(); // Mô tả ngắn gọn của trang
                 const pageUrl = result.url;
@@ -109,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   !excludedDomains.some((domain) => pageUrl.includes(domain)) &&
                   (!requireTripDomainOnly || pageUrl.includes("trip"))
                 ) {
-                  officialSite = pageUrl;
+                  _officialSite = pageUrl;
                   console.log(pageUrl);
 
                   const isMatch = isHotelNameInPage(hotelNameArray, pageTitle);
@@ -123,7 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
               }
               // console.log("resultsFromBingArray: ", resultsFromBingArray);
-              const maxPercentageResult = resultsFromBingArray.reduce(
+              const _maxPercentageResult = resultsFromBingArray.reduce(
                 (max, item) => {
                   return item.percentage > max.percentage ? item : max;
                 },
@@ -139,7 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
               // );
 
               matchedLink = resultsFromBingArray.map(
-                ({ percentage, ...rest }) => rest["matchedLink"]
+                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
               );
               // console.log(matchedLink);
             }
@@ -164,7 +165,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (results.length > 0) {
           setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
         } else {
-          alert("Không tìm thấy kết quả nào khớp với tên khách sạn.");
+          if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
         }
       };
 
@@ -195,11 +196,11 @@ function downloadCSV(results) {
     header +
     results
       .map((row) => {
-        const links = row.matchedLinks.map((link) => `\"${link}\"`);
+        const links = row.matchedLinks.map((link) => `"${link}"`);
         while (links.length < maxMatchedLinks) links.push('""');
-        return `\"${row.order}\",\"${row.hotelNo}\", Child,\"${
+        return `"${row.order}","${row.hotelNo}", Child,"${
           row.hotelName
-        }\",\"${row.hotelCountry}\",\"${row.hotelCity}\",${links.join(",")}`;
+        }","${row.hotelCountry}","${row.hotelCity}",${links.join(",")}`;
       })
       .join("\n");
 
@@ -212,7 +213,7 @@ function downloadCSV(results) {
   document.body.removeChild(link);
 }
 // Hàm kiểm tra tên khách sạn có nằm trong tiêu đề trang hay không
-function isHotelNameInPage(hotelNameArray, pageTitle, pageSnippet) {
+function isHotelNameInPage(hotelNameArray, pageTitle, _pageSnippet) {
   let matchCount = 0; // Đếm số phân tử trong hotelNameArray khớp với pageTitle
 
   // Duyệt qua từng phần tử trong mãng hotelNameArray

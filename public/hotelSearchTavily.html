@@ -33,6 +33,9 @@
         <div class="flex gap-sm center" style="margin-left: auto">
           <div class="clock" aria-label="Đồng hồ">--:--:--</div>
           <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <button id="changeMyPasswordBtn" class="btn btn-outline btn-small" title="Đổi mật khẩu"
+            ><i class="fa-solid fa-key"></i
+          ></button>
           <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"
             ><i class="fa-solid fa-users-gear"></i></a
           >
@@ -44,10 +47,12 @@
           >
             <i class="fa-solid fa-circle-half-stroke"></i>
           </button>
-          <a href="/logout" class="btn btn-outline btn-small"
-            ><i class="fa-solid fa-right-from-bracket"></i
-            ><span>Đăng xuất</span></a
-          >
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"
+              ><i class="fa-solid fa-right-from-bracket"></i
+              ><span>Đăng xuất</span></button
+            >
+          </form>
         </div>
       </div>
     </header>
@@ -928,6 +933,59 @@
             }
           })
           .catch(() => {});
+
+        // Change password modal
+        const changePwModal = document.getElementById("changePasswordModal");
+        const changePwBtn = document.getElementById("changeMyPasswordBtn");
+        const cancelChangePw = document.getElementById("cancelChangePw");
+        const submitChangePw = document.getElementById("submitChangePw");
+        const changePwMsg = document.getElementById("changePwMsg");
+
+        changePwBtn.addEventListener("click", () => {
+          document.getElementById("oldPassword").value = "";
+          document.getElementById("newMyPassword").value = "";
+          changePwMsg.style.display = "none";
+          changePwModal.style.display = "flex";
+        });
+        cancelChangePw.addEventListener("click", () => {
+          changePwModal.style.display = "none";
+        });
+        changePwModal.addEventListener("click", (e) => {
+          if (e.target === changePwModal) changePwModal.style.display = "none";
+        });
+        submitChangePw.addEventListener("click", async () => {
+          const oldPassword = document.getElementById("oldPassword").value;
+          const newPassword = document.getElementById("newMyPassword").value;
+          if (!oldPassword || !newPassword) {
+            changePwMsg.textContent = "Vui lòng nhập đầy đủ";
+            changePwMsg.style.color = "#ff9c9c";
+            changePwMsg.style.display = "block";
+            return;
+          }
+          try {
+            const res = await fetch("/api/change-password", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ oldPassword, newPassword }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              changePwMsg.textContent = "Đổi mật khẩu thành công!";
+              changePwMsg.style.color = "#9df3c4";
+              changePwMsg.style.display = "block";
+              setTimeout(() => { changePwModal.style.display = "none"; }, 1500);
+            } else {
+              changePwMsg.textContent = data.error || "Lỗi";
+              changePwMsg.style.color = "#ff9c9c";
+              changePwMsg.style.display = "block";
+            }
+          } catch {
+            changePwMsg.textContent = "Lỗi kết nối";
+            changePwMsg.style.color = "#ff9c9c";
+            changePwMsg.style.display = "block";
+          }
+        });
+
         const stored = localStorage.getItem("theme");
         if (stored) document.documentElement.setAttribute("data-theme", stored);
         const themeBtn = document.getElementById("themeToggle");
@@ -1147,6 +1205,26 @@
       </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; justify-content: center; align-items: center">
+      <div style="background: var(--surface-1, #1e1e2e); padding: 24px; border-radius: 12px; width: 360px; max-width: 90vw">
+        <h3 style="margin: 0 0 16px 0; font-size: 1.1rem">Đổi mật khẩu</h3>
+        <div style="margin-bottom: 12px">
+          <label style="display: block; margin-bottom: 4px; font-size: 0.85rem">Mật khẩu cũ</label>
+          <input id="oldPassword" type="password" style="width: 100%; padding: 8px 12px; background: var(--surface-2, #2a2a3e); border: 1px solid var(--border, #444); border-radius: 6px; color: inherit" />
+        </div>
+        <div style="margin-bottom: 16px">
+          <label style="display: block; margin-bottom: 4px; font-size: 0.85rem">Mật khẩu mới</label>
+          <input id="newMyPassword" type="password" style="width: 100%; padding: 8px 12px; background: var(--surface-2, #2a2a3e); border: 1px solid var(--border, #444); border-radius: 6px; color: inherit" />
+        </div>
+        <div id="changePwMsg" style="margin-bottom: 12px; font-size: 0.85rem; display: none"></div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <button id="cancelChangePw" class="btn btn-outline btn-small">Hủy</button>
+          <button id="submitChangePw" class="btn btn-accent btn-small">Đổi mật khẩu</button>
+        </div>
+      </div>
+    </div>
+
     <style>
       .chatbox-toggle {
         position: fixed;
@@ -1299,6 +1377,17 @@
         const typeSelect = document.getElementById("chatboxType");
         const sendBtn = document.getElementById("chatboxSend");
 
+        // Escape HTML to prevent XSS
+        function escapeHtml(str) {
+          if (!str) return '';
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        }
+
         function formatTime(iso) {
           const d = new Date(iso);
           return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
@@ -1314,10 +1403,10 @@
               div.className = "chat-msg" + (m.status === "resolved" ? " resolved" : "");
               const typeLabel = m.type === "issue" ? "Lỗi" : m.type === "feedback" ? "Góp ý" : "Câu hỏi";
               div.innerHTML = `
-                <div>${m.text}</div>
+                <div>${escapeHtml(m.text)}</div>
                 <div class="chat-msg-meta">
                   <span>
-                    <span class="chat-msg-type type-${m.type}">${typeLabel}</span>
+                    <span class="chat-msg-type type-${escapeHtml(m.type)}">${escapeHtml(typeLabel)}</span>
                     <span style="margin-left:6px">${formatTime(m.timestamp)}</span>
                   </span>
                   ${m.status !== "resolved" ? `<button class="chat-msg-resolve" data-id="${m.id}">Đã xử lý</button>` : '<span style="color:#3ba55d;font-size:0.65rem">&#10003; Đã xử lý</span>'}
