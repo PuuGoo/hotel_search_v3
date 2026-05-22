@@ -34,3 +34,6 @@ Thumbs.db
 users.json
 chatbox_data.json
 *_chpw*.txt
+
+# Test artifacts
+tests/test_users_temp.json
