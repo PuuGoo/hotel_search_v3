@@ -948,6 +948,25 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         openUrlsWithDelay(urls);
       });
+    const copyUrlsBtn = document.getElementById("resultDetailCopyUrls");
+    if (copyUrlsBtn)
+      copyUrlsBtn.addEventListener("click", () => {
+        let urls = [];
+        try {
+          urls = JSON.parse(detailEls.openAllBtn?.dataset.urls || "[]");
+        } catch (e) {
+          urls = [];
+        }
+        if (urls.length === 0) {
+          Toasts.info("Không có URL để copy");
+          return;
+        }
+        navigator.clipboard.writeText(urls.join("\n")).then(() => {
+          Toasts.success(`Đã copy ${urls.length} URL`);
+        }).catch(() => {
+          Toasts.error("Không thể copy");
+        });
+      });
     if (detailEls.searchForm)
       detailEls.searchForm.addEventListener("submit", (evt) => {
         evt.preventDefault();
