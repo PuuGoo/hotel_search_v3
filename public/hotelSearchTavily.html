@@ -976,9 +976,7 @@
           const oldPassword = document.getElementById("oldPassword").value;
           const newPassword = document.getElementById("newMyPassword").value;
           if (!oldPassword || !newPassword) {
-            changePwMsg.textContent = "Vui lòng nhập đầy đủ";
-            changePwMsg.style.color = "#ff9c9c";
-            changePwMsg.style.display = "block";
+            Toasts.warning("Vui lòng nhập đầy đủ");
             return;
           }
           try {
@@ -989,19 +987,13 @@
             });
             const data = await res.json();
             if (data.success) {
-              changePwMsg.textContent = "Đổi mật khẩu thành công!";
-              changePwMsg.style.color = "#9df3c4";
-              changePwMsg.style.display = "block";
-              setTimeout(() => { changePwModal.style.display = "none"; }, 1500);
+              Toasts.success("Đổi mật khẩu thành công");
+              changePwModal.style.display = "none";
             } else {
-              changePwMsg.textContent = data.error || "Lỗi";
-              changePwMsg.style.color = "#ff9c9c";
-              changePwMsg.style.display = "block";
+              Toasts.error(data.error || "Lỗi");
             }
           } catch {
-            changePwMsg.textContent = "Lỗi kết nối";
-            changePwMsg.style.color = "#ff9c9c";
-            changePwMsg.style.display = "block";
+            Toasts.error("Lỗi kết nối");
           }
         });
 
