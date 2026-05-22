@@ -108,7 +108,16 @@
         background-color: #2575fc;
       }
     </style>
-    <script defer src="/ui.js"></script>
+    <script type="module" src="/ui.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+        };
+      }
+    </script>
   </head>
   <body>
     <div
