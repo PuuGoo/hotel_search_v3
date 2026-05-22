@@ -73,19 +73,11 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
       };
       res.redirect("/searchTavily");
     } else {
-      res.status(401).send(`
-        <h1>Invalid username or password</h1>
-        <p>Redirecting to login in 3 seconds...</p>
-        <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
-      `);
+      res.redirect("/?error=1");
     }
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).send(`
-      <h1>Server Error</h1>
-      <p>Redirecting to login in 3 seconds...</p>
-      <script>setTimeout(() => { window.location.href = '/'; }, 3000);</script>
-    `);
+    res.redirect("/?error=2");
   }
 });
 

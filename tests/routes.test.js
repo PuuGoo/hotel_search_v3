@@ -135,14 +135,15 @@ describe("Route Integration Tests", () => {
       expect(adminCookie).toBeDefined();
     });
 
-    test("POST /login with invalid credentials should return 401", async () => {
+    test("POST /login with invalid credentials should redirect with error", async () => {
       const res = await fetch(`${baseUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "admin", password: "wrongpassword" }),
         redirect: "manual",
       });
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?error=1");
     });
 
     test("GET /api/me should return current user info", async () => {
@@ -750,7 +751,7 @@ describe("Route Integration Tests", () => {
   });
 
   describe("Auth Error Paths", () => {
-    test("POST /login should return 500 when bcrypt.compare throws", async () => {
+    test("POST /login should redirect with error when bcrypt.compare throws", async () => {
       // Write users.json with a user whose password field is invalid (null)
       // This causes bcrypt.compare to throw, hitting the catch block
       const usersFile = path.join(__dirname, "..", "users.json");
@@ -763,9 +764,8 @@ describe("Route Integration Tests", () => {
         body: JSON.stringify({ username: "admin", password: "admin123" }),
         redirect: "manual",
       });
-      expect(res.status).toBe(500);
-      const text = await res.text();
-      expect(text).toContain("Server Error");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?error=2");
 
       // Restore
       fs.writeFileSync(usersFile, backup, "utf8");

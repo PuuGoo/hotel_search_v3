@@ -20,6 +20,15 @@
       referrerpolicy="no-referrer"
     />
     <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+        };
+      }
+    </script>
   </head>
   <body>
     <a href="#loginForm" class="skip-link">Bỏ qua tới form đăng nhập</a>
@@ -142,6 +151,16 @@
     <script type="module" src="/ui.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
+        // Show login error from URL param
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("error") === "1") {
+          Toasts.error("Sai tài khoản hoặc mật khẩu");
+          history.replaceState(null, "", "/");
+        } else if (params.get("error") === "2") {
+          Toasts.error("Lỗi server, thử lại sau");
+          history.replaceState(null, "", "/");
+        }
+
         // Year stamp
         document.getElementById("year").textContent = new Date().getFullYear();
         // Theme toggle sync with localStorage
