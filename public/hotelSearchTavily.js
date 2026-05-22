@@ -1372,12 +1372,10 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (error) {
       console.error("Import CSV thất bại", error);
       const message = error?.message || "Không thể import CSV";
-      if (Toasts)
-        Toasts.show(message, {
-          type: "error",
-          title: "Import CSV",
-        });
-      else alert(message);
+      Toasts.show(message, {
+        type: "error",
+        title: "Import CSV",
+      });
     } finally {
       if (importInputEl) importInputEl.value = "";
     }
@@ -1468,12 +1466,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!fileInput || fileInput.files.length === 0) {
         if (Toasts && Toasts.error)
           Toasts.error("Vui lòng chọn một file Excel!");
-        else if (Toasts)
+        else
           Toasts.show("Vui lòng chọn một file Excel!", {
             type: "error",
             title: "Lỗi",
           });
-        else alert("Vui lòng chọn một file Excel!");
         if (searchBtn) searchBtn.disabled = false;
         hide(spinnerEl);
         hide(pauseResumeBtn);
@@ -3213,12 +3210,7 @@ window.addEventListener("load", () => {
   }
   if (infoBtn) {
     infoBtn.addEventListener("click", () => {
-      if (!window.Toasts && !Toasts) {
-        alert(
-          "Fuzzy = đo độ giống tên khách sạn (Levenshtein + Jaro-Winkler + Domain). Ngưỡng 0.80-0.85 thường tốt."
-        );
-        return;
-      }
+      if (!Toasts) return;
       const html = `<div style="text-align:left;line-height:1.45;font-size:.7rem;max-height:55vh;overflow:auto">
   <strong>Fuzzy Score (Phiên bản Title-Only)</strong><br/>
   Đo mức độ giống giữa <em>Tên khách sạn trong file</em> và <em>Tiêu đề trang</em> của từng link tìm được.<br/><br/>

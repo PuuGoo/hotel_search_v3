@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+# Install Chrome and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gnupg \
+    chromium \
+    chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Chrome paths
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+
+WORKDIR /app
+
+COPY ddg_server.py ddg_search.py ./
+COPY requirements.txt* ./
+
+RUN pip install --no-cache-dir \
+    selenium \
+    beautifulsoup4 \
+    requests \
+    webdriver-manager
+
+# Create non-root user
+RUN useradd -m appuser
+USER appuser
+
+EXPOSE 5001
+
+CMD ["python", "ddg_server.py"]

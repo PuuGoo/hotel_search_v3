@@ -149,21 +149,10 @@
       </div>
     </div>
 
-    <script type="module" src="/ui.js"></script>
-    <script>
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
       const API = "/api/users";
       let currentUserId = null;
-
-      // Escape HTML to prevent XSS
-      function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-      }
 
       async function loadCurrentUser() {
         try {
@@ -268,7 +257,7 @@
         const res = await fetch(`${API}/${id}`, { method: "DELETE" });
         const data = await res.json();
         if (data.success) loadUsers();
-        else alert(data.error);
+        else Toasts.error(data.error);
       };
 
       document.getElementById("userForm").onsubmit = async (e) => {
@@ -296,9 +285,9 @@
           });
           const data = await res.json();
           if (data.success) { closeModal("userModal"); loadUsers(); }
-          else alert(data.error);
+          else Toasts.error(data.error);
         } else {
-          if (!pw) { alert("Cần nhập mật khẩu"); return; }
+          if (!pw) { Toasts.error("Cần nhập mật khẩu"); return; }
           body.password = pw;
           const res = await fetch(API, {
             method: "POST",
@@ -307,7 +296,7 @@
           });
           const data = await res.json();
           if (data.success) { closeModal("userModal"); loadUsers(); }
-          else alert(data.error);
+          else Toasts.error(data.error);
         }
       };
 
@@ -321,8 +310,8 @@
           body: JSON.stringify({ newPassword }),
         });
         const data = await res.json();
-        if (data.success) { closeModal("passwordModal"); alert("Đổi mật khẩu thành công"); }
-        else alert(data.error);
+        if (data.success) { closeModal("passwordModal"); Toasts.success("Đổi mật khẩu thành công"); }
+        else Toasts.error(data.error);
       };
 
       // Theme toggle

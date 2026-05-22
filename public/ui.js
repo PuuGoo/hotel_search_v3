@@ -264,6 +264,11 @@ function initUI() {
 
 document.addEventListener("DOMContentLoaded", initUI);
 
+// EXPOSE GLOBALLY (for non-module scripts) --------------------------------
+window.Toasts = Toasts;
+window.Modal = Modal;
+window.Theme = Theme;
+
 // EXPORTS (ESM friendly) --------------------------------------------------
 export {
   Theme,

@@ -8,6 +8,11 @@ export function csrfProtection(req, res, next) {
     return next();
   }
 
+  // Skip for login endpoint (already rate-limited, no session to hijack)
+  if (req.path === "/login") {
+    return next();
+  }
+
   // Check Origin header for API requests
   const origin = req.headers.origin || req.headers.referer;
   if (origin) {

@@ -1043,7 +1043,7 @@
                   if (input && input.value === "Đồng Ý Xóa") {
                     closeModal();
                   } else {
-                    alert('Bạn phải nhập đúng "Đồng Ý Xóa"');
+                    Toasts.show('Bạn phải nhập đúng "Đồng Ý Xóa"', { type: "warning", title: "Xác nhận" });
                     if (input) input.focus();
                   }
                 };

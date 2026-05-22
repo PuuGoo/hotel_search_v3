@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Kiểm tra người dùng có chọn file Excel hay không
       const fileInput = document.getElementById("fileInput");
       if (fileInput.files.length === 0) {
-        typeof Toasts !== "undefined" ? Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" }) : alert("Vui lòng chọn một file Excel!");
+        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
         return;
       }
 

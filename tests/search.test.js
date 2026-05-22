@@ -379,6 +379,46 @@ describe("Search Routes", () => {
       const data = await res.json();
       expect(data.error).toBe("DuckDuckGo search error");
     });
+
+    test("should auto-start DDG server when not running and succeed", async () => {
+      setupDdgMock();
+      // Route handler health check: server not running
+      ddgMockQueue.push({ resolve: { ok: false } });
+      // startDdgServer initial health check: still not running
+      ddgMockQueue.push({ resolve: { ok: false } });
+      // Polling: first attempt fails, second succeeds
+      ddgMockQueue.push({ resolve: { ok: false } });
+      ddgMockQueue.push({ resolve: { ok: true } });
+      // Search request
+      ddgMockQueue.push({
+        resolve: {
+          ok: true,
+          json: async () => ({ results: [{ title: "Auto-started", url: "https://ddg.com" }] }),
+        },
+      });
+
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.results).toHaveLength(1);
+    }, 10000);
+
+    test("should return 500 when health check throws", async () => {
+      setupDdgMock();
+      // Health check: server running
+      ddgMockQueue.push({ resolve: { ok: true } });
+      // Search: throws a generic error
+      ddgMockQueue.push({ reject: new TypeError("fetch failed") });
+
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe("DuckDuckGo search error");
+    });
   });
 
   describe("Tavily - Additional Rotation", () => {
