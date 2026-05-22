@@ -52,7 +52,10 @@ document.addEventListener("DOMContentLoaded", function () {
           void hotelNameArray; // used in isHotelNameInPage
 
           const query = `${hotelName} ${hotelAddress} on agoda page`;
-          const searchURL = `https://cors-anywhere-7jt3.onrender.com/https://api.crawlbase.com/?token=${subscriptionKey}&url=https://www.google.com/search?q=${encodeURIComponent(
+          // SECURITY WARNING: Using a public CORS proxy exposes your API key to the proxy operator.
+          // For production, set up your own CORS proxy or use a server-side endpoint.
+          const corsProxy = window.CRAWLBASE_CORS_PROXY || "https://cors-anywhere-7jt3.onrender.com/";
+          const searchURL = `${corsProxy}https://api.crawlbase.com/?token=${subscriptionKey}&url=https://www.google.com/search?q=${encodeURIComponent(
             query
           )}`;
 

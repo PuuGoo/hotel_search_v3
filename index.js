@@ -7,6 +7,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import swaggerUi from "swagger-ui-express";
+import config from "./utils/config.js";
 import { requestLogger } from "./middleware/logger.js";
 import { requestId } from "./middleware/requestId.js";
 import { requestTimeout } from "./middleware/timeout.js";
@@ -20,17 +21,6 @@ import { csrfProtection } from "./middleware/csrf.js";
 import swaggerSpec from "./utils/swagger.js";
 
 dotenv.config();
-
-// Validate required env vars in production
-if (process.env.NODE_ENV === "production") {
-  const required = ["SESSION_SECRET"];
-  for (const key of required) {
-    if (!process.env[key]) {
-      console.error(`Missing required env var: ${key}`);
-      process.exit(1);
-    }
-  }
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -87,13 +77,13 @@ app.use(requestTimeout());
 // Session configuration
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your-secret-key",
+    secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      secure: process.env.NODE_ENV === "production",
+      maxAge: config.session.maxAge,
+      secure: config.isProduction,
       sameSite: "lax",
     },
   })
