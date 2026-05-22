@@ -1,0 +1,44 @@
+{
+  "env": {
+    "node": true,
+    "es2022": true,
+    "jest": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "semi": ["error", "always"],
+    "quotes": ["error", "double", { "avoidEscape": true }],
+    "eqeqeq": ["error", "smart"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-control-regex": "off"
+  },
+  "overrides": [
+    {
+      "files": ["public/**/*.js"],
+      "env": {
+        "browser": true,
+        "node": false
+      },
+      "globals": {
+        "XLSX": "readonly",
+        "tldts": "readonly",
+        "axios": "readonly"
+      }
+    },
+    {
+      "files": ["public/fuzzyWorker.js"],
+      "env": {
+        "browser": false,
+        "worker": true
+      }
+    }
+  ]
+}
