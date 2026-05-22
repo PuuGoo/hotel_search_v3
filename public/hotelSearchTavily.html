@@ -924,6 +924,13 @@
     <script type="module" src="/hotelSearchTavily.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
+        // Show login success toast
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("success") === "1") {
+          Toasts.success("Đăng nhập thành công");
+          history.replaceState(null, "", "/searchTavily");
+        }
+
         document.getElementById("year").textContent = new Date().getFullYear();
 
         // Load current user info

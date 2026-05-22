@@ -71,7 +71,7 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
         displayName: user.displayName,
         features: user.features || [],
       };
-      res.redirect("/searchTavily");
+      res.redirect("/searchTavily?success=1");
     } else {
       res.redirect("/?error=1");
     }
