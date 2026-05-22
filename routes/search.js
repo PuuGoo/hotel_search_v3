@@ -186,6 +186,7 @@ let currentKeyGoogleIndex = 0;
 async function callGoogleSearchAPI(query, apiKey) {
   const response = await axios.get("https://www.googleapis.com/customsearch/v1", {
     params: { key: apiKey, cx: SEARCH_ENGINE_ID, q: query },
+    timeout: 30000,
   });
   return response.data;
 }
