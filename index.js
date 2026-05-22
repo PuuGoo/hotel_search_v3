@@ -99,12 +99,31 @@ app.use(
 // Static files
 app.use(express.static(join(__dirname, "public")));
 
-// Health endpoint
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
+// Health endpoint with dependency checks
+app.get("/health", async (_req, res) => {
+  const checks = {
+    server: { status: "ok" },
+    memory: {
+      status: "ok",
+      heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+    },
+  };
+
+  // Check DDG server
+  try {
+    const ddgResp = await fetch("http://localhost:5001/health", { signal: AbortSignal.timeout(2000) });
+    checks.ddg = { status: ddgResp.ok ? "ok" : "degraded" };
+  } catch {
+    checks.ddg = { status: "unavailable" };
+  }
+
+  const allOk = Object.values(checks).every((c) => c.status === "ok" || c.status === "unavailable");
+
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    checks,
   });
 });
 
