@@ -8,8 +8,8 @@ export function csrfProtection(req, res, next) {
     return next();
   }
 
-  // Skip for login endpoint (already rate-limited, no session to hijack)
-  if (req.path === "/login") {
+  // Skip for auth endpoints (login/logout don't need CSRF protection)
+  if (req.path === "/login" || req.path === "/logout") {
     return next();
   }
 

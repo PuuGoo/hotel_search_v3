@@ -21,6 +21,18 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.2/xlsx.full.min.js"></script>
     <script defer src="/analytics-init.js"></script>
+    <script>
+      // Toasts stub – will be replaced by real implementation from ui.js module
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg, opts) { console.log("[Toast] success", msg); },
+          error: function(msg, opts) { console.log("[Toast] error", msg); },
+          warning: function(msg, opts) { console.log("[Toast] warning", msg); },
+          info: function(msg, opts) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
   </head>
   <body>
     <a href="#pageSEARCHTAVILY" class="skip-link">Bỏ qua tới nội dung</a>
