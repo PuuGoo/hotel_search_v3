@@ -1922,6 +1922,8 @@ document.addEventListener("DOMContentLoaded", function () {
     hide(pauseBtn);
     hide(progressContainer);
     if (stopBtn) hide(stopBtn);
+    // Refresh rate limit display after search
+    if (window._refreshRateLimit) window._refreshRateLimit();
     if (resumeBadge) hide(resumeBadge);
     if (shouldStop) {
       // mark permanent stop so auto-resume after F5 will not run

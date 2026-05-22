@@ -46,6 +46,35 @@ const MAX_SEARCH_PER_MINUTE = config.rateLimit.searchMax;
 export const _searchRequests = searchRequests;
 export const _SEARCH_RATE_WINDOW = SEARCH_RATE_WINDOW;
 
+// Rate limit status endpoint handler
+export function rateLimitStatus(req, res) {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+
+  const searchEntry = searchRequests.get(ip);
+  let searchUsed = 0;
+  let searchRemaining = MAX_SEARCH_PER_MINUTE;
+  let searchResetMs = 0;
+
+  if (searchEntry) {
+    if (now - searchEntry.firstRequest <= SEARCH_RATE_WINDOW) {
+      searchUsed = searchEntry.count;
+      searchRemaining = Math.max(0, MAX_SEARCH_PER_MINUTE - searchEntry.count);
+      searchResetMs = Math.max(0, SEARCH_RATE_WINDOW - (now - searchEntry.firstRequest));
+    }
+  }
+
+  res.json({
+    search: {
+      limit: MAX_SEARCH_PER_MINUTE,
+      used: searchUsed,
+      remaining: searchRemaining,
+      resetInMs: searchResetMs,
+      windowMs: SEARCH_RATE_WINDOW,
+    },
+  });
+}
+
 export function rateLimitSearch(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();

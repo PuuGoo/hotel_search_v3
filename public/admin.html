@@ -35,6 +35,16 @@
     </header>
 
     <main class="container" style="padding: var(--spacing-lg) var(--spacing-md)">
+      <!-- API Health Dashboard -->
+      <details id="healthDashboard" class="glass-card" style="max-width:900px;margin:0 auto var(--spacing-md);padding:var(--spacing-sm) var(--spacing-md)">
+        <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-heartbeat" style="color:#3ba55d"></i>
+          <span>Trạng thái dịch vụ</span>
+          <span id="healthSummary" class="badge" style="margin-left:auto;font-size:.6rem;background:rgba(255,255,255,0.1)">Đang kiểm tra...</span>
+        </summary>
+        <div id="healthGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:var(--spacing-sm);font-size:.72rem"></div>
+      </details>
+
       <div class="glass-card gradient animate-fade-in" style="max-width: 900px; margin: 0 auto">
         <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md)">
           <h1 class="gradient-text" style="font-size: 1.4rem; margin: 0">
@@ -164,6 +174,40 @@
           document.getElementById("currentUser").textContent = user.displayName || user.username;
         } catch { window.location.href = "/"; }
       }
+
+      // ---- API Health Dashboard ----
+      (function loadHealthDashboard() {
+        const grid = document.getElementById("healthGrid");
+        const summary = document.getElementById("healthSummary");
+        if (!grid) return;
+        const statusIcons = { ok: "fa-circle-check", degraded: "fa-triangle-exclamation", stopped: "fa-circle-xmark", unreachable: "fa-circle-xmark", unconfigured: "fa-circle-minus" };
+        const statusColors = { ok: "#3ba55d", degraded: "#faa61a", stopped: "#ff4d4f", unreachable: "#ff4d4f", unconfigured: "#666" };
+        const labels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo", case12: "Case12 API" };
+        fetch("/api/health/services").then(r => r.json()).then(services => {
+          let okCount = 0, total = 0;
+          grid.innerHTML = Object.entries(labels).map(([key, label]) => {
+            const s = services[key] || {};
+            const st = s.status || "unreachable";
+            total++;
+            if (st === "ok") okCount++;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:8px">
+              <i class="fa-solid ${statusIcons[st] || 'fa-circle-question'}" style="color:${statusColors[st] || '#666'}"></i>
+              <span style="flex:1;font-weight:500">${label}</span>
+              <span style="font-size:.6rem;color:${statusColors[st] || '#666'}">${st}</span>
+              ${s.keys ? `<span style="font-size:.55rem;color:var(--text-tertiary)">${s.keys} keys</span>` : ''}
+            </div>`;
+          }).join('');
+          const cb = services.circuitBreakers || {};
+          const cbEntries = Object.entries(cb).filter(([,v]) => v !== "CLOSED");
+          if (cbEntries.length > 0) {
+            grid.innerHTML += `<div style="grid-column:1/-1;font-size:.65rem;color:#faa61a;padding:4px 10px">
+              <i class="fa-solid fa-shield-halved"></i> Circuit: ${cbEntries.map(([k,v]) => `${k}=${v}`).join(', ')}
+            </div>`;
+          }
+          summary.textContent = `${okCount}/${total} hoạt động`;
+          summary.style.background = okCount === total ? "rgba(59,165,93,.3)" : "rgba(250,166,26,.3)";
+        }).catch(() => { summary.textContent = "Lỗi kiểm tra"; });
+      })();
 
       let allUsers = [];
 

@@ -104,6 +104,17 @@
         <div id="healthGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:var(--spacing-sm);font-size:.72rem"></div>
       </details>
 
+      <!-- Rate Limit Status -->
+      <div id="rateLimitBar" class="glass-card" style="margin-bottom:var(--spacing-md);padding:var(--spacing-xs) var(--spacing-md);font-size:.72rem;display:flex;align-items:center;gap:12px">
+        <i class="fa-solid fa-gauge-high" style="color:#faa61a"></i>
+        <span style="font-weight:500">Rate limit:</span>
+        <span id="rlUsed" style="color:var(--text-secondary)">--</span>
+        <div style="flex:1;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden">
+          <div id="rlBar" style="height:100%;width:0%;background:#3ba55d;border-radius:2px;transition:width .3s"></div>
+        </div>
+        <span id="rlReset" style="color:var(--text-tertiary);font-size:.6rem"></span>
+      </div>
+
       <!-- Search History -->
       <details id="searchHistory" class="glass-card" style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md)">
         <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
@@ -1026,6 +1037,36 @@
             summary.textContent = `${okCount}/${total} hoạt động`;
             summary.style.background = okCount === total ? "rgba(59,165,93,.3)" : "rgba(250,166,26,.3)";
           }).catch(() => { summary.textContent = "Lỗi kiểm tra"; });
+        })();
+
+        // ---- Rate Limit Status ----
+        (function loadRateLimit() {
+          const usedEl = document.getElementById("rlUsed");
+          const barEl = document.getElementById("rlBar");
+          const resetEl = document.getElementById("rlReset");
+          if (!usedEl) return;
+          function refresh() {
+            fetch("/api/rate-limit/status").then(r => r.json()).then(data => {
+              const s = data.search || {};
+              const used = s.used || 0;
+              const limit = s.limit || 30;
+              const remaining = s.remaining ?? limit;
+              const pct = Math.min(100, (used / limit) * 100);
+              usedEl.textContent = `${used}/${limit} lượt/phút`;
+              barEl.style.width = pct + "%";
+              barEl.style.background = pct > 80 ? "#ff4d4f" : pct > 50 ? "#faa61a" : "#3ba55d";
+              if (s.resetInMs > 0) {
+                const secs = Math.ceil(s.resetInMs / 1000);
+                resetEl.textContent = `Reset: ${secs}s`;
+              } else {
+                resetEl.textContent = "";
+              }
+            }).catch(() => {});
+          }
+          refresh();
+          setInterval(refresh, 15000); // refresh every 15s
+          // Also refresh after each search
+          window._refreshRateLimit = refresh;
         })();
 
         // ---- Search History ----

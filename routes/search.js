@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { tavily } from "@tavily/core";
 import { checkAuthenticated, checkFeature } from "../middleware/auth.js";
 import { validateSearchQuery } from "../middleware/validation.js";
-import { rateLimitSearch } from "../middleware/rateLimit.js";
+import { rateLimitSearch, rateLimitStatus } from "../middleware/rateLimit.js";
 import { CircuitBreaker } from "../utils/circuitBreaker.js";
 import config from "../utils/config.js";
 
@@ -270,6 +270,9 @@ async function startDdgServer() {
   }
   throw new Error("DDG server failed to start.");
 }
+
+// ---- Rate Limit Status ----
+router.get("/api/rate-limit/status", checkAuthenticated, rateLimitStatus);
 
 // ---- API Health Dashboard ----
 router.get("/api/health/services", checkAuthenticated, async (_req, res) => {
