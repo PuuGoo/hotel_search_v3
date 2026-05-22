@@ -1,210 +1,198 @@
 /* global Toasts */
-// Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
-  document
-    .getElementById("searchButton")
-    .addEventListener("click", async () => {
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput.files.length === 0) {
-        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
-        return;
+  const fileInput = document.getElementById("fileInput");
+  const dropZone = document.getElementById("dropZone");
+  const fileName = document.getElementById("fileName");
+  const searchButton = document.getElementById("searchButton");
+  const downloadCSVButton = document.getElementById("downloadCSVButton");
+  const progressContainer = document.getElementById("progressContainer");
+  const progressBar = document.getElementById("progressBar");
+  const progressText = document.getElementById("progressText");
+  const counter = document.getElementById("counter");
+  const statusText = document.getElementById("statusText");
+  const resultsSection = document.getElementById("resultsSection");
+  const resultsBody = document.getElementById("resultsBody");
+  const resultsCount = document.getElementById("resultsCount");
+  const subscriptionKeyInput = document.getElementById("subscriptionKey");
+
+  let isRunning = false;
+  let allResults = [];
+
+  // Drag & drop
+  if (dropZone) {
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const f = e.dataTransfer.files[0];
+      if (f) {
+        fileInput.files = e.dataTransfer.files;
+        fileName.textContent = f.name;
       }
+    });
+  }
 
-      const file = fileInput.files[0];
-      const reader = new FileReader();
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files && fileInput.files[0];
+      fileName.textContent = f ? f.name : "Chưa chọn file";
+    });
+  }
 
-      // const subscriptionKey = document.getElementById("subscriptionKey").value;
-      const subscriptionKey = document.getElementById("subscriptionKey").value;
+  function setProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (progressBar) progressBar.style.width = pct + "%";
+    if (progressBar) progressBar.setAttribute("aria-valuenow", pct);
+    if (progressText) progressText.textContent = pct + "%";
+    if (counter) counter.textContent = `${done}/${total}`;
+  }
 
-      // Cập nhật endpoint cho Brave Search API
-      const _endpoint = "https://api.search.brave.com/res/v1/web/search";
+  function appendResultRow(result) {
+    if (!resultsBody) return;
+    if (resultsSection && resultsSection.classList.contains("hidden")) {
+      resultsSection.classList.remove("hidden");
+    }
+    const tr = document.createElement("tr");
+    const linksHtml = (result.matchedLinks || []).map((url) => {
+      if (!url || !/^https?:\/\//i.test(url)) return "";
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all;font-size:0.72rem;display:block">${url.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</a>`;
+    }).join("") || "-";
+    tr.innerHTML = `<td>${result.order}</td><td>${result.hotelNo || ""}</td><td>${(result.hotelName || "").replace(/</g,"&lt;")}</td><td style="font-size:0.78rem">${(result.hotelAddress || "").replace(/</g,"&lt;")}</td><td style="font-size:0.68rem">${linksHtml}</td>`;
+    resultsBody.appendChild(tr);
+    if (resultsCount) resultsCount.textContent = resultsBody.querySelectorAll("tr").length;
+  }
 
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        jsonData = jsonData.filter((row) =>
-          row.some((cell) => cell !== undefined && cell !== null && cell !== "")
-        );
-        jsonData.shift();
-        console.log(jsonData.length);
-        const results = [];
-        let order = 1;
-        let currentIndex = 0;
+  searchButton.addEventListener("click", async () => {
+    if (isRunning) return;
+    const subscriptionKey = subscriptionKeyInput.value.trim();
+    if (!subscriptionKey) {
+      if (typeof Toasts !== "undefined") Toasts.show("Vui lòng nhập Crawlbase API Key!", { type: "warning", title: "Thiếu API Key" });
+      return;
+    }
+    if (!fileInput.files.length) {
+      if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
+      return;
+    }
 
-        for (const row of jsonData) {
-          const [hotelNo, hotelNameRaw, hotelAddress] = row;
-          let hotelName = hotelNameRaw;
-          if (!hotelName || !hotelAddress) continue;
+    isRunning = true;
+    searchButton.disabled = true;
+    allResults = [];
+    if (resultsBody) resultsBody.innerHTML = "";
+    if (resultsSection) resultsSection.classList.add("hidden");
+    if (downloadCSVButton) downloadCSVButton.classList.add("hidden");
+    if (progressContainer) progressContainer.classList.remove("hidden");
+    if (statusText) statusText.textContent = "Đang đọc file...";
 
-          hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
-          const hotelNameArray = hotelName
-            .split(" ")
-            .map((part) =>
-              part
-                .replace(",", "")
-                .replace("(", "")
-                .replace(")", "")
-                .toLowerCase()
-            );
-          void hotelNameArray; // used in isHotelNameInPage
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    const corsProxy = window.CRAWLBASE_CORS_PROXY || "https://cors-anywhere-7jt3.onrender.com/";
 
-          const query = `${hotelName} ${hotelAddress} on agoda page`;
-          // SECURITY WARNING: Using a public CORS proxy exposes your API key to the proxy operator.
-          // For production, set up your own CORS proxy or use a server-side endpoint.
-          const corsProxy = window.CRAWLBASE_CORS_PROXY || "https://cors-anywhere-7jt3.onrender.com/";
-          const searchURL = `${corsProxy}https://api.crawlbase.com/?token=${subscriptionKey}&url=https://www.google.com/search?q=${encodeURIComponent(
-            query
-          )}`;
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      jsonData = jsonData.filter((row) =>
+        row.some((cell) => cell !== undefined && cell !== null && cell !== "")
+      );
+      jsonData.shift();
 
-          let matchedLink = [];
-          try {
-            const response = await fetch(searchURL, {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
-              },
-            });
-            const text = await response.text();
+      const total = jsonData.length;
+      let done = 0;
+      let order = 1;
 
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, "text/html");
-            const searchResults = doc.querySelectorAll("a");
+      if (statusText) statusText.textContent = `Đang tìm kiếm 0/${total}...`;
 
-            searchResults.forEach((result) => {
-              const link = result.href;
+      for (const row of jsonData) {
+        const [hotelNo, hotelNameRaw, hotelAddress] = row;
+        let hotelName = hotelNameRaw;
+        if (!hotelName || !hotelAddress) {
+          done++;
+          setProgress(done, total);
+          continue;
+        }
 
-              if (
-                result.innerText.toLowerCase().includes(hotelName.toLowerCase())
-              ) {
-                if (link.includes("?q=")) {
-                  const queryPart = link.split("?q=")[1];
-                  if (queryPart.includes("&")) {
-                    const finalLink = queryPart.split("&")[0];
-                    matchedLink.push(finalLink);
-                  }
+        hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
+        const query = `${hotelName} ${hotelAddress} on agoda page`;
+        const searchURL = `${corsProxy}https://api.crawlbase.com/?token=${subscriptionKey}&url=https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+        let matchedLink = [];
+        try {
+          const response = await fetch(searchURL, { method: "GET", headers: { Accept: "application/json" } });
+          const text = await response.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, "text/html");
+          const searchResults = doc.querySelectorAll("a");
+
+          searchResults.forEach((result) => {
+            const link = result.href;
+            if (result.innerText.toLowerCase().includes(hotelName.toLowerCase())) {
+              if (link.includes("?q=")) {
+                const queryPart = link.split("?q=")[1];
+                if (queryPart.includes("&")) {
+                  const finalLink = queryPart.split("&")[0];
+                  matchedLink.push(finalLink);
                 }
               }
-            });
-          } catch (error) {
-            console.error("Error searching:", error);
-          } finally {
-            matchedLink = matchedLink
-              .filter((e) => e.includes("http") && !e.includes("tripadvisor"))
-              .sort((a, b) => {
-                if (a.includes("agoda") && !b.includes("agoda")) return -1; // Ưu tiên link a
-                if (!a.includes("agoda") && b.includes("agoda")) return 1; // Ưu tiên link b
-                return 0; // Giữ nguyên thứ tự link
-              });
-            results.push({
-              order: order++,
-              hotelNo,
-              hotelName,
-              hotelAddress,
-              matchedLinks: [...matchedLink],
-            });
-            currentIndex++;
-            console.log("Dong thu:", currentIndex);
-
-            // Wait for the delay before sending the next request
-            // if (currentIndex < maxRequestsPerWindow) {
-            //   console.log("Dong thu:", order);
-
-            //   await delayRequest(delayBetweenRequests); // Add delay between requests
-            // }
-          }
+            }
+          });
+        } catch (error) {
+          console.error("Error searching:", error);
         }
 
-if (results.length > 0) {
-  setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
-} else {
-  if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
-}
+        matchedLink = matchedLink
+          .filter((l) => l.includes("http") && !l.includes("tripadvisor"))
+          .sort((a, b) => {
+            if (a.includes("agoda") && !b.includes("agoda")) return -1;
+            if (!a.includes("agoda") && b.includes("agoda")) return 1;
+            return 0;
+          });
 
-      };
+        const result = { order: order++, hotelNo, hotelName, hotelAddress, matchedLinks: [...matchedLink] };
+        allResults.push(result);
+        appendResultRow(result);
 
-      reader.readAsArrayBuffer(file);
-    });
-});
+        done++;
+        setProgress(done, total);
+        if (statusText) statusText.textContent = `Đang tìm kiếm ${done}/${total}...`;
+      }
 
-// Thêm nút tải xuống CSV sau khi có dữ liệu
-function setupDownloadButton(results) {
-  const downloadButton = document.getElementById("downloadCSVButton");
-  downloadButton.style.display = "block"; // Hiển thị nút
-  downloadButton.onclick = () => downloadCSV(results); // Khi nhấn mới tải
-}
+      if (statusText) statusText.textContent = `Hoàn thành! ${allResults.length} kết quả.`;
+      if (allResults.length > 0) {
+        downloadCSVButton.classList.remove("hidden");
+        if (typeof Toasts !== "undefined") Toasts.show(`Tìm kiếm hoàn tất: ${allResults.length} kết quả`, { type: "success", title: "Hoàn thành" });
+      } else {
+        if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp.", { type: "info", title: "Không có kết quả" });
+      }
 
-// Hàm xuất ra file CSV
-function downloadCSV(results) {
-  const maxMatchedLinks = Math.max(
-    ...results.map((row) => row.matchedLinks.length)
-  );
+      isRunning = false;
+      searchButton.disabled = false;
+    };
 
-  const header =
-    "Order,No, Type, Hotel Name,Hotel Address," +
-    Array.from(
-      { length: maxMatchedLinks },
-      (_, i) => `Matched Link ${i + 1}`
-    ).join(",") +
-    "\n";
-
-  const csvContent =
-    header +
-    results
-      .map((row) => {
-        const links = row.matchedLinks.map((link) => `"${link}"`);
-        while (links.length < maxMatchedLinks) {
-          links.push('""');
-        }
-        return `"${row.order}","${row.hotelNo}", Child,"${row.hotelName}","${
-          row.hotelAddress
-        }",${links.join(",")}`;
-      })
-      .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "hotel_search_results.csv";
-  link.style.display = "none";
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Cấu hình các trang và các nút liên quan
-const pages = {
-  AZURE_CHILD: ["AZURE_MASTER"],
-  AZURE_MASTER: ["AZURE_CHILD"],
-};
-
-// Hàm thay đổi nội dung và hiển thị nút
-function switchPage(page) {
-  // Cập nhật tiêu đề trang
-  document.querySelector("h1").textContent = `Chức năng ${page}`;
-
-  // Ẩn tất cả các trang
-  document.querySelectorAll(".page").forEach((p) => (p.style.display = "none"));
-
-  // Hiển thị trang hiện tại
-  document.getElementById(`page${page}`).style.display = "block";
-
-  // Cập nhật các nút chức năng cho trang
-  const buttonContainer = document.querySelector(".button-container");
-  buttonContainer.innerHTML = ""; // Xóa các nút hiện tại
-  pages[page].forEach((p) => {
-    const a = document.createElement("a");
-    a.href = p;
-    const button = document.createElement("button");
-    button.textContent = `Chức năng ${p}`;
-    button.onclick = () => switchPage(p);
-    a.appendChild(button);
-    buttonContainer.appendChild(a);
+    reader.readAsArrayBuffer(file);
   });
-}
 
-// Khởi tạo mặc định là trang A
-switchPage("CRAWLBASE_MASTER");
+  if (downloadCSVButton) {
+    downloadCSVButton.addEventListener("click", () => {
+      if (!allResults.length) return;
+      const maxLinks = Math.max(...allResults.map((r) => r.matchedLinks.length));
+      const header = "Order,No,Hotel Name,Hotel Address," + Array.from({ length: maxLinks }, (_, i) => `Matched Link ${i + 1}`).join(",") + "\n";
+      const csvContent = header + allResults.map((r) => {
+        const links = r.matchedLinks.map((l) => `"${l}"`);
+        while (links.length < maxLinks) links.push('""');
+        return `"${r.order}","${r.hotelNo}","${r.hotelName}","${r.hotelAddress}",${links.join(",")}`;
+      }).join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "crawlbase_hotel_search_results.csv";
+      link.click();
+      URL.revokeObjectURL(link.href);
+      if (typeof Toasts !== "undefined") Toasts.show("Đã tải file CSV", { type: "success", title: "Tải xuống" });
+    });
+  }
+});

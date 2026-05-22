@@ -1,308 +1,230 @@
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/esm/axios.min.js";
-import { Toasts } from "/ui.js";
+import { Toasts, escapeHtml, safeUrl } from "/ui.js";
 
-// Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
-  localStorage.removeItem("runCount");
-  let MAX_RUNS = 0;
-  let runCount = parseInt(localStorage.getItem("runCount") || "0");
-  const counterEl = document.getElementById("counter");
-  // Cập nhật giao diện ban đầu
-  updateCounter(counterEl, runCount, MAX_RUNS);
+  const fileInput = document.getElementById("fileInput");
+  const dropZone = document.getElementById("dropZone");
+  const fileName = document.getElementById("fileName");
+  const searchButton = document.getElementById("searchButton");
+  const downloadCSVButton = document.getElementById("downloadCSVButton");
+  const progressContainer = document.getElementById("progressContainer");
+  const progressBar = document.getElementById("progressBar");
+  const progressText = document.getElementById("progressText");
+  const counter = document.getElementById("counter");
+  const statusText = document.getElementById("statusText");
+  const resultsSection = document.getElementById("resultsSection");
+  const resultsBody = document.getElementById("resultsBody");
+  const resultsCount = document.getElementById("resultsCount");
 
-  document
-    .getElementById("searchButton")
-    .addEventListener("click", async () => {
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput.files.length === 0) {
-        Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
-        return;
+  let isRunning = false;
+  let allResults = [];
+
+  // Drag & drop
+  if (dropZone) {
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const f = e.dataTransfer.files[0];
+      if (f) {
+        fileInput.files = e.dataTransfer.files;
+        fileName.textContent = f.name;
+      }
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files && fileInput.files[0];
+      fileName.textContent = f ? f.name : "Chưa chọn file";
+    });
+  }
+
+  function setProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (progressBar) progressBar.style.width = pct + "%";
+    if (progressBar) progressBar.setAttribute("aria-valuenow", pct);
+    if (progressText) progressText.textContent = pct + "%";
+    if (counter) counter.textContent = `${done}/${total}`;
+  }
+
+  function appendResultRow(result) {
+    if (!resultsBody) return;
+    if (resultsSection && resultsSection.classList.contains("hidden")) {
+      resultsSection.classList.remove("hidden");
+    }
+
+    const tr = document.createElement("tr");
+    const linksHtml = (result.matchedLinks || []).map((url) =>
+      `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all;font-size:0.72rem;display:block">${escapeHtml(url)}</a>`
+    ).join("") || "-";
+
+    tr.innerHTML = `
+      <td>${escapeHtml(String(result.order))}</td>
+      <td>${escapeHtml(result.hotelNo || "")}</td>
+      <td>${escapeHtml(result.hotelName || "")}</td>
+      <td style="font-size:0.78rem">${escapeHtml(result.hotelAddress || "")}</td>
+      <td style="font-size:0.68rem">${linksHtml}</td>
+    `;
+    resultsBody.appendChild(tr);
+    if (resultsCount) resultsCount.textContent = resultsBody.querySelectorAll("tr").length;
+  }
+
+  searchButton.addEventListener("click", async () => {
+    if (isRunning) return;
+    if (!fileInput.files.length) {
+      Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
+      return;
+    }
+
+    isRunning = true;
+    searchButton.disabled = true;
+    allResults = [];
+    if (resultsBody) resultsBody.innerHTML = "";
+    if (resultsSection) resultsSection.classList.add("hidden");
+    if (downloadCSVButton) downloadCSVButton.classList.add("hidden");
+    if (progressContainer) progressContainer.classList.remove("hidden");
+    if (statusText) statusText.textContent = "Đang đọc file...";
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      jsonData = jsonData.filter((row) =>
+        row.some((cell) => cell !== undefined && cell !== null && cell !== "")
+      );
+      jsonData.shift();
+
+      const total = jsonData.length;
+      let done = 0;
+      let order = 1;
+
+      if (statusText) statusText.textContent = `Đang tìm kiếm 0/${total}...`;
+
+      for (const row of jsonData) {
+        const [hotelNo, hotelNameRaw, hotelAddress, hotelUrlType] = row;
+        let hotelName = hotelNameRaw;
+        if (!hotelName || !hotelAddress) {
+          done++;
+          setProgress(done, total);
+          continue;
+        }
+
+        hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
+        const hotelNameArray = hotelName
+          .split(" ")
+          .map((part) => part.replace(",", "").replace("(", "").replace(")", "").toLowerCase());
+
+        const query = hotelUrlType === "CTrip SuperAgg"
+          ? `${hotelName} ${hotelAddress} trip`
+          : `${hotelName} ${hotelAddress}`;
+
+        const searchURL = `/searchApiGo?q=${encodeURIComponent(query)}`;
+        let matchedLink = [];
+
+        try {
+          const response = await axios.get(searchURL);
+          const resultData = response.data;
+          const resultsFromGoogle = resultData.items;
+
+          if (resultsFromGoogle && resultsFromGoogle.length > 0) {
+            let resultsArray = [];
+            for (const result of resultsFromGoogle) {
+              const pageTitle = result.title.toLowerCase();
+              const pageUrl = result.link;
+              const match = isHotelNameInPage(hotelNameArray, pageTitle);
+              if (match.status) {
+                resultsArray.push({ percentage: match.percentage, matchedLink: pageUrl });
+              }
+            }
+
+            const maxPct = resultsArray.reduce((max, item) => item.percentage > max.percentage ? item : max, { percentage: -Infinity });
+
+            resultsArray = resultsArray
+              .filter((r) => r.percentage === maxPct.percentage && !r.matchedLink.includes("tripadvisor") && !r.matchedLink.includes("makemytrip"))
+              .sort((a, b) => getPriority(a.matchedLink) - getPriority(b.matchedLink));
+
+            matchedLink = resultsArray.map((r) => r.matchedLink);
+          }
+        } catch (error) {
+          console.error("Search error:", error);
+        }
+
+        const result = { order: order++, hotelNo, hotelName, hotelAddress, matchedLinks: [...matchedLink] };
+        allResults.push(result);
+        appendResultRow(result);
+
+        done++;
+        setProgress(done, total);
+        if (statusText) statusText.textContent = `Đang tìm kiếm ${done}/${total}...`;
       }
 
-      const file = fileInput.files[0];
-      const reader = new FileReader();
+      if (statusText) statusText.textContent = `Hoàn thành! ${allResults.length} kết quả.`;
+      if (allResults.length > 0) {
+        downloadCSVButton.classList.remove("hidden");
+        Toasts.show(`Tìm kiếm hoàn tất: ${allResults.length} kết quả`, { type: "success", title: "Hoàn thành" });
+      } else {
+        Toasts.show("Không tìm thấy kết quả nào khớp.", { type: "info", title: "Không có kết quả" });
+      }
 
-      // const subscriptionKey = document.getElementById("subscriptionKey").value;
-      // const subscriptionKey = document.getElementById("subscriptionKey").value;
+      isRunning = false;
+      searchButton.disabled = false;
+    };
 
-      // Cập nhật endpoint cho Brave Search API
-      // const endpoint = "http://127.0.0.1:8080/search";
-      // const endpoint = "https://searxng-production-3523.up.railway.app/search";
-      const _endpoint = "/api/search";
+    reader.readAsArrayBuffer(file);
+  });
 
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        jsonData = jsonData.filter((row) =>
-          row.some((cell) => cell !== undefined && cell !== null && cell !== "")
-        );
-        jsonData.shift();
-        console.log(jsonData.length);
-        const results = [];
-        let order = 1;
-        let currentIndex = 0;
-        MAX_RUNS = jsonData.length;
+  if (downloadCSVButton) {
+    downloadCSVButton.addEventListener("click", () => downloadCSV(allResults));
+  }
 
-        updateCounter(counterEl, runCount, MAX_RUNS);
-        for (const row of jsonData) {
-          // await new Promise((resolve) => setTimeout(resolve, 10000)); // Delay 15s mỗi lần
-          const [hotelNo, hotelNameRaw, hotelAddress, hotelUrlType] = row;
-          let hotelName = hotelNameRaw;
-          if (!hotelName || !hotelAddress) continue;
+  function downloadCSV(results) {
+    if (!results.length) return;
+    const maxLinks = Math.max(...results.map((r) => r.matchedLinks.length));
+    const header = "Order,No,Hotel Name,Hotel Address," +
+      Array.from({ length: maxLinks }, (_, i) => `Matched Link ${i + 1}`).join(",") + "\n";
 
-          hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
-          const hotelNameArray = hotelName
-            .split(" ")
-            .map((part) =>
-              part
-                .replace(",", "")
-                .replace("(", "")
-                .replace(")", "")
-                .toLowerCase()
-            );
-          let query = "";
-          if (hotelUrlType === "CTrip SuperAgg") {
-            query = `${hotelName} ${hotelAddress} trip`; // Điều kiện tìm kiếm
-          } else {
-            query = `${hotelName} ${hotelAddress}`; // Điều kiện tìm kiếm
-          }
-          console.log(query);
+    const csvContent = header + results.map((r) => {
+      const links = r.matchedLinks.map((l) => `"${l}"`);
+      while (links.length < maxLinks) links.push('""');
+      return `"${r.order}","${r.hotelNo}","${r.hotelName}","${r.hotelAddress}",${links.join(",")}`;
+    }).join("\n");
 
-          let searchURL;
-
-          if (window.location.hostname === "localhost") {
-            searchURL = `http://localhost:3000/searchApiGo?q=${encodeURIComponent(
-              query
-            )}`;
-          } else {
-            searchURL = `/searchApiGo?q=${encodeURIComponent(query)}`;
-          }
-
-          let matchedLink = [];
-
-          try {
-            // Thay thế axios bằng fetch và sử dụng Brave API
-            const response = await axios.get(searchURL);
-
-            const data = response.data;
-            console.log(data);
-
-            // Nếu không có lỗi và có data:
-            runCount++;
-            localStorage.setItem("runCount", runCount);
-            updateCounter(counterEl, runCount, MAX_RUNS);
-
-            // Lấy kết quả từ Brave Search API
-            const resultsFromBrave = data.items;
-
-            if (resultsFromBrave && resultsFromBrave.length > 0) {
-              let resultsFromBraveArray = [];
-              for (const result of resultsFromBrave) {
-                const pageTitle = result.title.toLowerCase();
-                const pageUrl = result.link;
-                const isMatch = isHotelNameInPage(hotelNameArray, pageTitle);
-
-                if (isMatch.status) {
-                  resultsFromBraveArray.push({
-                    percentage: isMatch.percentage,
-                    matchedLink: pageUrl,
-                  });
-                }
-              }
-
-              const maxPercentageResult = resultsFromBraveArray.reduce(
-                (max, item) => {
-                  return item.percentage > max.percentage ? item : max;
-                },
-                { percentage: -Infinity }
-              );
-
-              // resultsFromBingArray = resultsFromBingArray
-              //   .filter(
-              //     (row) =>
-              //       row.percentage == maxPercentageResult.percentage &&
-              //       !row.matchedLink.includes("tripadvisor")
-              //   )
-              //   .sort((a, b) => {
-              //     if (
-              //       a.matchedLink.includes("agoda") &&
-              //       !b.matchedLink.includes("agoda")
-              //     )
-              //       return -1; // Ưu tiên link a
-              //     if (
-              //       !a.matchedLink.includes("agoda") &&
-              //       b.matchedLink.includes("agoda")
-              //     )
-              //       return 1; // Ưu tiên link b
-              //     return 0; // Giữ nguyên thứ tự link
-              //   });
-
-              resultsFromBraveArray = resultsFromBraveArray
-                .filter(
-                  (row) =>
-                    row.percentage === maxPercentageResult.percentage &&
-                    !row.matchedLink.includes("tripadvisor") &&
-                    !row.matchedLink.includes("makemytrip")
-                )
-                .sort((a, b) => {
-                  const getPriority = (link) => {
-                    if (link.includes("trip")) return 1; // Trip ưu tiên thứ 3
-                    if (link.includes("agoda")) return 2; // Agoda ưu tiên cao nhất
-                    if (link.includes("booking")) return 3; // Booking ưu tiên thứ 2
-                    if (link.includes("hotels")) return 4; // Hotels ưu tiên thứ 3
-                    if (link.includes("hotel")) return 5; // Hotel ưu tiên thứ 3
-                    if (link.includes("trivago")) return 6; // Trivago ưu tiên thứ 3
-                    if (link.includes("expedia")) return 7; // Expedia ưu tiên thứ 3
-                    if (link.includes("zenhotels")) return 8; // Expedia ưu tiên thứ 3
-                    if (link.includes("skyscanner")) return 9; // Expedia ưu tiên thứ 3
-                    if (link.includes("airpaz")) return 10; // Expedia ưu tiên thứ 3
-                    if (link.includes("readytotrip")) return 11; // Expedia ưu tiên thứ 3
-                    if (link.includes("lodging-world")) return 12; // Expedia ưu tiên thứ 3
-                    if (link.includes("yatra")) return 13; // Expedia ưu tiên thứ 3
-                    if (link.includes("rentbyowner")) return 14; // Expedia ưu tiên thứ 3
-                    if (link.includes("goibibo")) return 15; // Expedia ưu tiên thứ 3
-                    if (link.includes("laterooms")) return 16; // Expedia ưu tiên thứ 3
-                    if (link.includes("tiket")) return 17; // Expedia ưu tiên thứ 3
-                    return 18; // Các trang khác ưu tiên thấp hơn
-                  };
-
-                  return (
-                    getPriority(a.matchedLink) - getPriority(b.matchedLink)
-                  );
-                });
-
-              matchedLink = resultsFromBraveArray.map(
-                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
-              );
-            }
-          } catch (error) {
-            console.log("Lỗi khi tìm kiếm:", error);
-          }
-
-          results.push({
-            order: order++,
-            hotelNo,
-            hotelName,
-            hotelAddress,
-            matchedLinks: [...matchedLink],
-          });
-          currentIndex++;
-          console.log("Dong thu:", currentIndex, "hoan thanh.");
-        }
-
-        if (results.length > 0) {
-          setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
-        } else {
-          Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
-        }
-      };
-
-      reader.readAsArrayBuffer(file);
-    });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "google_hotel_search_results.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    Toasts.show("Đã tải file CSV", { type: "success", title: "Tải xuống" });
+  }
 });
 
-function updateCounter(counterEl, runCount, MAX_RUNS) {
-  if (counterEl) {
-    counterEl.textContent = `${runCount}/${MAX_RUNS} lượt tìm kiếm đã chạy`;
-  }
-}
-
-// Thêm nút tải xuống CSV sau khi có dữ liệu
-function setupDownloadButton(results) {
-  const downloadButton = document.getElementById("downloadCSVButton");
-  downloadButton.style.display = "block"; // Hiển thị nút
-  downloadButton.onclick = () => downloadCSV(results); // Khi nhấn mới tải
-}
-// Hàm xuất ra file CSV
-function downloadCSV(results) {
-  const maxMatchedLinks = Math.max(
-    ...results.map((row) => row.matchedLinks.length)
-  );
-
-  const header =
-    "Order,No, Type, Hotel Name,Hotel Address," +
-    Array.from(
-      { length: maxMatchedLinks },
-      (_, i) => `Matched Link ${i + 1}`
-    ).join(",") +
-    "\n";
-
-  const csvContent =
-    header +
-    results
-      .map((row) => {
-        const links = row.matchedLinks.map((link) => `"${link}"`);
-        while (links.length < maxMatchedLinks) {
-          links.push('""');
-        }
-        return `"${row.order}","${row.hotelNo}", Child,"${row.hotelName}","${
-          row.hotelAddress
-        }",${links.join(",")}`;
-      })
-      .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "hotel_search_results.csv";
-  link.style.display = "none";
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Hàm kiểm tra tên khách sạn có nằm trong tiêu đề trang hay không
 function isHotelNameInPage(hotelNameArray, pageTitle) {
   let matchCount = 0;
-
-  for (let i = 0; i < hotelNameArray.length; i++) {
-    const part = hotelNameArray[i];
-    if (pageTitle.includes(part)) {
-      matchCount++;
-    }
+  for (const part of hotelNameArray) {
+    if (pageTitle.includes(part)) matchCount++;
   }
-
-  const matchPercentage = (matchCount / hotelNameArray.length) * 100;
-
-  return {
-    status: true,
-    percentage: matchPercentage,
-  };
+  return { status: true, percentage: (matchCount / hotelNameArray.length) * 100 };
 }
 
-// Cấu hình các trang và các nút liên quan
-const pages = {
-  SEARCHGO: ["SEARCHTAVILY"],
-};
-
-// Hàm thay đổi nội dung và hiển thị nút
-function switchPage(page) {
-  // Cập nhật tiêu đề trang
-  document.querySelector("h1").textContent = `Chức năng ${page}`;
-
-  // Ẩn tất cả các trang
-  document.querySelectorAll(".page").forEach((p) => (p.style.display = "none"));
-
-  // Hiển thị trang hiện tại
-  document.getElementById(`page${page}`).style.display = "block";
-
-  // Cập nhật các nút chức năng
-  const buttonContainer = document.querySelector(".button-container");
-  buttonContainer.innerHTML = ""; // Xóa các nút hiện tại
-  pages[page].forEach((p) => {
-    const a = document.createElement("a");
-    a.href = p;
-    const button = document.createElement("button");
-    button.textContent = `Chức năng ${p}`;
-    button.onclick = () => switchPage(p);
-    a.appendChild(button);
-    buttonContainer.appendChild(a);
-  });
+function getPriority(link) {
+  if (link.includes("agoda")) return 1;
+  if (link.includes("booking")) return 2;
+  if (link.includes("trip")) return 3;
+  if (link.includes("hotels")) return 4;
+  if (link.includes("hotel")) return 5;
+  if (link.includes("trivago")) return 6;
+  if (link.includes("expedia")) return 7;
+  if (link.includes("zenhotels")) return 8;
+  if (link.includes("skyscanner")) return 9;
+  return 10;
 }
-
-// Khởi tạo mặc định là trang A
-switchPage("SEARCHGO");

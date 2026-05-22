@@ -1,266 +1,218 @@
 /* global Toasts */
-// Đảm bảo rằng script chỉ chạy khi DOM đã tải xong
 document.addEventListener("DOMContentLoaded", function () {
-  document
-    .getElementById("searchButton")
-    .addEventListener("click", async () => {
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput.files.length === 0) {
-        if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
-        return;
+  const fileInput = document.getElementById("fileInput");
+  const dropZone = document.getElementById("dropZone");
+  const fileName = document.getElementById("fileName");
+  const searchButton = document.getElementById("searchButton");
+  const downloadCSVButton = document.getElementById("downloadCSVButton");
+  const progressContainer = document.getElementById("progressContainer");
+  const progressBar = document.getElementById("progressBar");
+  const progressText = document.getElementById("progressText");
+  const counter = document.getElementById("counter");
+  const statusText = document.getElementById("statusText");
+  const resultsSection = document.getElementById("resultsSection");
+  const resultsBody = document.getElementById("resultsBody");
+  const resultsCount = document.getElementById("resultsCount");
+  const subscriptionKeyInput = document.getElementById("subscriptionKey");
+
+  let isRunning = false;
+  let allResults = [];
+
+  // Drag & drop
+  if (dropZone) {
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const f = e.dataTransfer.files[0];
+      if (f) {
+        fileInput.files = e.dataTransfer.files;
+        fileName.textContent = f.name;
       }
-
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-
-      // const subscriptionKey = document.getElementById("subscriptionKey").value;
-      const subscriptionKey = document.getElementById("subscriptionKey").value;
-
-      // Cập nhật endpoint cho Brave Search API
-      const endpoint = "https://api.search.brave.com/res/v1/web/search";
-
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        jsonData = jsonData.filter((row) =>
-          row.some((cell) => cell !== undefined && cell !== null && cell !== "")
-        );
-        jsonData.shift();
-        console.log(jsonData.length);
-        const results = [];
-        let order = 1;
-        let currentIndex = 0;
-        for (const row of jsonData) {
-          const [hotelNo, hotelNameRaw, hotelCountry, hotelCity] = row;
-          let hotelName = hotelNameRaw;
-          if (!hotelName || !hotelCountry || !hotelCity) continue;
-
-          hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
-          const hotelNameArray = hotelName
-            .split(" ")
-            .map((part) =>
-              part
-                .replace(",", "")
-                .replace("(", "")
-                .replace(")", "")
-                .toLowerCase()
-            );
-
-          const query = `${hotelName} ${hotelCountry} ${hotelCity}`; // Điều kiện tìm kiếm
-          const searchURL = `${endpoint}?q=${encodeURIComponent(
-            query
-          )}&textDecorations=true&textFormat=HTML`;
-
-          let matchedLink = [];
-
-          try {
-            // Thay thế axios bằng fetch và sử dụng Brave API
-            const response = await fetch(searchURL, {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
-                "Accept-Encoding": "gzip",
-                "X-Subscription-Token": subscriptionKey, // Sử dụng Bearer token cho Brave API,
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                "Access-Control-Allow-Credentials": true,
-              },
-            });
-            // console.log(response);
-
-            const data = await response.json();
-            // console.log(data);
-
-            // Lấy kết quả từ Brave Search API
-            const resultsFromBrave = data.web.results;
-
-            if (resultsFromBrave && resultsFromBrave.length > 0) {
-              let resultsFromBraveArray = [];
-              for (const result of resultsFromBrave) {
-                const pageTitle = result.title.toLowerCase();
-                const pageUrl = result.url;
-                const isMatch = isHotelNameInPage(hotelNameArray, pageTitle);
-
-                if (isMatch.status) {
-                  resultsFromBraveArray.push({
-                    percentage: isMatch.percentage,
-                    matchedLink: pageUrl,
-                  });
-                }
-              }
-
-              const maxPercentageResult = resultsFromBraveArray.reduce(
-                (max, item) => {
-                  return item.percentage > max.percentage ? item : max;
-                },
-                { percentage: -Infinity }
-              );
-
-              // resultsFromBingArray = resultsFromBingArray
-              //   .filter(
-              //     (row) =>
-              //       row.percentage == maxPercentageResult.percentage &&
-              //       !row.matchedLink.includes("tripadvisor")
-              //   )
-              //   .sort((a, b) => {
-              //     if (
-              //       a.matchedLink.includes("agoda") &&
-              //       !b.matchedLink.includes("agoda")
-              //     )
-              //       return -1; // Ưu tiên link a
-              //     if (
-              //       !a.matchedLink.includes("agoda") &&
-              //       b.matchedLink.includes("agoda")
-              //     )
-              //       return 1; // Ưu tiên link b
-              //     return 0; // Giữ nguyên thứ tự link
-              //   });
-
-              resultsFromBraveArray = resultsFromBraveArray
-                .filter(
-                  (row) =>
-                    row.percentage === maxPercentageResult.percentage &&
-                    !row.matchedLink.includes("tripadvisor")
-                )
-                .sort((a, b) => {
-                  const getPriority = (link) => {
-                    if (link.includes("agoda")) return 1; // Agoda ưu tiên cao nhất
-                    if (link.includes("booking")) return 2; // Booking ưu tiên thứ 2
-                    return 3; // Các trang khác ưu tiên thấp hơn
-                  };
-
-                  return (
-                    getPriority(a.matchedLink) - getPriority(b.matchedLink)
-                  );
-                });
-
-              matchedLink = resultsFromBraveArray.map(
-                ({ percentage: _percentage, ...rest }) => rest["matchedLink"]
-              );
-            }
-          } catch (error) {
-            console.log("Lỗi khi tìm kiếm:", error);
-          }
-
-          results.push({
-            order: order++,
-            hotelNo,
-            hotelName,
-            hotelCountry,
-            hotelCity,
-            matchedLinks: [...matchedLink],
-          });
-          currentIndex++;
-          console.log("Dong thu:", currentIndex);
-        }
-
-        if (results.length > 0) {
-          setupDownloadButton(results); // Hiển thị nút tải khi có kết quả
-        } else {
-          if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp với tên khách sạn.", { type: "info", title: "Không có kết quả" });
-        }
-      };
-
-      reader.readAsArrayBuffer(file);
     });
-});
-
-// Thêm nút tải xuống CSV sau khi có dữ liệu
-function setupDownloadButton(results) {
-  const downloadButton = document.getElementById("downloadCSVButton");
-  downloadButton.style.display = "block"; // Hiển thị nút
-  downloadButton.onclick = () => downloadCSV(results); // Khi nhấn mới tải
-}
-// Hàm xuất ra file CSV
-function downloadCSV(results) {
-  const maxMatchedLinks = Math.max(
-    ...results.map((row) => row.matchedLinks.length)
-  );
-
-  const header =
-    "Order, No, Type, Hotel Name, Hotel Country, Hotel City" +
-    Array.from(
-      { length: maxMatchedLinks },
-      (_, i) => `Matched Link ${i + 1}`
-    ).join(",") +
-    "\n";
-
-  const csvContent =
-    header +
-    results
-      .map((row) => {
-        const links = row.matchedLinks.map((link) => `"${link}"`);
-        while (links.length < maxMatchedLinks) links.push('""');
-        return `"${row.order}","${row.hotelNo}", Child,"${
-          row.hotelName
-        }","${row.hotelCountry}","${row.hotelCity}",${links.join(",")}`;
-      })
-      .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "hotel_search_results.csv";
-  link.style.display = "none";
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Hàm kiểm tra tên khách sạn có nằm trong tiêu đề trang hay không
-function isHotelNameInPage(hotelNameArray, pageTitle) {
-  let matchCount = 0;
-
-  for (let i = 0; i < hotelNameArray.length; i++) {
-    const part = hotelNameArray[i];
-    if (pageTitle.includes(part)) {
-      matchCount++;
-    }
   }
 
-  const matchPercentage = (matchCount / hotelNameArray.length) * 100;
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files && fileInput.files[0];
+      fileName.textContent = f ? f.name : "Chưa chọn file";
+    });
+  }
 
-  return {
-    status: true,
-    percentage: matchPercentage,
-  };
-}
+  function setProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (progressBar) progressBar.style.width = pct + "%";
+    if (progressBar) progressBar.setAttribute("aria-valuenow", pct);
+    if (progressText) progressText.textContent = pct + "%";
+    if (counter) counter.textContent = `${done}/${total}`;
+  }
 
-// Cấu hình các trang và các nút liên quan
-const pages = {
-  AZURE_CHILD: ["AZURE_MASTER"],
-  AZURE_MASTER: ["AZURE_CHILD"],
-};
+  function appendResultRow(result) {
+    if (!resultsBody) return;
+    if (resultsSection && resultsSection.classList.contains("hidden")) {
+      resultsSection.classList.remove("hidden");
+    }
+    const tr = document.createElement("tr");
+    const linksHtml = (result.matchedLinks || []).map((url) => {
+      if (!url || !/^https?:\/\//i.test(url)) return "";
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all;font-size:0.72rem;display:block">${url.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</a>`;
+    }).join("") || "-";
+    tr.innerHTML = `<td>${result.order}</td><td>${result.hotelNo || ""}</td><td>${(result.hotelName || "").replace(/</g,"&lt;")}</td><td>${(result.hotelCountry || "").replace(/</g,"&lt;")}</td><td>${(result.hotelCity || "").replace(/</g,"&lt;")}</td><td style="font-size:0.68rem">${linksHtml}</td>`;
+    resultsBody.appendChild(tr);
+    if (resultsCount) resultsCount.textContent = resultsBody.querySelectorAll("tr").length;
+  }
 
-// Hàm thay đổi nội dung và hiển thị nút
-function switchPage(page) {
-  // Cập nhật tiêu đề trang
-  document.querySelector("h1").textContent = `Chức năng ${page}`;
+  searchButton.addEventListener("click", async () => {
+    if (isRunning) return;
+    const subscriptionKey = subscriptionKeyInput.value.trim();
+    if (!subscriptionKey) {
+      if (typeof Toasts !== "undefined") Toasts.show("Vui lòng nhập Brave API Key!", { type: "warning", title: "Thiếu API Key" });
+      return;
+    }
+    if (!fileInput.files.length) {
+      if (typeof Toasts !== "undefined") Toasts.show("Vui lòng chọn một file Excel!", { type: "warning", title: "Thiếu file" });
+      return;
+    }
 
-  // Ẩn tất cả các trang
-  document.querySelectorAll(".page").forEach((p) => (p.style.display = "none"));
+    isRunning = true;
+    searchButton.disabled = true;
+    allResults = [];
+    if (resultsBody) resultsBody.innerHTML = "";
+    if (resultsSection) resultsSection.classList.add("hidden");
+    if (downloadCSVButton) downloadCSVButton.classList.add("hidden");
+    if (progressContainer) progressContainer.classList.remove("hidden");
+    if (statusText) statusText.textContent = "Đang đọc file...";
 
-  // Hiển thị trang hiện tại
-  document.getElementById(`page${page}`).style.display = "block";
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    const endpoint = "https://api.search.brave.com/res/v1/web/search";
 
-  // Cập nhật các nút chức năng
-  const buttonContainer = document.querySelector(".button-container");
-  buttonContainer.innerHTML = ""; // Xóa các nút hiện tại
-  pages[page].forEach((p) => {
-    const a = document.createElement("a");
-    a.href = p;
-    const button = document.createElement("button");
-    button.textContent = `Chức năng ${p}`;
-    button.onclick = () => switchPage(p);
-    a.appendChild(button);
-    buttonContainer.appendChild(a);
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      jsonData = jsonData.filter((row) =>
+        row.some((cell) => cell !== undefined && cell !== null && cell !== "")
+      );
+      jsonData.shift();
+
+      const total = jsonData.length;
+      let done = 0;
+      let order = 1;
+
+      if (statusText) statusText.textContent = `Đang tìm kiếm 0/${total}...`;
+
+      for (const row of jsonData) {
+        const [hotelNo, hotelNameRaw, hotelCountry, hotelCity] = row;
+        let hotelName = hotelNameRaw;
+        if (!hotelName || !hotelCountry || !hotelCity) {
+          done++;
+          setProgress(done, total);
+          continue;
+        }
+
+        hotelName = hotelName.replace(/[^\x00-\x7F]/g, "");
+        const hotelNameArray = hotelName.split(" ").map((p) => p.replace(/[(),]/g, "").toLowerCase());
+        const query = `${hotelName} ${hotelCountry} ${hotelCity}`;
+        const searchURL = `${endpoint}?q=${encodeURIComponent(query)}&textDecorations=true&textFormat=HTML`;
+
+        let matchedLink = [];
+
+        try {
+          const response = await fetch(searchURL, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Accept-Encoding": "gzip",
+              "X-Subscription-Token": subscriptionKey,
+            },
+          });
+          const data = await response.json();
+          const resultsFromBrave = data.web.results;
+
+          if (resultsFromBrave && resultsFromBrave.length > 0) {
+            let resultsArray = [];
+            for (const result of resultsFromBrave) {
+              const pageTitle = result.title.toLowerCase();
+              const pageUrl = result.url;
+              const match = isHotelNameInPage(hotelNameArray, pageTitle);
+              if (match.status) {
+                resultsArray.push({ percentage: match.percentage, matchedLink: pageUrl });
+              }
+            }
+
+            const maxPct = resultsArray.reduce((max, item) => item.percentage > max.percentage ? item : max, { percentage: -Infinity });
+
+            resultsArray = resultsArray
+              .filter((r) => r.percentage === maxPct.percentage && !r.matchedLink.includes("tripadvisor"))
+              .sort((a, b) => getPriority(a.matchedLink) - getPriority(b.matchedLink));
+
+            matchedLink = resultsArray.map((r) => r.matchedLink);
+          }
+        } catch (error) {
+          console.error("Search error:", error);
+        }
+
+        const result = { order: order++, hotelNo, hotelName, hotelCountry, hotelCity, matchedLinks: [...matchedLink] };
+        allResults.push(result);
+        appendResultRow(result);
+
+        done++;
+        setProgress(done, total);
+        if (statusText) statusText.textContent = `Đang tìm kiếm ${done}/${total}...`;
+      }
+
+      if (statusText) statusText.textContent = `Hoàn thành! ${allResults.length} kết quả.`;
+      if (allResults.length > 0) {
+        downloadCSVButton.classList.remove("hidden");
+        if (typeof Toasts !== "undefined") Toasts.show(`Tìm kiếm hoàn tất: ${allResults.length} kết quả`, { type: "success", title: "Hoàn thành" });
+      } else {
+        if (typeof Toasts !== "undefined") Toasts.show("Không tìm thấy kết quả nào khớp.", { type: "info", title: "Không có kết quả" });
+      }
+
+      isRunning = false;
+      searchButton.disabled = false;
+    };
+
+    reader.readAsArrayBuffer(file);
   });
+
+  if (downloadCSVButton) {
+    downloadCSVButton.addEventListener("click", () => {
+      if (!allResults.length) return;
+      const maxLinks = Math.max(...allResults.map((r) => r.matchedLinks.length));
+      const header = "Order,No,Hotel Name,Country,City," + Array.from({ length: maxLinks }, (_, i) => `Matched Link ${i + 1}`).join(",") + "\n";
+      const csvContent = header + allResults.map((r) => {
+        const links = r.matchedLinks.map((l) => `"${l}"`);
+        while (links.length < maxLinks) links.push('""');
+        return `"${r.order}","${r.hotelNo}","${r.hotelName}","${r.hotelCountry}","${r.hotelCity}",${links.join(",")}`;
+      }).join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "brave_hotel_search_results.csv";
+      link.click();
+      URL.revokeObjectURL(link.href);
+      if (typeof Toasts !== "undefined") Toasts.show("Đã tải file CSV", { type: "success", title: "Tải xuống" });
+    });
+  }
+});
+
+function isHotelNameInPage(hotelNameArray, pageTitle) {
+  let matchCount = 0;
+  for (const part of hotelNameArray) {
+    if (pageTitle.includes(part)) matchCount++;
+  }
+  return { status: true, percentage: (matchCount / hotelNameArray.length) * 100 };
 }
 
-// Khởi tạo mặc định là trang A
-switchPage("AZURE_MASTER");
+function getPriority(link) {
+  if (link.includes("agoda")) return 1;
+  if (link.includes("booking")) return 2;
+  return 3;
+}
