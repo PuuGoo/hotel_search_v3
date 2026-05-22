@@ -3303,7 +3303,37 @@ window.addEventListener("load", () => {
     });
   }
 
-
+  // ---- Auto-save on browser close/refresh ----
+  window.addEventListener("beforeunload", () => {
+    try {
+      const results = window.currentResults;
+      if (!Array.isArray(results) || results.length === 0) return;
+      const snapshots = JSON.parse(localStorage.getItem("tavily_snapshots") || "[]");
+      // Don't save duplicate if last snapshot has same result count
+      const lastSnap = snapshots[0];
+      if (lastSnap && lastSnap.results && lastSnap.results.length === results.length) return;
+      const snap = {
+        id: Date.now().toString(36),
+        label: "Auto-save",
+        ts: Date.now(),
+        results: results.slice(),
+        runCount: parseInt(localStorage.getItem("runCount") || "0"),
+        maxRuns: 0,
+      };
+      snapshots.unshift(snap);
+      // Keep max 10 auto-saves (prune oldest auto-saves)
+      const autoSaves = snapshots.filter(s => s.label === "Auto-save");
+      if (autoSaves.length > 10) {
+        const toRemove = new Set(autoSaves.slice(10).map(s => s.id));
+        const pruned = snapshots.filter(s => !toRemove.has(s.id));
+        localStorage.setItem("tavily_snapshots", JSON.stringify(pruned));
+      } else {
+        localStorage.setItem("tavily_snapshots", JSON.stringify(snapshots));
+      }
+    } catch (e) {
+      console.warn("Auto-save failed:", e);
+    }
+  });
 
 });
 
