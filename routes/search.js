@@ -6,6 +6,7 @@ import { tavily } from "@tavily/core";
 import { checkAuthenticated, checkFeature } from "../middleware/auth.js";
 import { validateSearchQuery } from "../middleware/validation.js";
 import { rateLimitSearch } from "../middleware/rateLimit.js";
+import { CircuitBreaker } from "../utils/circuitBreaker.js";
 import config from "../utils/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -119,6 +120,11 @@ const router = Router();
  *       500:
  *         description: Search failed
  */
+
+// ---- Circuit breakers for external APIs ----
+const tavilyBreaker = new CircuitBreaker({ failureThreshold: 5, resetTimeout: 60000 });
+const googleBreaker = new CircuitBreaker({ failureThreshold: 5, resetTimeout: 60000 });
+const ddgBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 30000 });
 
 // ---- Tavily API key rotation ----
 const apiTavilyKeys = [
@@ -276,11 +282,12 @@ router.get("/searchGo", checkAuthenticated, (req, res) => {
 router.get("/searchApiGo", checkAuthenticated, rateLimitSearch, validateSearchQuery, async (req, res) => {
   const query = req.query.q;
   try {
-    const result = await searchWithRetryGo(query);
+    const result = await googleBreaker.execute(() => searchWithRetryGo(query));
     res.json(result);
   } catch (error) {
     console.error("Google error:", error.message);
-    res.status(500).json({ error: "Search Failed" });
+    const status = error.message.includes("Circuit breaker is open") ? 503 : 500;
+    res.status(status).json({ error: status === 503 ? "Service temporarily unavailable" : "Search Failed" });
   }
 });
 
@@ -293,11 +300,12 @@ router.get("/searchTavily", checkAuthenticated, (req, res) => {
 router.get("/searchApiTavily", checkAuthenticated, checkFeature("tavily"), rateLimitSearch, validateSearchQuery, async (req, res) => {
   const query = req.query.q;
   try {
-    const result = await searchWithRetry(query);
+    const result = await tavilyBreaker.execute(() => searchWithRetry(query));
     res.json(result);
   } catch (error) {
     console.error("Tavily error:", error.message);
-    res.status(500).json({ error: "Search Failed" });
+    const status = error.message.includes("Circuit breaker is open") ? 503 : 500;
+    res.status(status).json({ error: status === 503 ? "Service temporarily unavailable" : "Search Failed" });
   }
 });
 
@@ -312,12 +320,12 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
       await startDdgServer();
     }
 
-    const resp = await fetch(`${DDG_SERVER_URL}/search`, {
+    const resp = await ddgBreaker.execute(() => fetch(`${DDG_SERVER_URL}/search`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, hotel_name: hotelName, hotel_address: hotelAddress }),
       signal: AbortSignal.timeout(120000),
-    });
+    }));
 
     if (!resp.ok) {
       console.error(`DDG server returned ${resp.status}`);
@@ -328,7 +336,8 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
     return res.json({ query, results: result.results || [] });
   } catch (error) {
     console.error("DDG search error:", error.message);
-    return res.status(500).json({ error: "DuckDuckGo search error" });
+    const status = error.message.includes("Circuit breaker is open") ? 503 : 500;
+    return res.status(status).json({ error: status === 503 ? "Service temporarily unavailable" : "DuckDuckGo search error" });
   }
 });
 
