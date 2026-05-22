@@ -252,6 +252,8 @@ function getResultDetailElements() {
       ddgStopButton.classList.add("hidden");
       ddgStopAllButton.classList.add("hidden");
       if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
     });
   }
 
@@ -267,6 +269,8 @@ function getResultDetailElements() {
       ddgStopAllButton.classList.add("hidden");
       ddgResumeButton.classList.add("hidden");
       if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
     });
   }
 
@@ -279,6 +283,14 @@ function getResultDetailElements() {
 
   if (ddgDownloadButton) {
     ddgDownloadButton.addEventListener("click", () => triggerDdgDownload());
+  }
+  const ddgDownloadJSONButton = document.getElementById("ddgDownloadJSONButton");
+  if (ddgDownloadJSONButton) {
+    ddgDownloadJSONButton.addEventListener("click", () => triggerDdgDownloadJSON());
+  }
+  const ddgDownloadXLSXButton = document.getElementById("ddgDownloadXLSXButton");
+  if (ddgDownloadXLSXButton) {
+    ddgDownloadXLSXButton.addEventListener("click", () => triggerDdgDownloadXLSX());
   }
 
   const ddgResultsSection = document.getElementById("ddgResultsSection");
@@ -375,6 +387,60 @@ function getResultDetailElements() {
     a.click();
   }
 
+  function triggerDdgDownloadJSON() {
+    if (!ddgResults.length) return;
+    const data = ddgResults.map((r) => ({
+      order: r.order,
+      hotelNo: r.hotelNo,
+      hotelName: r.hotelName,
+      hotelAddress: r.hotelAddress,
+      percentage: r.percentage,
+      status: r.status,
+      allScores: r.allScores || "",
+      matchedLinks: (r.matchedLinks || []).map((l) => (typeof l === "string" ? { url: l } : l)),
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ddg_hotel_results.json";
+    a.click();
+  }
+
+  function triggerDdgDownloadXLSX() {
+    if (!ddgResults.length) return;
+    const headers = ["Order", "No", "Hotel Name", "Hotel Address", "Status", "Best %", "All Scores", "Best Link"];
+    const data = ddgResults.map((r) => {
+      const bestLink = (r.matchedLinks && r.matchedLinks[0]) ? r.matchedLinks[0].url : "";
+      return [r.order, r.hotelNo, r.hotelName, r.hotelAddress, r.status, r.percentage, r.allScores || "", bestLink];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws["!cols"] = headers.map((h, i) => {
+      const maxLen = Math.max(h.length, ...data.map((row) => String(row[i] || "").length));
+      return { wch: Math.min(maxLen + 2, 50) };
+    });
+
+    const matched = ddgResults.filter((r) => r.status === "Matched").length;
+    const avgPct = ddgResults.length ? (ddgResults.reduce((s, r) => s + r.percentage, 0) / ddgResults.length).toFixed(1) : 0;
+    const statsData = [
+      ["DDG Search Results Summary"],
+      [],
+      ["Metric", "Value"],
+      ["Total Hotels", ddgResults.length],
+      ["Matched", matched],
+      ["Not Matched", ddgResults.length - matched],
+      ["Match Rate", ddgResults.length ? `${((matched / ddgResults.length) * 100).toFixed(1)}%` : "N/A"],
+      ["Average Percentage", `${avgPct}%`],
+      ["Exported At", new Date().toLocaleString()],
+    ];
+    const wsStats = XLSX.utils.aoa_to_sheet(statsData);
+    wsStats["!cols"] = [{ wch: 20 }, { wch: 15 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Results");
+    XLSX.utils.book_append_sheet(wb, wsStats, "Summary");
+    XLSX.writeFile(wb, "ddg_hotel_results.xlsx");
+  }
+
   async function runDdg(startIndex) {
     ddgStopped = false;
     ddgStoppedCompletely = false;
@@ -452,6 +518,8 @@ function getResultDetailElements() {
     ddgStopButton.classList.add("hidden");
     if (ddgStopAllButton) ddgStopAllButton.classList.add("hidden");
     if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
 
     if (ddgStopped) {
       if (!ddgStoppedCompletely) {
@@ -2235,6 +2303,8 @@ document.addEventListener("DOMContentLoaded", function () {
           if (ddgResultsBody) ddgResultsBody.appendChild(tr);
         });
         if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
       }
 
       setDdgProgress(ddgNextIndex, ddgAllRows.length);
@@ -2244,6 +2314,8 @@ document.addEventListener("DOMContentLoaded", function () {
         setDdgStatus("Đã dừng hẳn (đã khôi phục)", "error");
         ddgRunButton.disabled = false;
         if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
       }
       // If not finished, auto-resume
       else if (ddgNextIndex < ddgAllRows.length) {
