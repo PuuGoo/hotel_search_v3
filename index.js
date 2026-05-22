@@ -4,6 +4,7 @@ import { dirname, join } from "path";
 import session from "express-session";
 import dotenv from "dotenv";
 import cors from "cors";
+import helmet from "helmet";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { requestLogger } from "./middleware/logger.js";
 import { requestId } from "./middleware/requestId.js";
@@ -34,13 +35,13 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  next();
-});
+// Security headers (helmet)
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // We set CSP manually below
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Content Security Policy
 app.use((req, res, next) => {
