@@ -1490,6 +1490,10 @@ document.addEventListener("DOMContentLoaded", function () {
         );
         jsonData.shift();
         console.log(jsonData.length);
+        // Save to search history
+        if (window._addSearchHistory) {
+          window._addSearchHistory(file.name, jsonData.length);
+        }
         // detect saved session and decide startIndex
         let startIndex = 0;
         try {

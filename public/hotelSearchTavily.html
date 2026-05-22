@@ -94,6 +94,26 @@
           <i class="fa-brands fa-searchengin"></i> <span>Kết quả DDG</span>
         </button>
       </div>
+      <!-- API Health Dashboard (collapsible) -->
+      <details id="healthDashboard" class="glass-card" style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md)">
+        <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-heartbeat" style="color:#3ba55d"></i>
+          <span>Trạng thái dịch vụ</span>
+          <span id="healthSummary" class="badge" style="margin-left:auto;font-size:.6rem;background:rgba(255,255,255,0.1)">Đang kiểm tra...</span>
+        </summary>
+        <div id="healthGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:var(--spacing-sm);font-size:.72rem"></div>
+      </details>
+
+      <!-- Search History -->
+      <details id="searchHistory" class="glass-card" style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md)">
+        <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-clock-rotate-left" style="color:#667eea"></i>
+          <span>Lịch sử tìm kiếm</span>
+          <span id="historyCount" class="badge" style="margin-left:auto;font-size:.6rem;background:rgba(255,255,255,0.1)">0</span>
+        </summary>
+        <div id="historyList" style="margin-top:var(--spacing-sm);font-size:.72rem;max-height:200px;overflow:auto"></div>
+      </details>
+
       <section
         id="panel-upload"
         class="tab-panel active"
@@ -918,6 +938,25 @@
         </div>
       </div>
     </div>
+    <!-- Keyboard Shortcuts Help Modal -->
+    <div id="shortcutsModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+      <div class="modal" style="max-width:440px">
+        <h2 id="shortcutsTitle" class="modal-header" style="display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-keyboard"></i> Phím tắt
+        </h2>
+        <div style="font-size:.78rem;line-height:2">
+          <div style="display:flex;justify-content:space-between"><span>Tìm kiếm nhanh</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Ctrl+K</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Đổi giao diện</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Alt+D</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Bắt đầu tìm kiếm</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Ctrl+Enter</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Hiển thị phím tắt</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">?</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Đóng modal</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Esc</kbd></div>
+        </div>
+        <div class="modal-actions" style="margin-top:var(--spacing-md)">
+          <button id="shortcutsClose" type="button" class="btn btn-outline btn-small">Đóng</button>
+        </div>
+      </div>
+    </div>
+
     <footer class="app-footer text-tertiary">
       © <span id="year"></span> PuuGoo
     </footer>
@@ -953,6 +992,113 @@
             }
           })
           .catch(() => {});
+
+        // ---- API Health Dashboard ----
+        (function loadHealthDashboard() {
+          const grid = document.getElementById("healthGrid");
+          const summary = document.getElementById("healthSummary");
+          if (!grid) return;
+          const statusIcons = { ok: "fa-circle-check", degraded: "fa-triangle-exclamation", stopped: "fa-circle-xmark", unreachable: "fa-circle-xmark", unconfigured: "fa-circle-minus" };
+          const statusColors = { ok: "#3ba55d", degraded: "#faa61a", stopped: "#ff4d4f", unreachable: "#ff4d4f", unconfigured: "#666" };
+          const labels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo", case12: "Case12 API" };
+          fetch("/api/health/services").then(r => r.json()).then(services => {
+            let okCount = 0, total = 0;
+            grid.innerHTML = Object.entries(labels).map(([key, label]) => {
+              const s = services[key] || {};
+              const st = s.status || "unreachable";
+              total++;
+              if (st === "ok") okCount++;
+              return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(255,255,255,.06);border-radius:8px">
+                <i class="fa-solid ${statusIcons[st] || 'fa-circle-question'}" style="color:${statusColors[st] || '#666'}"></i>
+                <span style="flex:1;font-weight:500">${label}</span>
+                <span style="font-size:.6rem;color:${statusColors[st] || '#666'}">${st}</span>
+                ${s.keys ? `<span style="font-size:.55rem;color:var(--text-tertiary)">${s.keys} keys</span>` : ''}
+              </div>`;
+            }).join('');
+            // Circuit breaker status
+            const cb = services.circuitBreakers || {};
+            const cbEntries = Object.entries(cb).filter(([,v]) => v !== "CLOSED");
+            if (cbEntries.length > 0) {
+              grid.innerHTML += `<div style="grid-column:1/-1;font-size:.65rem;color:#faa61a;padding:4px 10px">
+                <i class="fa-solid fa-shield-halved"></i> Circuit: ${cbEntries.map(([k,v]) => `${k}=${v}`).join(', ')}
+              </div>`;
+            }
+            summary.textContent = `${okCount}/${total} hoạt động`;
+            summary.style.background = okCount === total ? "rgba(59,165,93,.3)" : "rgba(250,166,26,.3)";
+          }).catch(() => { summary.textContent = "Lỗi kiểm tra"; });
+        })();
+
+        // ---- Search History ----
+        (function loadSearchHistory() {
+          const HISTORY_KEY = "tavily_search_history";
+          const MAX_HISTORY = 20;
+          const list = document.getElementById("historyList");
+          const countEl = document.getElementById("historyCount");
+          if (!list) return;
+
+          function getHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+          }
+          function render() {
+            const items = getHistory();
+            countEl.textContent = items.length;
+            if (items.length === 0) {
+              list.innerHTML = '<div style="color:var(--text-tertiary);padding:8px;text-align:center">Chưa có lịch sử</div>';
+              return;
+            }
+            list.innerHTML = items.map((h, i) => `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background=''" data-hidx="${i}">
+              <i class="fa-solid fa-file-excel" style="color:#21d4fd;font-size:.7rem"></i>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span>
+              <span style="font-size:.55rem;color:var(--text-tertiary)">${h.rows || 0} rows</span>
+              <span style="font-size:.55rem;color:var(--text-tertiary)">${new Date(h.ts).toLocaleDateString('vi')}</span>
+              <button class="btn btn-outline btn-small" style="padding:2px 6px;font-size:.55rem" data-haction="delete" data-hidx="${i}" title="Xóa"><i class="fa-solid fa-times"></i></button>
+            </div>`).join('');
+          }
+          window._addSearchHistory = function(name, rows) {
+            const items = getHistory();
+            items.unshift({ name, rows, ts: Date.now() });
+            if (items.length > MAX_HISTORY) items.length = MAX_HISTORY;
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+            render();
+          };
+          list.addEventListener("click", (e) => {
+            const delBtn = e.target.closest("[data-haction='delete']");
+            if (delBtn) {
+              const idx = parseInt(delBtn.dataset.hidx);
+              const items = getHistory();
+              items.splice(idx, 1);
+              localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+              render();
+              return;
+            }
+            const row = e.target.closest("[data-hidx]");
+            if (row) {
+              const idx = parseInt(row.dataset.hidx);
+              const items = getHistory();
+              const h = items[idx];
+              if (h) Toasts.info(`"${h.name}" — ${h.rows} rows (${new Date(h.ts).toLocaleString('vi')})`);
+            }
+          });
+          render();
+        })();
+
+        // ---- Keyboard Shortcuts ----
+        (function setupShortcuts() {
+          const modal = document.getElementById("shortcutsModal");
+          const closeBtn = document.getElementById("shortcutsClose");
+          if (!modal) return;
+          const open = () => { modal.classList.remove("hidden"); modal.style.display = "flex"; };
+          const close = () => { modal.classList.add("hidden"); modal.style.display = "none"; };
+          if (closeBtn) closeBtn.addEventListener("click", close);
+          modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+          document.addEventListener("keydown", (e) => {
+            // Don't trigger when user is typing in an input
+            const tag = (e.target.tagName || "").toLowerCase();
+            if (tag === "input" || tag === "textarea" || tag === "select") return;
+            if (e.key === "?") { e.preventDefault(); open(); }
+            if (e.key === "Escape" && !modal.classList.contains("hidden")) { close(); }
+          });
+        })();
 
         // Change password modal
         const changePwModal = document.getElementById("changePasswordModal");

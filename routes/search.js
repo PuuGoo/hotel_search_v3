@@ -271,6 +271,67 @@ async function startDdgServer() {
   throw new Error("DDG server failed to start.");
 }
 
+// ---- API Health Dashboard ----
+router.get("/api/health/services", checkAuthenticated, async (_req, res) => {
+  const services = {};
+
+  // Check Tavily
+  services.tavily = { configured: apiTavilyKeys.length > 0, keys: apiTavilyKeys.length };
+  if (apiTavilyKeys.length > 0) {
+    try {
+      const client = tavily({ apiKey: apiTavilyKeys[0] });
+      await client.search("test", { maxResults: 1 });
+      services.tavily.status = "ok";
+    } catch (e) {
+      services.tavily.status = "degraded";
+      services.tavily.error = e.message?.slice(0, 100);
+    }
+  } else {
+    services.tavily.status = "unconfigured";
+  }
+
+  // Check Google
+  services.google = { configured: apiGoogleKeys.length > 0, keys: apiGoogleKeys.length };
+  if (apiGoogleKeys.length > 0 && SEARCH_ENGINE_ID) {
+    try {
+      await callGoogleSearchAPI("test", apiGoogleKeys[0]);
+      services.google.status = "ok";
+    } catch (e) {
+      services.google.status = "degraded";
+      services.google.error = e.message?.slice(0, 100);
+    }
+  } else {
+    services.google.status = "unconfigured";
+  }
+
+  // Check DDG
+  services.ddg = { configured: true };
+  try {
+    const ddgRunning = await isDdgServerRunning();
+    services.ddg.status = ddgRunning ? "ok" : "stopped";
+  } catch {
+    services.ddg.status = "unreachable";
+  }
+
+  // Check Case12
+  services.case12 = { configured: !!config.case12.apiUrl };
+  try {
+    const resp = await fetch(config.case12.apiUrl || "https://hotel-search-v2-api.vercel.app/api/case12", { signal: AbortSignal.timeout(5000) });
+    services.case12.status = resp.ok ? "ok" : "degraded";
+  } catch {
+    services.case12.status = "unreachable";
+  }
+
+  // Circuit breaker states
+  services.circuitBreakers = {
+    tavily: tavilyBreaker.getState(),
+    google: googleBreaker.getState(),
+    ddg: ddgBreaker.getState(),
+  };
+
+  res.json(services);
+});
+
 // ---- Routes ----
 
 // Google search page
