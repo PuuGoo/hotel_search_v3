@@ -1,8 +1,8 @@
 /*! algoliasearch-lite.umd.js | 4.24.0 | © Algolia, inc. | https://github.com/algolia/algoliasearch-client-javascript */
 !(function (e, t) {
-  "object" == typeof exports && "undefined" != typeof module
+  "object" === typeof exports && "undefined" !== typeof module
     ? (module.exports = t())
-    : "function" == typeof define && define.amd
+    : "function" === typeof define && define.amd
     ? define(t)
     : ((e = e || self).algoliasearch = t());
 })(this, function () {
@@ -21,9 +21,9 @@
     );
   }
   function t(e, t) {
-    var r = Object.keys(e);
+    const r = Object.keys(e);
     if (Object.getOwnPropertySymbols) {
-      var n = Object.getOwnPropertySymbols(e);
+      let n = Object.getOwnPropertySymbols(e);
       t &&
         (n = n.filter(function (t) {
           return Object.getOwnPropertyDescriptor(e, t).enumerable;
@@ -33,7 +33,7 @@
     return r;
   }
   function r(r) {
-    for (var n = 1; n < arguments.length; n++) {
+    for (let n = 1; n < arguments.length; n++) {
       var o = null != arguments[n] ? arguments[n] : {};
       n % 2
         ? t(Object(o), !0).forEach(function (t) {
@@ -49,11 +49,11 @@
   }
   function n(e, t) {
     if (null == e) return {};
-    var r,
+    let r,
       n,
       o = (function (e, t) {
         if (null == e) return {};
-        var r,
+        let r,
           n,
           o = {},
           a = Object.keys(e);
@@ -62,7 +62,7 @@
         return o;
       })(e, t);
     if (Object.getOwnPropertySymbols) {
-      var a = Object.getOwnPropertySymbols(e);
+      const a = Object.getOwnPropertySymbols(e);
       for (n = 0; n < a.length; n++)
         (r = a[n]),
           t.indexOf(r) >= 0 ||
@@ -83,7 +83,7 @@
           )
         )
           return;
-        var r = [],
+        let r = [],
           n = !0,
           o = !1,
           a = void 0;
@@ -134,7 +134,7 @@
     );
   }
   function u(e) {
-    var t,
+    let t,
       r = "algoliasearch-client-js-".concat(e.key),
       n = function () {
         return void 0 === t && (t = e.localStorage || window.localStorage), t;
@@ -146,7 +146,7 @@
         n().setItem(r, JSON.stringify(e));
       },
       i = function () {
-        var t = e.timeToLive ? 1e3 * e.timeToLive : null,
+        const t = e.timeToLive ? 1e3 * e.timeToLive : null,
           r = a(),
           n = Object.fromEntries(
             Object.entries(r).filter(function (e) {
@@ -154,9 +154,9 @@
             })
           );
         if ((u(n), t)) {
-          var i = Object.fromEntries(
+          const i = Object.fromEntries(
             Object.entries(n).filter(function (e) {
-              var r = o(e, 2)[1],
+              const r = o(e, 2)[1],
                 n = new Date().getTime();
               return !(r.timestamp + t < n);
             })
@@ -166,7 +166,7 @@
       };
     return {
       get: function (e, t) {
-        var r =
+        const r =
           arguments.length > 2 && void 0 !== arguments[2]
             ? arguments[2]
             : {
@@ -177,14 +177,14 @@
         return Promise.resolve()
           .then(function () {
             i();
-            var t = JSON.stringify(e);
+            const t = JSON.stringify(e);
             return a()[t];
           })
           .then(function (e) {
             return Promise.all([e ? e.value : t(), void 0 !== e]);
           })
           .then(function (e) {
-            var t = o(e, 2),
+            const t = o(e, 2),
               n = t[0],
               a = t[1];
             return Promise.all([n, a || r.miss(n)]);
@@ -195,7 +195,7 @@
       },
       set: function (e, t) {
         return Promise.resolve().then(function () {
-          var o = a();
+          const o = a();
           return (
             (o[JSON.stringify(e)] = {
               timestamp: new Date().getTime(),
@@ -208,7 +208,7 @@
       },
       delete: function (e) {
         return Promise.resolve().then(function () {
-          var t = a();
+          const t = a();
           delete t[JSON.stringify(e)], n().setItem(r, JSON.stringify(t));
         });
       },
@@ -220,12 +220,12 @@
     };
   }
   function i(e) {
-    var t = a(e.caches),
+    const t = a(e.caches),
       r = t.shift();
     return void 0 === r
       ? {
           get: function (e, t) {
-            var r =
+            const r =
                 arguments.length > 2 && void 0 !== arguments[2]
                   ? arguments[2]
                   : {
@@ -254,7 +254,7 @@
         }
       : {
           get: function (e, n) {
-            var o =
+            const o =
               arguments.length > 2 && void 0 !== arguments[2]
                 ? arguments[2]
                 : {
@@ -284,14 +284,14 @@
         };
   }
   function s() {
-    var e =
+    let e =
         arguments.length > 0 && void 0 !== arguments[0]
           ? arguments[0]
           : { serializable: !0 },
       t = {};
     return {
       get: function (r, n) {
-        var o =
+        const o =
             arguments.length > 2 && void 0 !== arguments[2]
               ? arguments[2]
               : {
@@ -302,7 +302,7 @@
           a = JSON.stringify(r);
         if (a in t)
           return Promise.resolve(e.serializable ? JSON.parse(t[a]) : t[a]);
-        var u = n(),
+        const u = n(),
           i =
             (o && o.miss) ||
             function () {
@@ -331,8 +331,8 @@
     };
   }
   function c(e) {
-    for (var t = e.length - 1; t > 0; t--) {
-      var r = Math.floor(Math.random() * (t + 1)),
+    for (let t = e.length - 1; t > 0; t--) {
+      const r = Math.floor(Math.random() * (t + 1)),
         n = e[t];
       (e[t] = e[r]), (e[r] = n);
     }
@@ -353,14 +353,14 @@
       n++
     )
       r[n - 1] = arguments[n];
-    var o = 0;
+    let o = 0;
     return e.replace(/%s/g, function () {
       return encodeURIComponent(r[o++]);
     });
   }
-  var h = { WithinQueryParameters: 0, WithinHeaders: 1 };
+  const h = { WithinQueryParameters: 0, WithinHeaders: 1 };
   function m(e, t) {
-    var r = e || {},
+    const r = e || {},
       n = r.data || {};
     return (
       Object.keys(r).forEach(function (e) {
@@ -382,16 +382,16 @@
       }
     );
   }
-  var d = { Read: 1, Write: 2, Any: 3 },
+  const d = { Read: 1, Write: 2, Any: 3 },
     p = 1,
     v = 2,
     g = 3;
   function y(e) {
-    var t = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : p;
+    const t = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : p;
     return r(r({}, e), {}, { status: t, lastUpdate: Date.now() });
   }
   function b(e) {
-    return "string" == typeof e
+    return "string" === typeof e
       ? { protocol: "https", url: e, accept: d.Any }
       : {
           protocol: e.protocol || "https",
@@ -399,7 +399,7 @@
           accept: e.accept || d.Any,
         };
   }
-  var O = "GET",
+  const O = "GET",
     P = "POST";
   function q(e, t) {
     return Promise.all(
@@ -409,7 +409,7 @@
         });
       })
     ).then(function (e) {
-      var r = e.filter(function (e) {
+      const r = e.filter(function (e) {
           return (function (e) {
             return e.status === p || Date.now() - e.lastUpdate > 12e4;
           })(e);
@@ -434,18 +434,18 @@
     });
   }
   function j(e, t, n, o) {
-    var u = [],
+    let u = [],
       i = (function (e, t) {
         if (e.method === O || (void 0 === e.data && void 0 === t.data)) return;
-        var n = Array.isArray(e.data) ? e.data : r(r({}, e.data), t.data);
+        const n = Array.isArray(e.data) ? e.data : r(r({}, e.data), t.data);
         return JSON.stringify(n);
       })(n, o),
       s = (function (e, t) {
-        var n = r(r({}, e.headers), t.headers),
+        const n = r(r({}, e.headers), t.headers),
           o = {};
         return (
           Object.keys(n).forEach(function (e) {
-            var t = n[e];
+            const t = n[e];
             o[e.toLowerCase()] = t;
           }),
           o
@@ -459,7 +459,7 @@
       ),
       h = 0,
       m = function t(r, a) {
-        var l = r.pop();
+        const l = r.pop();
         if (void 0 === l)
           throw {
             name: "RetryError",
@@ -467,7 +467,7 @@
               "Unreachable hosts - your application id may be incorrect. If the error persists, please reach out to the Algolia Support team: https://alg.li/support .",
             transporterStackTrace: A(u),
           };
-        var m = {
+        const m = {
             data: i,
             headers: s,
             method: c,
@@ -476,7 +476,7 @@
             responseTimeout: a(h, o.timeout),
           },
           d = function (e) {
-            var t = { request: m, response: e, host: l, triesLeft: r.length };
+            const t = { request: m, response: e, host: l, triesLeft: r.length };
             return u.push(t), t;
           },
           p = {
@@ -496,7 +496,7 @@
               })(e);
             },
             onRetry: function (n) {
-              var o = d(n);
+              const o = d(n);
               return (
                 n.isTimedOut && h++,
                 Promise.all([
@@ -511,7 +511,7 @@
               throw (
                 (d(e),
                 (function (e, t) {
-                  var r = e.content,
+                  let r = e.content,
                     n = e.status,
                     o = r;
                   try {
@@ -532,11 +532,11 @@
         return e.requester.send(m).then(function (e) {
           return (function (e, t) {
             return (function (e) {
-              var t = e.status;
+              const t = e.status;
               return (
                 e.isTimedOut ||
                 (function (e) {
-                  var t = e.isTimedOut,
+                  const t = e.isTimedOut,
                     r = e.status;
                   return !t && 0 == ~~r;
                 })(e) ||
@@ -558,7 +558,7 @@
     var t = {
       value: "Algolia for JavaScript (".concat(e, ")"),
       add: function (e) {
-        var r = "; "
+        const r = "; "
           .concat(e.segment)
           .concat(void 0 !== e.version ? " (".concat(e.version, ")") : "");
         return (
@@ -570,7 +570,7 @@
     return t;
   }
   function S(e, t, r) {
-    var n = T(r),
+    let n = T(r),
       o = ""
         .concat(e.protocol, "://")
         .concat(e.url, "/")
@@ -589,7 +589,7 @@
             ? JSON.stringify(e[t])
             : e[t])
         );
-        var r;
+        let r;
       })
       .join("&");
   }
@@ -599,7 +599,7 @@
     });
   }
   function x(e) {
-    var t = e.request.headers["x-algolia-api-key"]
+    const t = e.request.headers["x-algolia-api-key"]
       ? { "x-algolia-api-key": "*****" }
       : {};
     return r(
@@ -615,9 +615,9 @@
     );
   }
   var N = function (e) {
-      var t = e.appId,
+      const t = e.appId,
         n = (function (e, t, r) {
-          var n = { "x-algolia-api-key": r, "x-algolia-application-id": t };
+          const n = { "x-algolia-api-key": r, "x-algolia-application-id": t };
           return {
             headers: function () {
               return e === h.WithinHeaders ? n : {};
@@ -651,7 +651,7 @@
                 return b(e);
               }),
               read: function (e, t) {
-                var r = m(t, f.timeouts.read),
+                const r = m(t, f.timeouts.read),
                   n = function () {
                     return j(
                       f,
@@ -664,7 +664,7 @@
                   };
                 if (!0 !== (void 0 !== r.cacheable ? r.cacheable : e.cacheable))
                   return n();
-                var a = {
+                const a = {
                   request: e,
                   mappedRequestOptions: r,
                   transporter: {
@@ -690,7 +690,7 @@
                           }
                         )
                         .then(function (e) {
-                          var t = o(e, 2);
+                          const t = o(e, 2);
                           t[0];
                           return t[1];
                         });
@@ -770,7 +770,7 @@
     },
     E = function (e) {
       return function (t) {
-        var r =
+        const r =
             arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : {},
           n = { transporter: e.transporter, appId: e.appId, indexName: t };
         return l(n, r.methods);
@@ -778,7 +778,7 @@
     },
     J = function (e) {
       return function (t, n) {
-        var o = t.map(function (e) {
+        const o = t.map(function (e) {
           return r(r({}, e), {}, { params: T(e.params || {}) });
         });
         return e.transporter.read(
@@ -796,7 +796,7 @@
       return function (t, o) {
         return Promise.all(
           t.map(function (t) {
-            var a = t.params,
+            const a = t.params,
               u = a.facetName,
               i = a.facetQuery,
               s = n(a, ["facetName", "facetQuery"]);
@@ -849,9 +849,9 @@
     D = 1,
     W = 2,
     H = 3;
-  var Q = function (e) {
+  const Q = function (e) {
     return function (t, n) {
-      var o = t.map(function (e) {
+      const o = t.map(function (e) {
         return r(r({}, e), {}, { threshold: e.threshold || 0 });
       });
       return e.transporter.read(
@@ -866,7 +866,7 @@
     };
   };
   function L(e, t, n) {
-    var o,
+    let o,
       a = {
         appId: e,
         apiKey: t,
@@ -874,12 +874,12 @@
         requester: {
           send: function (e) {
             return new Promise(function (t) {
-              var r = new XMLHttpRequest();
+              const r = new XMLHttpRequest();
               r.open(e.method, e.url, !0),
                 Object.keys(e.headers).forEach(function (t) {
                   return r.setRequestHeader(t, e.headers[t]);
                 });
-              var n,
+              let n,
                 o = function (e, n) {
                   return setTimeout(function () {
                     r.abort(), t({ status: 0, content: n, isTimedOut: !0 });
