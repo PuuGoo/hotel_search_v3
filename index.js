@@ -28,6 +28,9 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (nginx/Cloudflare) for secure cookies and correct IP
+app.set("trust proxy", 1);
+
 // Security headers (helmet)
 app.use(
   helmet({
