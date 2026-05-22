@@ -159,6 +159,9 @@
         } else if (params.get("error") === "2") {
           Toasts.error("Lỗi server, thử lại sau");
           history.replaceState(null, "", "/");
+        } else if (params.get("logout") === "1") {
+          Toasts.success("Đã đăng xuất");
+          history.replaceState(null, "", "/");
         }
 
         // Year stamp

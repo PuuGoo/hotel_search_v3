@@ -100,7 +100,7 @@ router.post("/logout", (req, res) => {
     if (err) {
       return res.status(500).send("Error during logout.");
     }
-    res.redirect("/");
+    res.redirect("/?logout=1");
   });
 });
 
