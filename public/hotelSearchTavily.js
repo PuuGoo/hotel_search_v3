@@ -1,5 +1,5 @@
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/esm/axios.min.js";
-import { Toasts, escapeHtml } from "/ui.js";
+import { Toasts, escapeHtml, safeUrl } from "/ui.js";
 
 // Global fuzzy config so helper functions outside DOMContentLoaded can access
 let fuzzyEnabled = false; // persisted via localStorage tavily_fuzzy_cfg
@@ -254,6 +254,7 @@ function getResultDetailElements() {
       if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
       if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
       if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
+      if (ddgClearButton) ddgClearButton.classList.remove("hidden");
     });
   }
 
@@ -271,6 +272,7 @@ function getResultDetailElements() {
       if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
       if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
       if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
+      if (ddgClearButton) ddgClearButton.classList.remove("hidden");
     });
   }
 
@@ -317,14 +319,17 @@ function getResultDetailElements() {
     tr.innerHTML = `
       <td>${escapeHtml(String(result.order))}</td>
       <td>${escapeHtml(result.hotelNo || "")}</td>
-      <td style="color:${pctColor};font-weight:600">${result.percentage}%</td>
+      <td data-field="percentage" style="color:${pctColor};font-weight:600">${result.percentage}%</td>
       <td style="font-size:0.65rem;color:var(--text-tertiary)">${escapeHtml(result.allScores || "")}</td>
       <td style="color:${statusColor}">${escapeHtml(result.status)}</td>
       <td data-field="hotelName">${escapeHtml(result.hotelName || "")}</td>
       <td data-field="hotelAddress" style="font-size:0.72rem">${escapeHtml(result.hotelAddress || "")}</td>
-      <td style="font-size:0.68rem">${bestLink ? `<a href="${escapeHtml(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
+      <td style="font-size:0.68rem">${bestLink ? `<a href="${safeUrl(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
     `;
     ddgResultsBody.appendChild(tr);
+
+    // Show clear button when results exist
+    if (ddgClearButton) ddgClearButton.classList.remove("hidden");
 
     // Apply current filter to new row
     applyDdgFilter();
@@ -343,29 +348,69 @@ function getResultDetailElements() {
 
   function applyDdgFilter() {
     const filterInput = document.getElementById("ddgFilterInput");
+    const pctFilter = document.getElementById("ddgPctFilter");
+    const ddgVisibleCount = document.getElementById("ddgVisibleCount");
     if (!filterInput || !ddgResultsBody) return;
     const query = normalizeText(filterInput.value);
+    const minPct = parseFloat(pctFilter?.value) || 0;
     const rows = Array.from(ddgResultsBody.querySelectorAll("tr"));
     let visible = 0;
 
     for (const tr of rows) {
       const nameTd = tr.querySelector('td[data-field="hotelName"]');
       const addressTd = tr.querySelector('td[data-field="hotelAddress"]');
+      const pctTd = tr.querySelector('td[data-field="percentage"]');
       const name = nameTd ? normalizeText(nameTd.textContent) : "";
       const address = addressTd ? normalizeText(addressTd.textContent) : "";
-      const match = !query || name.includes(query) || address.includes(query);
-      tr.style.display = match ? "" : "none";
-      if (match) visible++;
+      const pct = pctTd ? parseFloat(pctTd.textContent) || 0 : 0;
+      const nameMatch = !query || name.includes(query) || address.includes(query);
+      const pctMatch = pct >= minPct;
+      const show = nameMatch && pctMatch;
+      tr.style.display = show ? "" : "none";
+      if (show) visible++;
     }
 
-    if (ddgResultsCount) ddgResultsCount.textContent = query ? String(visible) : String(ddgResultsRowCount);
+    if (ddgVisibleCount) ddgVisibleCount.textContent = String(visible);
+    if (ddgResultsCount) ddgResultsCount.textContent = String(ddgResultsRowCount);
   }
 
-  // DDG Filter input event listener
+  // DDG Filter input event listeners
   const ddgFilterInput = document.getElementById("ddgFilterInput");
   if (ddgFilterInput) {
     ddgFilterInput.addEventListener("input", () => {
       applyDdgFilter();
+    });
+  }
+  const ddgPctFilter = document.getElementById("ddgPctFilter");
+  if (ddgPctFilter) {
+    ddgPctFilter.addEventListener("input", () => {
+      applyDdgFilter();
+    });
+  }
+
+  // DDG Clear button
+  const ddgClearButton = document.getElementById("ddgClearButton");
+  if (ddgClearButton) {
+    ddgClearButton.addEventListener("click", () => {
+      // Stop any running search
+      ddgStopped = true;
+      ddgStoppedCompletely = true;
+      if (ddgAbortController) ddgAbortController.abort();
+
+      ddgResults.length = 0;
+      ddgResultsRowCount = 0;
+      ddgNextIndex = 0;
+      if (ddgResultsBody) ddgResultsBody.innerHTML = "";
+      if (ddgResultsCount) ddgResultsCount.textContent = "0";
+      const ddgVisibleCount = document.getElementById("ddgVisibleCount");
+      if (ddgVisibleCount) ddgVisibleCount.textContent = "0";
+      if (ddgFilterInput) ddgFilterInput.value = "";
+      if (ddgPctFilter) ddgPctFilter.value = "0";
+      if (ddgDownloadButton) ddgDownloadButton.classList.add("hidden");
+      if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.add("hidden");
+      if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.add("hidden");
+      ddgClearButton.classList.add("hidden");
+      try { localStorage.removeItem(DDG_SESSION_KEY); } catch (e) {}
     });
   }
 
@@ -520,6 +565,7 @@ function getResultDetailElements() {
     if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
       if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
       if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
+      if (ddgClearButton) ddgClearButton.classList.remove("hidden");
 
     if (ddgStopped) {
       if (!ddgStoppedCompletely) {
@@ -649,13 +695,12 @@ function renderResultDetail(result) {
         const row = document.createElement("div");
         row.className = "flex gap-xs wrap";
         const url = info.url || "";
-        const safeUrl = escapeHtml(url);
         const hasUrl = !!url;
         const linkLabel = escapeHtml(shortenUrl(url || ""));
         row.innerHTML = `
           ${
             hasUrl
-              ? `<a href="${safeUrl}" target="_blank" class="link-chip" style="flex:1" title="${safeUrl}">${linkLabel}</a>`
+              ? `<a href="${safeUrl(url)}" target="_blank" class="link-chip" style="flex:1" title="${escapeHtml(url)}">${linkLabel}</a>`
               : `<span class="text-tertiary" style="flex:1">${
                   linkLabel || "Không có URL"
                 }</span>`
@@ -2298,13 +2343,14 @@ document.addEventListener("DOMContentLoaded", function () {
             <td style="color:${statusColor}">${escapeHtml(r.status)}</td>
             <td data-field="hotelName">${escapeHtml(r.hotelName || "")}</td>
             <td data-field="hotelAddress" style="font-size:0.72rem">${escapeHtml(r.hotelAddress || "")}</td>
-            <td style="font-size:0.68rem">${bestLink ? `<a href="${escapeHtml(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
+            <td style="font-size:0.68rem">${bestLink ? `<a href="${safeUrl(bestLink)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all">${escapeHtml(bestLink)}</a>` : "-"}</td>
           `;
           if (ddgResultsBody) ddgResultsBody.appendChild(tr);
         });
         if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
       if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
       if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
+      if (ddgClearButton) ddgClearButton.classList.remove("hidden");
       }
 
       setDdgProgress(ddgNextIndex, ddgAllRows.length);
@@ -2316,6 +2362,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (ddgDownloadButton) ddgDownloadButton.classList.remove("hidden");
       if (ddgDownloadJSONButton) ddgDownloadJSONButton.classList.remove("hidden");
       if (ddgDownloadXLSXButton) ddgDownloadXLSXButton.classList.remove("hidden");
+      if (ddgClearButton) ddgClearButton.classList.remove("hidden");
       }
       // If not finished, auto-resume
       else if (ddgNextIndex < ddgAllRows.length) {
@@ -2402,10 +2449,10 @@ document.addEventListener("DOMContentLoaded", function () {
             Array.isArray(s.allRows) &&
             s.allRows.length > s.runCount;
           return `<div class="glass-card" data-id="${
-            s.id
+            escapeHtml(s.id)
           }" style="padding:8px;display:flex;gap:8px;align-items:center">
           <div class="snap-meta" style="flex:1;min-width:160px;cursor:text" data-act="rename" data-id="${
-            s.id
+            escapeHtml(s.id)
           }" title="Double-click để đổi tên">
             <div class="snap-label" style="font-weight:600;font-size:.75rem;word-break:break-word">${
               escapeHtml(s.label)
@@ -2416,18 +2463,18 @@ document.addEventListener("DOMContentLoaded", function () {
           </div>
           <div class="flex gap-xs">
             <button class="btn btn-outline btn-small" data-act="restore" data-id="${
-              s.id
+              escapeHtml(s.id)
             }"><i class="fa-solid fa-rotate-left"></i><span>Xem</span></button>
             <button class="btn btn-outline btn-small" data-act="csv" data-id="${
-              s.id
+              escapeHtml(s.id)
             }"><i class="fa-solid fa-file-csv"></i></button>
             ${
               canContinue
-                ? `<button class="btn btn-outline btn-small" data-act="continue" data-id="${s.id}"><i class="fa-solid fa-play"></i></button>`
+                ? `<button class="btn btn-outline btn-small" data-act="continue" data-id="${escapeHtml(s.id)}"><i class="fa-solid fa-play"></i></button>`
                 : ""
             }
             <button class="btn btn-outline btn-small" data-act="delete" data-id="${
-              s.id
+              escapeHtml(s.id)
             }" style="--btn-accent:#c0392b"><i class="fa-solid fa-xmark"></i></button>
           </div>
         </div>`;
@@ -3059,7 +3106,7 @@ function appendResultRow(row, options = {}) {
   const linksHtml = links
     .map(
       (l) =>
-        `<a class="link-chip" href="${escapeHtml(
+        `<a class="link-chip" href="${safeUrl(
           l.url
         )}" target="_blank">${escapeHtml(
           shortenUrl(l.url)
@@ -3152,7 +3199,7 @@ function appendResultRow(row, options = {}) {
   detailTr.innerHTML = `<td colspan="8" style="background:#fbffff;padding:10px">${links
     .map(
       (l) =>
-        `<div style="margin-bottom:6px"><a href="${escapeHtml(
+        `<div style="margin-bottom:6px"><a href="${safeUrl(
           l.url
         )}" target="_blank">${escapeHtml(
           l.url

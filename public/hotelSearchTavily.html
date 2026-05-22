@@ -788,9 +788,30 @@
               placeholder="Tìm tên khách sạn hoặc địa chỉ"
               style="max-width: 260px"
             />
+            <label for="ddgPctFilter" class="text-tertiary" style="margin: 0"
+              >Min %</label
+            >
+            <input
+              id="ddgPctFilter"
+              type="number"
+              min="0"
+              max="100"
+              value="0"
+              placeholder="0"
+              style="width: 70px"
+            />
             <div class="badge" style="background: rgba(255, 255, 255, 0.1)">
-              Tổng: <span id="ddgResultsCount" style="margin-left: 4px">0</span>
+              Hiện: <span id="ddgVisibleCount" style="margin-left: 4px">0</span>
+              / <span id="ddgResultsCount">0</span>
             </div>
+            <button
+              id="ddgClearButton"
+              type="button"
+              class="btn btn-outline btn-small hidden"
+              title="Xóa kết quả DDG"
+            >
+              <i class="fa-solid fa-trash"></i><span>Xóa</span>
+            </button>
           </div>
           <div class="table-wrapper" style="max-height: 64vh; overflow: auto">
             <table id="ddgResultsTable">

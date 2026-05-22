@@ -1,5 +1,5 @@
 /* ui.js - Shared UI behaviors: theme, clock, tabs, modals, ripple, toasts, drag-drop helpers */
-import { escapeHtml } from "/utils.js";
+import { escapeHtml, safeUrl } from "/utils.js";
 
 // THEME MANAGER -----------------------------------------------------------
 const Theme = (() => {
@@ -285,4 +285,5 @@ export {
   updateProgress,
   focusTrap,
   escapeHtml,
+  safeUrl,
 };

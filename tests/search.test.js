@@ -653,6 +653,50 @@ describe("Search Routes", () => {
       }
     });
 
+    test("GET /api/health/services should show DDG stopped when not running", async () => {
+      mockTavilySearch.mockResolvedValueOnce({ results: [] });
+      axios.get.mockResolvedValueOnce({ data: { items: [] } });
+
+      // Mock fetch for DDG health check to return not ok
+      const realFetch = global.fetch;
+      jest.spyOn(global, "fetch").mockImplementation((url, opts) => {
+        if (typeof url === "string" && url.includes("localhost:5001")) {
+          return Promise.resolve({ ok: false });
+        }
+        return realFetch(url, opts);
+      });
+
+      const res = await fetch(`${baseUrl}/api/health/services`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.ddg.status).toBe("stopped");
+      jest.restoreAllMocks();
+    });
+
+    test("GET /api/health/services should show DDG ok when running", async () => {
+      mockTavilySearch.mockResolvedValueOnce({ results: [] });
+      axios.get.mockResolvedValueOnce({ data: { items: [] } });
+
+      // Mock fetch for DDG health check to return ok
+      const realFetch = global.fetch;
+      jest.spyOn(global, "fetch").mockImplementation((url, opts) => {
+        if (typeof url === "string" && url.includes("localhost:5001")) {
+          return Promise.resolve({ ok: true });
+        }
+        return realFetch(url, opts);
+      });
+
+      const res = await fetch(`${baseUrl}/api/health/services`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.ddg.status).toBe("ok");
+      jest.restoreAllMocks();
+    });
+
     test("GET /api/health/services should reject unauthenticated user", async () => {
       const res = await fetch(`${baseUrl}/api/health/services`, { redirect: "manual" });
       // API routes return 401 (not 302) for unauthenticated requests

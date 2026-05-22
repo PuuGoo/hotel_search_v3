@@ -13,6 +13,18 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Sanitize URL to prevent javascript: and other dangerous schemes
+ * @param {string} url - URL to sanitize
+ * @returns {string} Safe URL or empty string
+ */
+export function safeUrl(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return "";
+}
+
+/**
  * Format timestamp to locale string
  * @param {string|number|Date} ts - Timestamp
  * @returns {string} Formatted string
