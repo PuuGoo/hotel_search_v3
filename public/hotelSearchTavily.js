@@ -452,6 +452,9 @@ function getResultDetailElements() {
   const ddgClearButton = document.getElementById("ddgClearButton");
   if (ddgClearButton) {
     ddgClearButton.addEventListener("click", () => {
+      if (ddgResultsRowCount > 0 && !confirm("Xóa tất cả kết quả DDG? Hành động này không thể hoàn tác.")) {
+        return;
+      }
       // Stop any running search
       ddgStopped = true;
       ddgStoppedCompletely = true;
@@ -3594,6 +3597,14 @@ document.addEventListener("keydown", (e) => {
       if (ddgTab && !ddgTab.classList.contains("active")) ddgTab.click();
       ddgFilter.focus();
       if (typeof ddgFilter.select === "function") ddgFilter.select();
+    }
+  }
+  // Ctrl+Enter: start DDG search if on DDG tab
+  if (e.ctrlKey && e.key === "Enter") {
+    const ddgBtn = document.getElementById("ddgStartButton");
+    if (ddgBtn && !ddgBtn.disabled) {
+      e.preventDefault();
+      ddgBtn.click();
     }
   }
   // Alt+O to open-all for selected row
