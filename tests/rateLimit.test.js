@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from "@jest/globals";
-import { rateLimitLogin, _loginAttempts, _RATE_LIMIT_WINDOW, rateLimitSearch, _searchRequests, _SEARCH_RATE_WINDOW, _cleanupExpired } from "../middleware/rateLimit.js";
+import { rateLimitLogin, _loginAttempts, _RATE_LIMIT_WINDOW, rateLimitSearch, _searchRequests, _SEARCH_RATE_WINDOW, _cleanupExpired, rateLimitStatus } from "../middleware/rateLimit.js";
 
 describe("Rate Limiter", () => {
   const mockRes = () => {
@@ -278,5 +278,102 @@ describe("Search Rate Limiter", () => {
 
     expect(_searchRequests.has("expired-ip")).toBe(false);
     expect(_searchRequests.has("valid-ip")).toBe(true);
+  });
+});
+
+describe("Rate Limit Status Endpoint", () => {
+  const mockRes = () => {
+    const res = {};
+    res.status = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
+    return res;
+  };
+
+  let dateNowSpy;
+
+  beforeEach(() => {
+    dateNowSpy = jest.spyOn(Date, "now");
+    dateNowSpy.mockReturnValue(1000000);
+    _searchRequests.clear();
+  });
+
+  afterEach(() => {
+    dateNowSpy.mockRestore();
+  });
+
+  test("should return zero usage for new IP", () => {
+    const req = { ip: "10.0.0.1", connection: { remoteAddress: "10.0.0.1" } };
+    const res = mockRes();
+
+    rateLimitStatus(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      search: expect.objectContaining({
+        used: 0,
+        remaining: expect.any(Number),
+        windowMs: expect.any(Number),
+      }),
+    }));
+  });
+
+  test("should return current usage after requests", () => {
+    const req = { ip: "10.0.0.2", connection: { remoteAddress: "10.0.0.2" } };
+    const next = jest.fn();
+
+    // Make 5 search requests
+    for (let i = 0; i < 5; i++) {
+      rateLimitSearch(req, mockRes(), next);
+    }
+
+    const res = mockRes();
+    rateLimitStatus(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      search: expect.objectContaining({
+        used: 5,
+        resetInMs: expect.any(Number),
+      }),
+    }));
+  });
+
+  test("should return zero usage when window has expired", () => {
+    const req = { ip: "10.0.0.3", connection: { remoteAddress: "10.0.0.3" } };
+    const next = jest.fn();
+
+    // Make requests
+    for (let i = 0; i < 10; i++) {
+      rateLimitSearch(req, mockRes(), next);
+    }
+
+    // Advance time past window
+    dateNowSpy.mockReturnValue(1000000 + 60 * 1000 + 1);
+
+    const res = mockRes();
+    rateLimitStatus(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      search: expect.objectContaining({
+        used: 0,
+        remaining: expect.any(Number),
+        resetInMs: 0,
+      }),
+    }));
+  });
+
+  test("should return usage for IP with expired entry still in map", () => {
+    // Manually add an expired entry
+    _searchRequests.set("10.0.0.4", { count: 15, firstRequest: 1000000 - _SEARCH_RATE_WINDOW - 1000 });
+
+    const req = { ip: "10.0.0.4", connection: { remoteAddress: "10.0.0.4" } };
+    const res = mockRes();
+
+    rateLimitStatus(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      search: expect.objectContaining({
+        used: 0,
+        resetInMs: 0,
+      }),
+    }));
   });
 });

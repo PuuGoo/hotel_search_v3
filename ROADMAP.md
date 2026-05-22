@@ -21,13 +21,13 @@
 - [x] Failed login attempt logging with IP for security monitoring
 - [x] Favicon route to avoid 404 noise
 
-## Phase 2: Test Coverage (276 tests, 15 suites, 96.59% statements)
+## Phase 2: Test Coverage (288 tests, 15 suites, 95.07% statements)
 - [x] Auth routes tests (97.36%)
 - [x] User management tests (97.53%)
 - [x] Chat routes tests (100%)
 - [x] Utility function tests (ddg.js — 98.52%)
 - [x] Validation middleware tests (100%)
-- [x] Rate limiter tests (100%)
+- [x] Rate limiter tests (100%) — includes rateLimitStatus endpoint
 - [x] Logger middleware tests (100%)
 - [x] Request ID middleware tests (100%)
 - [x] Timeout middleware tests (100%)
@@ -36,7 +36,7 @@
 - [x] Config module tests
 - [x] Structured logger tests
 - [x] Server configuration tests
-- [x] Search routes tests (75.22% — key rotation + DDG server)
+- [x] Search routes tests (86.36% — key rotation, DDG server, health dashboard, circuit breaker 503)
 - [x] Case12 route tests (100%)
 - [x] Page route tests (100%)
 - [x] Edge case tests for error handlers

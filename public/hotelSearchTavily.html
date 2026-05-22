@@ -235,6 +235,20 @@
                     <i class="fa-solid fa-download"></i><span>CSV</span>
                   </button>
                   <button
+                    id="downloadJSONButton"
+                    class="btn btn-outline btn-small hidden"
+                    title="Xuất JSON"
+                  >
+                    <i class="fa-solid fa-download"></i><span>JSON</span>
+                  </button>
+                  <button
+                    id="downloadXLSXButton"
+                    class="btn btn-outline btn-small hidden"
+                    title="Xuất XLSX"
+                  >
+                    <i class="fa-solid fa-file-excel"></i><span>XLSX</span>
+                  </button>
+                  <button
                     id="importCSVButton"
                     class="btn btn-outline btn-small"
                   >
@@ -827,6 +841,50 @@
               class="flex gap-xs"
               style="margin-left: auto; align-items: center"
             >
+              <div class="dropdown" style="position: relative">
+                <button
+                  id="columnToggleBtn"
+                  class="btn btn-outline btn-small"
+                  title="Hiện/ẩn cột"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <i class="fa-solid fa-columns"></i><span>Cột</span>
+                </button>
+                <div
+                  id="columnToggleMenu"
+                  class="dropdown-menu hidden"
+                  role="menu"
+                  style="
+                    position: absolute;
+                    right: 0;
+                    top: 100%;
+                    z-index: 100;
+                    min-width: 180px;
+                    padding: var(--spacing-sm);
+                    background: var(--surface-elevated, rgba(30, 30, 40, 0.95));
+                    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+                    border-radius: var(--radius-md);
+                    box-shadow: var(--shadow-lg);
+                    backdrop-filter: blur(12px);
+                  "
+                >
+                  <div
+                    class="text-tertiary"
+                    style="
+                      font-size: 0.65rem;
+                      letter-spacing: 0.5px;
+                      text-transform: uppercase;
+                      margin-bottom: var(--spacing-xs);
+                      padding-bottom: var(--spacing-xs);
+                      border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+                    "
+                  >
+                    Hiện/ẩn cột
+                  </div>
+                  <div id="columnToggleList"></div>
+                </div>
+              </div>
               <label
                 for="pageSizeSelect"
                 class="text-tertiary"

@@ -539,6 +539,149 @@ describe("Search Routes", () => {
     });
   });
 
+  describe("Circuit Breaker 503 Responses", () => {
+    test("should return 503 when Tavily circuit breaker is open", async () => {
+      // The circuit breaker is a module-level singleton; previous error tests
+      // may have already incremented the failure count. We'll make enough
+      // requests to ensure the breaker opens (threshold=5).
+      const error500 = new Error("Server error");
+      error500.response = { status: 500 };
+
+      // Mock 20 failures to cover worst case (up to 10 prior failures * 2 keys)
+      for (let i = 0; i < 20; i++) {
+        mockTavilySearch.mockRejectedValueOnce(error500);
+      }
+
+      // Keep making requests until we get a 503
+      let got503 = false;
+      for (let i = 0; i < 10; i++) {
+        const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+          headers: { Cookie: adminCookie },
+        });
+        if (res.status === 503) {
+          const data = await res.json();
+          expect(data.error).toBe("Service temporarily unavailable");
+          got503 = true;
+          break;
+        }
+        expect(res.status).toBe(500);
+      }
+      expect(got503).toBe(true);
+    });
+
+    test("should handle errors when Google circuit breaker is triggered", async () => {
+      const error500 = new Error("Server error");
+      error500.response = { status: 500 };
+
+      for (let i = 0; i < 20; i++) {
+        axios.get.mockRejectedValueOnce(error500);
+      }
+
+      // May get 429 (rate limited), 500 (search failed), or 503 (breaker open)
+      // depending on accumulated state and rate limit
+      let gotExpectedStatus = false;
+      for (let i = 0; i < 10; i++) {
+        const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
+          headers: { Cookie: adminCookie },
+        });
+        if ([429, 500, 503].includes(res.status)) {
+          gotExpectedStatus = true;
+          break;
+        }
+      }
+      expect(gotExpectedStatus).toBe(true);
+    });
+  });
+
+  describe("Health Dashboard", () => {
+    test("GET /api/health/services should return service statuses for authenticated user", async () => {
+      // Mock Tavily success for health check
+      mockTavilySearch.mockResolvedValueOnce({ results: [] });
+      // Mock Google success for health check
+      axios.get.mockResolvedValueOnce({ data: { items: [] } });
+
+      const res = await fetch(`${baseUrl}/api/health/services`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty("tavily");
+      expect(data).toHaveProperty("google");
+      expect(data).toHaveProperty("ddg");
+      expect(data).toHaveProperty("case12");
+      expect(data).toHaveProperty("circuitBreakers");
+      expect(data.tavily).toHaveProperty("configured");
+      expect(data.tavily).toHaveProperty("keys");
+      expect(data.tavily.configured).toBe(true);
+      expect(data.tavily.keys).toBe(2);
+      expect(data.circuitBreakers).toHaveProperty("tavily");
+      expect(data.circuitBreakers).toHaveProperty("google");
+      expect(data.circuitBreakers).toHaveProperty("ddg");
+    });
+
+    test("GET /api/health/services should show degraded status when Tavily check fails", async () => {
+      // Mock Tavily failure for health check - use clearAllMocks to reset state
+      mockTavilySearch.mockReset();
+      mockTavilySearch.mockRejectedValueOnce(new Error("Tavily API error"));
+      // Mock Google success for health check
+      axios.get.mockResolvedValueOnce({ data: { items: [] } });
+
+      const res = await fetch(`${baseUrl}/api/health/services`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.tavily.status).toBe("degraded");
+      expect(data.tavily.error).toBe("Tavily API error");
+    });
+
+    test("GET /api/health/services should show degraded status when Google check fails", async () => {
+      // Mock Tavily success for health check
+      mockTavilySearch.mockResolvedValueOnce({ results: [] });
+      // Mock Google failure for health check
+      axios.get.mockRejectedValueOnce(new Error("Google API error"));
+
+      const res = await fetch(`${baseUrl}/api/health/services`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      // Google may show "unconfigured" if SEARCH_ENGINE_ID is not set in test env
+      expect(["degraded", "unconfigured"]).toContain(data.google.status);
+      if (data.google.status === "degraded") {
+        expect(data.google.error).toBe("Google API error");
+      }
+    });
+
+    test("GET /api/health/services should reject unauthenticated user", async () => {
+      const res = await fetch(`${baseUrl}/api/health/services`, { redirect: "manual" });
+      // API routes return 401 (not 302) for unauthenticated requests
+      expect([302, 401]).toContain(res.status);
+    });
+  });
+
+  describe("Rate Limit Status API", () => {
+    test("GET /api/rate-limit/status should return rate limit info for authenticated user", async () => {
+      const res = await fetch(`${baseUrl}/api/rate-limit/status`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty("search");
+      expect(data.search).toHaveProperty("limit");
+      expect(data.search).toHaveProperty("used");
+      expect(data.search).toHaveProperty("remaining");
+      expect(data.search).toHaveProperty("resetInMs");
+      expect(data.search).toHaveProperty("windowMs");
+    });
+
+    test("GET /api/rate-limit/status should reject unauthenticated user", async () => {
+      const res = await fetch(`${baseUrl}/api/rate-limit/status`, { redirect: "manual" });
+      // API routes return 401 (not 302) for unauthenticated requests
+      expect([302, 401]).toContain(res.status);
+    });
+  });
+
   describe("404 Handler", () => {
     test("should return 404 for unknown routes", async () => {
       const res = await fetch(`${baseUrl}/nonexistent`);

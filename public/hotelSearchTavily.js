@@ -1026,6 +1026,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function enableClearButton(snapshotLabel = "Clear") {
     const clearBtnEl = document.getElementById("clearResultsButton");
     const downloadBtnEl = document.getElementById("downloadCSVButton");
+    const jsonBtnEl = document.getElementById("downloadJSONButton");
+    const xlsxBtnEl = document.getElementById("downloadXLSXButton");
     if (!clearBtnEl) return;
     show(clearBtnEl, "inline-flex");
     clearBtnEl.onclick = (ev) => {
@@ -1075,6 +1077,8 @@ document.addEventListener("DOMContentLoaded", function () {
           hideResultsSection();
           hide(clearBtnEl);
           hide(downloadBtnEl);
+          hide(jsonBtnEl);
+          hide(xlsxBtnEl);
           try {
             localStorage.removeItem("tavily_session");
             localStorage.removeItem("runCount");
@@ -1313,6 +1317,10 @@ document.addEventListener("DOMContentLoaded", function () {
     enableClearButton(snapshotLabel);
     const downloadBtn = document.getElementById("downloadCSVButton");
     if (downloadBtn) show(downloadBtn, "inline-flex");
+    const jsonBtn = document.getElementById("downloadJSONButton");
+    if (jsonBtn) show(jsonBtn, "inline-flex");
+    const xlsxBtn = document.getElementById("downloadXLSXButton");
+    if (xlsxBtn) show(xlsxBtn, "inline-flex");
     const spinnerEl = document.getElementById("spinner");
     hide(spinnerEl);
     const progressContainer = document.getElementById("progressContainer");
@@ -2063,6 +2071,10 @@ document.addEventListener("DOMContentLoaded", function () {
           // ensure download button is visible
           const downloadBtnEl = document.getElementById("downloadCSVButton");
           if (downloadBtnEl) show(downloadBtnEl, "inline-flex");
+          const jsonBtnEl = document.getElementById("downloadJSONButton");
+          if (jsonBtnEl) show(jsonBtnEl, "inline-flex");
+          const xlsxBtnEl = document.getElementById("downloadXLSXButton");
+          if (xlsxBtnEl) show(xlsxBtnEl, "inline-flex");
           // prepare filename containing timestamp and current count
           const now = new Date();
           const ts = now.toISOString().replace(/[:.]/g, "-");
@@ -2661,7 +2673,102 @@ document.addEventListener("DOMContentLoaded", function () {
   //   // Khởi tạo icon đúng trạng thái khi load
   //   icon.textContent = orderSortAsc ? "▲" : "▼";
   // } catch (e) {}
+
+  // Column visibility toggle
+  initColumnToggle();
 });
+
+function initColumnToggle() {
+  const STORAGE_KEY = "tavily_column_visibility";
+  const COLUMN_LABELS = {
+    0: "Order",
+    1: "No",
+    2: "%",
+    3: "Fuzzy",
+    4: "Status",
+    5: "Hotel Name",
+    6: "Hotel Address",
+    7: "Matched Links",
+    8: "Total Link",
+  };
+
+  const toggleBtn = document.getElementById("columnToggleBtn");
+  const toggleMenu = document.getElementById("columnToggleMenu");
+  const toggleList = document.getElementById("columnToggleList");
+  if (!toggleBtn || !toggleMenu || !toggleList) return;
+
+  // Load saved preferences (default: all visible)
+  let visibility = {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    visibility = saved;
+  } catch (e) {
+    visibility = {};
+  }
+
+  // Build checkboxes
+  toggleList.innerHTML = "";
+  Object.entries(COLUMN_LABELS).forEach(([index, label]) => {
+    const colIndex = parseInt(index, 10);
+    const isVisible = visibility[colIndex] !== false; // default true
+    const item = document.createElement("label");
+    item.style.cssText =
+      "display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:0.8rem;";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = isVisible;
+    checkbox.dataset.colIndex = colIndex;
+    checkbox.style.cssText = "accent-color:var(--primary,#667eea);";
+    checkbox.addEventListener("change", () => {
+      visibility[colIndex] = checkbox.checked;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(visibility));
+      } catch (e) {}
+      applyColumnVisibility();
+    });
+    const span = document.createElement("span");
+    span.textContent = label;
+    item.appendChild(checkbox);
+    item.appendChild(span);
+    toggleList.appendChild(item);
+  });
+
+  // Toggle dropdown
+  toggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isHidden = toggleMenu.classList.contains("hidden");
+    toggleMenu.classList.toggle("hidden");
+    toggleBtn.setAttribute("aria-expanded", String(isHidden));
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!toggleMenu.contains(e.target) && e.target !== toggleBtn) {
+      toggleMenu.classList.add("hidden");
+      toggleBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  applyColumnVisibility();
+
+  function applyColumnVisibility() {
+    const table = document.getElementById("resultsTable");
+    if (!table) return;
+    const rows = table.querySelectorAll("tr");
+    rows.forEach((row) => {
+      const cells = row.querySelectorAll("th, td");
+      cells.forEach((cell, index) => {
+        // Skip the Actions column (last column)
+        if (index === cells.length - 1) return;
+        if (visibility[index] === false) {
+          cell.style.display = "none";
+        } else {
+          cell.style.display = "";
+        }
+      });
+    });
+  }
+}
 
 function updateCounter(counterEl, runCount, MAX_RUNS) {
   if (counterEl) {
@@ -2669,12 +2776,23 @@ function updateCounter(counterEl, runCount, MAX_RUNS) {
   }
 }
 
-// Thêm nút tải xuống CSV sau khi có dữ liệu
+// Thêm nút tải xuống CSV/JSON sau khi có dữ liệu
 function setupDownloadButton(results) {
   const downloadButton = document.getElementById("downloadCSVButton");
-  // ensure the button becomes visible (remove .hidden)
-  if (downloadButton) downloadButton.classList.remove("hidden");
-  downloadButton.onclick = () => downloadCSV(results); // Khi nhấn mới tải
+  if (downloadButton) {
+    downloadButton.classList.remove("hidden");
+    downloadButton.onclick = () => downloadCSV(results);
+  }
+  const jsonButton = document.getElementById("downloadJSONButton");
+  if (jsonButton) {
+    jsonButton.classList.remove("hidden");
+    jsonButton.onclick = () => downloadJSON(results);
+  }
+  const xlsxButton = document.getElementById("downloadXLSXButton");
+  if (xlsxButton) {
+    xlsxButton.classList.remove("hidden");
+    xlsxButton.onclick = () => downloadXLSX(results);
+  }
 }
 // Hàm xuất ra file CSV
 function downloadCSV(results, filename = "hotel_search_results.csv") {
@@ -2712,6 +2830,69 @@ function downloadCSV(results, filename = "hotel_search_results.csv") {
   link.download = filename || "hotel_search_results.csv";
   link.style.display = "none";
 
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Hàm xuất ra file XLSX
+function downloadXLSX(results, filename = "hotel_search_results.xlsx") {
+  const maxMatchedLinks = Math.max(
+    ...results.map((row) => (row.matchedLinks || []).length),
+    0
+  );
+
+  const headers = [
+    "Order", "No", "Percentage", "Type", "Hotel Name", "Hotel Address",
+    ...Array.from({ length: maxMatchedLinks }, (_, i) => `Matched Link ${i + 1}`),
+  ];
+
+  const data = results.map((row) => {
+    const links = (row.matchedLinks || []).map((l) => l.url || l);
+    while (links.length < maxMatchedLinks) links.push("");
+    return [
+      row.order,
+      row.hotelNo,
+      row.percentage,
+      "Child",
+      row.hotelName,
+      row.hotelAddress,
+      ...links,
+    ];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+  // Auto-fit column widths
+  const colWidths = headers.map((h, i) => {
+    const maxLen = Math.max(
+      h.length,
+      ...data.map((row) => String(row[i] || "").length)
+    );
+    return { wch: Math.min(maxLen + 2, 50) };
+  });
+  ws["!cols"] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Results");
+  XLSX.writeFile(wb, filename);
+}
+
+// Hàm xuất ra file JSON
+function downloadJSON(results, filename = "hotel_search_results.json") {
+  const data = results.map(row => ({
+    order: row.order,
+    hotelNo: row.hotelNo,
+    hotelName: row.hotelName,
+    hotelAddress: row.hotelAddress,
+    percentage: row.percentage,
+    matchedLinks: (row.matchedLinks || []).map(l => typeof l === "string" ? { url: l } : l),
+  }));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
