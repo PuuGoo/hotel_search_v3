@@ -388,6 +388,66 @@ function getResultDetailElements() {
     });
   }
 
+  // DDG Table Sorting
+  const ddgSortState = { col: "order", asc: true };
+  function sortDdgTable(col, toggle = true) {
+    if (!ddgResultsBody) return;
+    if (toggle && ddgSortState.col === col) {
+      ddgSortState.asc = !ddgSortState.asc;
+    } else if (toggle) {
+      ddgSortState.col = col;
+      ddgSortState.asc = col === "order" ? true : true;
+    }
+    const asc = ddgSortState.asc;
+    const rows = Array.from(ddgResultsBody.querySelectorAll("tr"));
+    rows.sort((a, b) => {
+      let va, vb;
+      switch (col) {
+        case "order":
+          va = parseFloat(a.children[0]?.textContent) || 0;
+          vb = parseFloat(b.children[0]?.textContent) || 0;
+          return asc ? va - vb : vb - va;
+        case "no":
+          va = a.children[1]?.textContent || "";
+          vb = b.children[1]?.textContent || "";
+          return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        case "pct":
+          va = parseFloat(a.querySelector('[data-field="percentage"]')?.textContent) || 0;
+          vb = parseFloat(b.querySelector('[data-field="percentage"]')?.textContent) || 0;
+          return asc ? va - vb : vb - va;
+        case "status":
+          va = a.children[4]?.textContent || "";
+          vb = b.children[4]?.textContent || "";
+          return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        case "name":
+          va = a.querySelector('[data-field="hotelName"]')?.textContent || "";
+          vb = b.querySelector('[data-field="hotelName"]')?.textContent || "";
+          return asc ? va.localeCompare(vb, "vi") : vb.localeCompare(va, "vi");
+        default:
+          return 0;
+      }
+    });
+    rows.forEach((r) => ddgResultsBody.appendChild(r));
+
+    // Update sort icons
+    const iconMap = {
+      order: document.getElementById("ddgOrderSortIcon"),
+      no: document.getElementById("ddgNoSortIcon"),
+      pct: document.getElementById("ddgPctSortIcon"),
+      status: document.getElementById("ddgStatusSortIcon"),
+      name: document.getElementById("ddgNameSortIcon"),
+    };
+    Object.entries(iconMap).forEach(([k, el]) => {
+      if (!el) return;
+      el.textContent = ddgSortState.col === k ? (ddgSortState.asc ? "▲" : "▼") : "▲";
+    });
+  }
+
+  // Wire DDG sort click handlers
+  document.querySelectorAll("[data-ddg-sort]").forEach((th) => {
+    th.addEventListener("click", () => sortDdgTable(th.dataset.ddgSort, true));
+  });
+
   // DDG Clear button
   const ddgClearButton = document.getElementById("ddgClearButton");
   if (ddgClearButton) {
@@ -3522,6 +3582,18 @@ document.addEventListener("keydown", (e) => {
         e.preventDefault();
         searchBtn.click();
       }
+    }
+  }
+  // Ctrl+K: focus the DDG filter input
+  if (e.ctrlKey && (e.key === "k" || e.key === "K")) {
+    const ddgFilter = document.getElementById("ddgFilterInput");
+    if (ddgFilter) {
+      e.preventDefault();
+      // Switch to DDG tab first if not already active
+      const ddgTab = document.querySelector('[data-target="panel-results-ddg"]');
+      if (ddgTab && !ddgTab.classList.contains("active")) ddgTab.click();
+      ddgFilter.focus();
+      if (typeof ddgFilter.select === "function") ddgFilter.select();
     }
   }
   // Alt+O to open-all for selected row

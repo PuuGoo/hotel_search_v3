@@ -817,12 +817,12 @@
             <table id="ddgResultsTable">
               <thead>
                 <tr>
-                  <th>Order</th>
-                  <th>No</th>
-                  <th>Best %</th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="order">Order <span id="ddgOrderSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="no">No <span id="ddgNoSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="pct">Best % <span id="ddgPctSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
                   <th>All Scores</th>
-                  <th>Status</th>
-                  <th>Hotel Name</th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="status">Status <span id="ddgStatusSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="name">Hotel Name <span id="ddgNameSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
                   <th>Hotel Address</th>
                   <th>Best Link</th>
                 </tr>
@@ -1049,7 +1049,8 @@
           <i class="fa-solid fa-keyboard"></i> Phím tắt
         </h2>
         <div style="font-size:.78rem;line-height:2">
-          <div style="display:flex;justify-content:space-between"><span>Tìm kiếm nhanh</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Ctrl+K</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Lọc DDG</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Ctrl+K</kbd></div>
+          <div style="display:flex;justify-content:space-between"><span>Lọc kết quả chính</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Alt+S</kbd></div>
           <div style="display:flex;justify-content:space-between"><span>Đổi giao diện</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Alt+D</kbd></div>
           <div style="display:flex;justify-content:space-between"><span>Bắt đầu tìm kiếm</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">Ctrl+Enter</kbd></div>
           <div style="display:flex;justify-content:space-between"><span>Hiển thị phím tắt</span><kbd style="background:rgba(255,255,255,.12);padding:2px 8px;border-radius:4px;font-size:.7rem">?</kbd></div>
