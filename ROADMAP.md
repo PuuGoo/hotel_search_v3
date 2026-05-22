@@ -8,15 +8,16 @@
 
 ## Phase 1: Security Hardening
 - [x] Session-based auth with bcrypt
-- [x] Rate limiting (login + search)
+- [x] Rate limiting (login + search + user endpoints)
 - [x] Input validation middleware
 - [x] XSS protection (escapeHtml, CSP headers)
 - [x] Security headers (helmet + X-Content-Type, X-Frame, X-XSS)
 - [x] CORS configuration (CORS_ORIGINS env var)
 - [x] Request body size limits (2mb)
 - [x] CSRF protection (Origin/Referer + token-based)
+- [x] Remove error.message from API responses
 
-## Phase 2: Test Coverage (241 tests, 88%+ overall)
+## Phase 2: Test Coverage (252 tests, 15 suites)
 - [x] Auth routes tests (89.47%)
 - [x] User management tests (97.53%)
 - [x] Chat routes tests (97.61%)
@@ -33,6 +34,7 @@
 - [x] Server configuration tests
 - [x] Search routes tests (53.77%)
 - [x] Case12 route tests (100%)
+- [x] Page route tests (100%)
 - [x] Edge case tests for error handlers
 - [ ] Improve search.js coverage (key rotation/DDG server)
 
@@ -43,7 +45,7 @@
 - [x] Request ID tracking (X-Request-Id header)
 - [x] API response time headers (X-Response-Time)
 - [x] Request timeout middleware (408)
-- [ ] Standardize all error responses format
+- [x] No error.message exposure in responses
 
 ## Phase 4: Architecture
 - [x] Route separation (auth, users, chat, search, case12, pages)
