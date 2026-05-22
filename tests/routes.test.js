@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs";
 import authRoutes from "../routes/auth.js";
 import userRoutes from "../routes/users.js";
 import chatRoutes from "../routes/chat.js";
+import { _loginAttempts } from "../middleware/rateLimit.js";
+import { csrfProtection } from "../middleware/csrf.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +34,7 @@ function createTestApp() {
     })
   );
 
+  app.use(csrfProtection);
   app.use(authRoutes);
   app.use(userRoutes);
   app.use(chatRoutes);
@@ -106,6 +109,8 @@ describe("Route Integration Tests", () => {
     if (fs.existsSync(TEST_CHAT_FILE)) {
       fs.unlinkSync(TEST_CHAT_FILE);
     }
+    // Clear rate limiter state between tests
+    _loginAttempts.clear();
   });
 
   async function loginAs(username, password) {
@@ -155,10 +160,11 @@ describe("Route Integration Tests", () => {
       expect(res.status).toBe(401);
     });
 
-    test("GET /logout should destroy session", async () => {
+    test("POST /logout should destroy session", async () => {
       // Login a fresh session to logout
       const cookie = await loginAs("admin", "admin123");
       const res = await fetch(`${baseUrl}/logout`, {
+        method: "POST",
         headers: { Cookie: cookie },
         redirect: "manual",
       });
@@ -264,12 +270,49 @@ describe("Route Integration Tests", () => {
     });
   });
 
+  describe("CSRF Integration", () => {
+    test("should block POST with mismatched origin", async () => {
+      const cookie = await loginAs("admin", "admin123");
+      const res = await fetch(`${baseUrl}/api/chat/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+          Origin: "https://evil.com",
+        },
+        body: JSON.stringify({ text: "test", type: "issue" }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("should allow POST with matching origin", async () => {
+      const cookie = await loginAs("admin", "admin123");
+      const res = await fetch(`${baseUrl}/api/chat/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: cookie,
+          Origin: baseUrl,
+        },
+        body: JSON.stringify({ text: "test message", type: "issue" }),
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe("Chat Routes", () => {
     test("GET /api/chat/messages should return array", async () => {
-      const res = await fetch(`${baseUrl}/api/chat/messages`);
+      const res = await fetch(`${baseUrl}/api/chat/messages`, {
+        headers: { Cookie: adminCookie },
+      });
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(Array.isArray(data)).toBe(true);
+    });
+
+    test("GET /api/chat/messages should reject unauthenticated request", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/messages`);
+      expect(res.status).toBe(401);
     });
 
     test("POST /api/chat/messages should create message", async () => {
@@ -619,6 +662,34 @@ describe("Route Integration Tests", () => {
         fs.writeFileSync(chatFile, originalChat, "utf8");
       }
     });
+
+    test("POST /api/chat/messages/:id/resolve should handle write error gracefully", async () => {
+      const chatFile = path.join(__dirname, "..", "chatbox_data.json");
+      let originalChat;
+      if (fs.existsSync(chatFile)) {
+        originalChat = fs.readFileSync(chatFile, "utf8");
+      }
+      // Write a message so resolve finds it
+      fs.writeFileSync(chatFile, JSON.stringify([{ id: 12345, text: "test", status: "open" }]), "utf8");
+
+      // Make chatFile a directory so writeFileSync in resolve fails
+      fs.unlinkSync(chatFile);
+      fs.mkdirSync(chatFile);
+
+      const res = await fetch(`${baseUrl}/api/chat/messages/12345/resolve`, {
+        method: "POST",
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe("Failed to resolve message");
+
+      // Restore
+      fs.rmdirSync(chatFile);
+      if (originalChat) {
+        fs.writeFileSync(chatFile, originalChat, "utf8");
+      }
+    });
   });
 
   describe("Change Password", () => {
@@ -675,6 +746,53 @@ describe("Route Integration Tests", () => {
         body: JSON.stringify({ oldPassword: "testpass123" }),
       });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("Auth Error Paths", () => {
+    test("POST /login should return 500 when bcrypt.compare throws", async () => {
+      // Write users.json with a user whose password field is invalid (null)
+      // This causes bcrypt.compare to throw, hitting the catch block
+      const usersFile = path.join(__dirname, "..", "users.json");
+      const backup = fs.readFileSync(usersFile, "utf8");
+      fs.writeFileSync(usersFile, JSON.stringify([{ id: 99, username: "admin", password: null }]), "utf8");
+
+      const res = await fetch(`${baseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "admin", password: "admin123" }),
+        redirect: "manual",
+      });
+      expect(res.status).toBe(500);
+      const text = await res.text();
+      expect(text).toContain("Server Error");
+
+      // Restore
+      fs.writeFileSync(usersFile, backup, "utf8");
+    });
+
+    test("PUT /api/change-password should return 404 when user not found in file", async () => {
+      // Login to get a valid session
+      const cookie = await loginAs("admin", "admin123");
+
+      // Now overwrite users.json to remove the admin user
+      const usersFile = path.join(__dirname, "..", "users.json");
+      const backup = fs.readFileSync(usersFile, "utf8");
+      const users = JSON.parse(backup);
+      const withoutAdmin = users.filter((u) => u.username !== "admin");
+      fs.writeFileSync(usersFile, JSON.stringify(withoutAdmin, null, 2), "utf8");
+
+      const res = await fetch(`${baseUrl}/api/change-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({ oldPassword: "admin123", newPassword: "newpass12345" }),
+      });
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("User not found");
+
+      // Restore
+      fs.writeFileSync(usersFile, backup, "utf8");
     });
   });
 

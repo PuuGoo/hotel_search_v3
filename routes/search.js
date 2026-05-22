@@ -12,6 +12,113 @@ const __dirname = path.dirname(__filename);
 
 const router = Router();
 
+/**
+ * @swagger
+ * /searchApiTavily:
+ *   get:
+ *     summary: Search with Tavily
+ *     description: Search for hotels using Tavily API with automatic key rotation
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *     responses:
+ *       200:
+ *         description: Search results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SearchResult'
+ *                 query:
+ *                   type: string
+ *       400:
+ *         description: Missing query parameter
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Feature not enabled
+ *       500:
+ *         description: Search failed
+ */
+
+/**
+ * @swagger
+ * /searchApiGo:
+ *   get:
+ *     summary: Search with Google
+ *     description: Search for hotels using Google Custom Search API with key rotation
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *     responses:
+ *       200:
+ *         description: Search results
+ *       400:
+ *         description: Missing query parameter
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Feature not enabled
+ *       500:
+ *         description: Search failed
+ */
+
+/**
+ * @swagger
+ * /searchApiDDG:
+ *   get:
+ *     summary: Search with DuckDuckGo
+ *     description: Search for hotels using DuckDuckGo (via local DDG server)
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *       - in: query
+ *         name: hotel_name
+ *         schema:
+ *           type: string
+ *         description: Hotel name for context
+ *       - in: query
+ *         name: hotel_address
+ *         schema:
+ *           type: string
+ *         description: Hotel address for context
+ *     responses:
+ *       200:
+ *         description: Search results
+ *       400:
+ *         description: Missing query parameter
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Feature not enabled
+ *       502:
+ *         description: DDG server error
+ *       500:
+ *         description: Search failed
+ */
+
 // ---- Tavily API key rotation ----
 const apiTavilyKeys = [
   process.env.TAVILY_API_KEY_1, process.env.TAVILY_API_KEY_2,
@@ -24,7 +131,7 @@ const apiTavilyKeys = [
   process.env.TAVILY_API_KEY_15, process.env.TAVILY_API_KEY_16,
   process.env.TAVILY_API_KEY_17, process.env.TAVILY_API_KEY_18,
   process.env.TAVILY_API_KEY_19, process.env.TAVILY_API_KEY_20,
-];
+].filter(Boolean);
 
 let currentKeyTavilyIndex = 0;
 function getTavilyClient() {
@@ -32,6 +139,9 @@ function getTavilyClient() {
 }
 
 async function searchWithRetry(query) {
+  if (apiTavilyKeys.length === 0) {
+    throw new Error("No Tavily API keys configured");
+  }
   let attempts = 0;
   const maxAttempts = apiTavilyKeys.length;
 
@@ -67,7 +177,7 @@ const apiGoogleKeys = [
   process.env.GO_API_KEY_5, process.env.GO_API_KEY_6,
   process.env.GO_API_KEY_7, process.env.GO_API_KEY_8,
   process.env.GO_API_KEY_9, process.env.GO_API_KEY_10,
-];
+].filter(Boolean);
 
 const SEARCH_ENGINE_ID = process.env.GOOGLE_SEARCH_ENGINE_ID;
 let currentKeyGoogleIndex = 0;
@@ -80,6 +190,9 @@ async function callGoogleSearchAPI(query, apiKey) {
 }
 
 async function searchWithRetryGo(query) {
+  if (apiGoogleKeys.length === 0) {
+    throw new Error("No Google API keys configured");
+  }
   let attempts = 0;
   const maxAttempts = apiGoogleKeys.length;
 
@@ -189,8 +302,8 @@ router.get("/searchApiTavily", checkAuthenticated, checkFeature("tavily"), rateL
 // DDG search API
 router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSearch, validateSearchQuery, async (req, res) => {
   const query = req.query.q;
-  const hotelName = req.query.hotel_name || "";
-  const hotelAddress = req.query.hotel_address || "";
+  const hotelName = (req.query.hotel_name || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
+  const hotelAddress = (req.query.hotel_address || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
 
   try {
     if (!(await isDdgServerRunning())) {
@@ -203,6 +316,11 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
       body: JSON.stringify({ query, hotel_name: hotelName, hotel_address: hotelAddress }),
       signal: AbortSignal.timeout(120000),
     });
+
+    if (!resp.ok) {
+      console.error(`DDG server returned ${resp.status}`);
+      return res.status(502).json({ error: "DuckDuckGo server error" });
+    }
 
     const result = await resp.json();
     return res.json({ query, results: result.results || [] });

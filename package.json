@@ -28,6 +28,8 @@
     "helmet": "^8.2.0",
     "http-proxy-middleware": "^3.0.5",
     "multer": "^1.4.5-lts.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "tldts": "^7.0.2"
   },
   "devDependencies": {

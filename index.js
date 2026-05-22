@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import swaggerUi from "swagger-ui-express";
 import { requestLogger } from "./middleware/logger.js";
 import { requestId } from "./middleware/requestId.js";
 import { requestTimeout } from "./middleware/timeout.js";
@@ -15,6 +16,8 @@ import chatRoutes from "./routes/chat.js";
 import searchRoutes from "./routes/search.js";
 import case12Routes from "./routes/case12.js";
 import pageRoutes from "./routes/pages.js";
+import { csrfProtection } from "./middleware/csrf.js";
+import swaggerSpec from "./utils/swagger.js";
 
 dotenv.config();
 
@@ -50,7 +53,7 @@ app.use((req, res, next) => {
       "Content-Security-Policy",
       [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
         "img-src 'self' data: https://placehold.co",
@@ -95,6 +98,15 @@ app.use(
     },
   })
 );
+
+// CSRF protection (after session, before routes)
+app.use(csrfProtection);
+
+// Swagger API docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: ".swagger-ui .topbar { display: none }",
+  customSiteTitle: "Hotel Search API Docs",
+}));
 
 // Static files
 app.use(express.static(join(__dirname, "public")));

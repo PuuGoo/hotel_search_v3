@@ -37,6 +37,12 @@ jest.unstable_mockModule("child_process", () => ({
   })),
 }));
 
+// Set test API keys before importing search routes (module reads them at load time)
+process.env.TAVILY_API_KEY_1 = "test-tavily-key-1";
+process.env.TAVILY_API_KEY_2 = "test-tavily-key-2";
+process.env.GO_API_KEY_1 = "test-google-key-1";
+process.env.GO_API_KEY_2 = "test-google-key-2";
+
 // Import mocked modules
 await import("@tavily/core");
 const { default: axios } = await import("axios");
@@ -211,6 +217,21 @@ describe("Search Routes", () => {
       const data = await res.json();
       expect(data.error).toBe("Search Failed");
     });
+
+    test("should rotate key on 429 and succeed", async () => {
+      const error429 = new Error("Rate limited");
+      error429.response = { status: 429 };
+      mockTavilySearch
+        .mockRejectedValueOnce(error429)
+        .mockResolvedValueOnce({ results: [{ title: "Rotated", url: "https://example.com" }] });
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.results).toHaveLength(1);
+    });
   });
 
   describe("Google Search API", () => {
@@ -242,6 +263,234 @@ describe("Search Routes", () => {
 
     test("should return 500 on search error", async () => {
       axios.get.mockRejectedValueOnce(new Error("API key limit"));
+
+      const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+    });
+
+    test("should rotate key on 429 and succeed", async () => {
+      const error429 = new Error("Rate limited");
+      error429.response = { status: 429 };
+      axios.get
+        .mockRejectedValueOnce(error429)
+        .mockResolvedValueOnce({
+          data: { items: [{ title: "Rotated", link: "https://example.com" }] },
+        });
+
+      const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.items).toHaveLength(1);
+    });
+  });
+
+  describe("DDG Search API", () => {
+    let ddgMockQueue;
+
+    function setupDdgMock() {
+      ddgMockQueue = [];
+      const realFetch = global.fetch;
+      jest.spyOn(global, "fetch").mockImplementation((url, opts) => {
+        if (typeof url === "string" && url.includes("localhost:5001")) {
+          const next = ddgMockQueue.shift();
+          if (!next) return Promise.reject(new Error("No DDG mock for: " + url));
+          if (next.reject) return Promise.reject(next.reject);
+          return Promise.resolve(next.resolve);
+        }
+        return realFetch(url, opts);
+      });
+    }
+
+    beforeEach(() => {
+      ddgMockQueue = [];
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test("should return DDG results for valid query", async () => {
+      setupDdgMock();
+      // Health check
+      ddgMockQueue.push({ resolve: { ok: true } });
+      // Search
+      ddgMockQueue.push({
+        resolve: {
+          ok: true,
+          json: async () => ({ results: [{ title: "DDG Result", url: "https://ddg.com" }] }),
+        },
+      });
+
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=hotel+test&hotel_name=TestHotel&hotel_address=123+Main+St`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.results).toHaveLength(1);
+      expect(data.query).toBe("hotel test");
+    });
+
+    test("should reject request without q parameter", async () => {
+      const res = await fetch(`${baseUrl}/searchApiDDG`, {
+        headers: { Cookie: adminCookie },
+        redirect: "manual",
+      });
+      expect(res.status).toBe(400);
+    });
+
+    test("should redirect unauthenticated user", async () => {
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, { redirect: "manual" });
+      expect(res.status).toBe(302);
+    });
+
+    test("should reject user without ddg feature", async () => {
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, {
+        headers: { Cookie: noSearchCookie },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("should return 502 when DDG server returns error", async () => {
+      setupDdgMock();
+      ddgMockQueue.push({ resolve: { ok: true } }); // health
+      ddgMockQueue.push({ resolve: { ok: false, status: 500 } }); // search error
+
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(502);
+      const data = await res.json();
+      expect(data.error).toBe("DuckDuckGo server error");
+    });
+
+    test("should return 500 on DDG fetch failure", async () => {
+      setupDdgMock();
+      ddgMockQueue.push({ resolve: { ok: true } }); // health
+      ddgMockQueue.push({ reject: new Error("Network error") }); // search failure
+
+      const res = await fetch(`${baseUrl}/searchApiDDG?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe("DuckDuckGo search error");
+    });
+  });
+
+  describe("Tavily - Additional Rotation", () => {
+    test("should rotate on 403 error", async () => {
+      const error403 = new Error("Forbidden");
+      error403.response = { status: 403 };
+      mockTavilySearch
+        .mockRejectedValueOnce(error403)
+        .mockResolvedValueOnce({ results: [{ title: "After 403", url: "https://example.com" }] });
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("should rotate on 422 error", async () => {
+      const error422 = new Error("Unprocessable");
+      error422.response = { status: 422 };
+      mockTavilySearch
+        .mockRejectedValueOnce(error422)
+        .mockResolvedValueOnce({ results: [{ title: "After 422", url: "https://example.com" }] });
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("should rotate on usage limit exceeded message", async () => {
+      const limitError = new Error("exceeds your plan's set usage limit");
+      mockTavilySearch
+        .mockRejectedValueOnce(limitError)
+        .mockResolvedValueOnce({ results: [{ title: "After limit", url: "https://example.com" }] });
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("should throw on non-retryable error", async () => {
+      const networkError = new Error("ECONNREFUSED");
+      mockTavilySearch.mockRejectedValueOnce(networkError);
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      // Reset index via a successful call
+      mockTavilySearch.mockResolvedValueOnce({ results: [] });
+      await fetch(`${baseUrl}/searchApiTavily?q=reset`, {
+        headers: { Cookie: adminCookie },
+      });
+    });
+  });
+
+  describe("Google - Additional Rotation", () => {
+    test("should rotate on 403 error", async () => {
+      const error403 = new Error("Forbidden");
+      error403.response = { status: 403 };
+      axios.get
+        .mockRejectedValueOnce(error403)
+        .mockResolvedValueOnce({ data: { items: [{ title: "After 403" }] } });
+
+      const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("should throw on non-retryable error", async () => {
+      const error500 = new Error("Server error");
+      error500.response = { status: 500, data: { error: "internal" } };
+      axios.get.mockRejectedValueOnce(error500);
+
+      const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      // Reset index via a successful call
+      axios.get.mockResolvedValueOnce({ data: { items: [] } });
+      await fetch(`${baseUrl}/searchApiGo?q=reset`, {
+        headers: { Cookie: adminCookie },
+      });
+    });
+  });
+
+  describe("Tavily - All Keys Exhausted", () => {
+    test("should return 500 when all Tavily keys fail", async () => {
+      const error429 = new Error("Rate limited");
+      error429.response = { status: 429 };
+      mockTavilySearch
+        .mockRejectedValueOnce(error429)
+        .mockRejectedValueOnce(error429);
+
+      const res = await fetch(`${baseUrl}/searchApiTavily?q=test`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe("Search Failed");
+    });
+  });
+
+  describe("Google - All Keys Exhausted", () => {
+    test("should return 500 when all Google keys fail", async () => {
+      const error429 = new Error("Rate limited");
+      error429.response = { status: 429 };
+      axios.get
+        .mockRejectedValueOnce(error429)
+        .mockRejectedValueOnce(error429);
 
       const res = await fetch(`${baseUrl}/searchApiGo?q=test`, {
         headers: { Cookie: adminCookie },

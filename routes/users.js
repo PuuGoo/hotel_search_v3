@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { readUsers, writeUsers, checkRole, VALID_FEATURES } from "../middleware/auth.js";
 import { validateUserInput } from "../middleware/validation.js";
-import { rateLimitSearch } from "../middleware/rateLimit.js";
+import { rateLimitSearch, rateLimitLogin } from "../middleware/rateLimit.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,6 +10,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = Router();
+
+/**
+ * @swagger
+ * /admin:
+ *   get:
+ *     summary: Admin panel
+ *     description: Serves the admin HTML page (admin only)
+ *     security:
+ *       - sessionAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin page HTML
+ *       403:
+ *         description: Not an admin
+ */
+
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: List users
+ *     description: Returns all users (admin only)
+ *     security:
+ *       - sessionAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Not an admin
+ */
 
 // Admin page
 router.get("/admin", checkRole("admin"), (_req, res) => {
@@ -21,6 +57,46 @@ router.get("/api/users", checkRole("admin"), (_req, res) => {
   const users = readUsers().map(({ password: _pw, ...u }) => u);
   res.json(users);
 });
+
+/**
+ * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Create user
+ *     description: Create a new user (admin only)
+ *     security:
+ *       - sessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *               displayName:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, user]
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [tavily, ddg, case12]
+ *     responses:
+ *       200:
+ *         description: User created
+ *       400:
+ *         description: Username already exists or invalid input
+ *       403:
+ *         description: Not an admin
+ */
 
 // Create user (admin only, rate limited)
 router.post("/api/users", checkRole("admin"), rateLimitSearch, validateUserInput, async (req, res) => {
@@ -43,6 +119,66 @@ router.post("/api/users", checkRole("admin"), rateLimitSearch, validateUserInput
   const { password: _, ...safe } = newUser;
   res.json({ success: true, user: safe });
 });
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update user
+ *     description: Update user details (admin only)
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               displayName:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, user]
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [tavily, ddg, case12]
+ *     responses:
+ *       200:
+ *         description: User updated
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: User not found
+ *   delete:
+ *     summary: Delete user
+ *     description: Delete a user (admin only, cannot delete last admin)
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User deleted
+ *       400:
+ *         description: Cannot delete last user or default admin
+ *       404:
+ *         description: User not found
+ */
 
 // Update user (admin only)
 router.put("/api/users/:id", checkRole("admin"), async (req, res) => {
@@ -73,7 +209,7 @@ router.put("/api/users/:id", checkRole("admin"), async (req, res) => {
   res.json({ success: true, user: safe });
 });
 
-// Delete user (admin only)
+// Delete user (admin only) - annotation on parent PUT block
 router.delete("/api/users/:id", checkRole("admin"), (req, res) => {
   const id = Number(req.params.id);
   const users = readUsers();
@@ -91,7 +227,7 @@ router.delete("/api/users/:id", checkRole("admin"), (req, res) => {
 });
 
 // Change user password (admin or self, rate limited)
-router.put("/api/users/:id/password", rateLimitSearch, async (req, res) => {
+router.put("/api/users/:id/password", rateLimitLogin, async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }

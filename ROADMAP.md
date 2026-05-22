@@ -17,10 +17,10 @@
 - [x] CSRF protection (Origin/Referer + token-based)
 - [x] Remove error.message from API responses
 
-## Phase 2: Test Coverage (252 tests, 15 suites)
-- [x] Auth routes tests (89.47%)
+## Phase 2: Test Coverage (274 tests, 15 suites, 93.68% statements)
+- [x] Auth routes tests (97.36%)
 - [x] User management tests (97.53%)
-- [x] Chat routes tests (97.61%)
+- [x] Chat routes tests (100%)
 - [x] Utility function tests (ddg.js — 98.52%)
 - [x] Validation middleware tests (100%)
 - [x] Rate limiter tests (100%)
@@ -32,11 +32,10 @@
 - [x] Config module tests
 - [x] Structured logger tests
 - [x] Server configuration tests
-- [x] Search routes tests (53.77%)
+- [x] Search routes tests (75.22% — key rotation + DDG server)
 - [x] Case12 route tests (100%)
 - [x] Page route tests (100%)
 - [x] Edge case tests for error handlers
-- [ ] Improve search.js coverage (key rotation/DDG server)
 
 ## Phase 3: API Quality
 - [x] Consistent JSON error responses
@@ -53,7 +52,7 @@
 - [x] Utility extraction (ddg.js, config.js, logger.js, circuitBreaker.js)
 - [x] Environment-based config management
 - [x] Structured logging (JSON in production)
-- [ ] Add OpenAPI/Swagger documentation
+- [x] Add OpenAPI/Swagger documentation
 
 ## Phase 5: Reliability
 - [x] Error handling on all routes
