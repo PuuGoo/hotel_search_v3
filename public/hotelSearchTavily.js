@@ -3601,8 +3601,8 @@ document.addEventListener("keydown", (e) => {
   }
   // Ctrl+Enter: start DDG search if on DDG tab
   if (e.ctrlKey && e.key === "Enter") {
-    const ddgBtn = document.getElementById("ddgStartButton");
-    if (ddgBtn && !ddgBtn.disabled) {
+    const ddgBtn = document.getElementById("ddgRunButton");
+    if (ddgBtn && !ddgBtn.disabled && !ddgBtn.classList.contains("hidden")) {
       e.preventDefault();
       ddgBtn.click();
     }
