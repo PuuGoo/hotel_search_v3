@@ -2835,7 +2835,7 @@ function downloadCSV(results, filename = "hotel_search_results.csv") {
   document.body.removeChild(link);
 }
 
-// Hàm xuất ra file XLSX
+// Hàm xuất ra file XLSX (multi-sheet với stats summary)
 function downloadXLSX(results, filename = "hotel_search_results.xlsx") {
   const maxMatchedLinks = Math.max(
     ...results.map((row) => (row.matchedLinks || []).length),
@@ -2873,8 +2873,47 @@ function downloadXLSX(results, filename = "hotel_search_results.xlsx") {
   });
   ws["!cols"] = colWidths;
 
+  // Stats summary sheet
+  const matched = results.filter((r) => r.status === "Matched").length;
+  const notMatched = results.filter((r) => r.status === "Not Matched").length;
+  const percentages = results.map((r) => r.percentage).filter((p) => typeof p === "number");
+  const avgPct = percentages.length ? (percentages.reduce((a, b) => a + b, 0) / percentages.length).toFixed(1) : 0;
+  const maxPct = percentages.length ? Math.max(...percentages) : 0;
+  const minPct = percentages.length ? Math.min(...percentages) : 0;
+  const highConfidence = results.filter((r) => r.percentage >= 70).length;
+  const mediumConfidence = results.filter((r) => r.percentage >= 40 && r.percentage < 70).length;
+  const lowConfidence = results.filter((r) => r.percentage < 40).length;
+
+  const statsData = [
+    ["Hotel Search Results Summary"],
+    [],
+    ["Metric", "Value"],
+    ["Total Hotels", results.length],
+    ["Matched", matched],
+    ["Not Matched", notMatched],
+    ["Match Rate", results.length ? `${((matched / results.length) * 100).toFixed(1)}%` : "N/A"],
+    [],
+    ["Percentage Statistics"],
+    ["Average", `${avgPct}%`],
+    ["Maximum", `${maxPct}%`],
+    ["Minimum", `${minPct}%`],
+    [],
+    ["Confidence Distribution"],
+    ["High (>=70%)", highConfidence],
+    ["Medium (40-69%)", mediumConfidence],
+    ["Low (<40%)", lowConfidence],
+    [],
+    ["Export Info"],
+    ["Exported At", new Date().toLocaleString()],
+    ["Total Links", results.reduce((sum, r) => sum + (r.matchedLinks?.length || 0), 0)],
+  ];
+
+  const wsStats = XLSX.utils.aoa_to_sheet(statsData);
+  wsStats["!cols"] = [{ wch: 20 }, { wch: 15 }];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Results");
+  XLSX.utils.book_append_sheet(wb, wsStats, "Summary");
   XLSX.writeFile(wb, filename);
 }
 
