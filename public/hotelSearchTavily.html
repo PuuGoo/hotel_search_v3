@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tavily Hotel Search</title>
     <meta name="description" content="Tìm kiếm khách sạn từ Excel với Tavily" />
+    <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -1100,9 +1101,9 @@
             showError("Định dạng không hợp lệ. Chỉ chấp nhận .xlsx hoặc .xls");
             return false;
           }
-          const maxSize = 15 * 1024 * 1024; // 15MB
+          const maxSize = 20 * 1024 * 1024; // 20MB
           if (f.size > maxSize) {
-            showError("Tệp quá lớn (>15MB). Vui lòng chọn tệp nhỏ hơn.");
+            showError("Tệp quá lớn (>20MB). Vui lòng chọn tệp nhỏ hơn.");
             return false;
           }
           return true;

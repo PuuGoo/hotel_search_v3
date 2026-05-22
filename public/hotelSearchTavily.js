@@ -2299,7 +2299,7 @@ document.addEventListener("DOMContentLoaded", function () {
             s.id
           }" title="Double-click để đổi tên">
             <div class="snap-label" style="font-weight:600;font-size:.75rem;word-break:break-word">${
-              s.label
+              escapeHtml(s.label)
             }</div>
             <div style="font-size:.6rem;color:var(--text-tertiary)">${new Date(
               s.ts

@@ -27,10 +27,17 @@ export function csrfProtection(req, res, next) {
         return res.status(403).json({ error: "CSRF validation failed: invalid origin" });
       }
     } else {
-      // Same-origin check: origin must match the host
+      // Same-origin check: origin hostname must match the host hostname
       const host = req.headers.host;
-      if (host && !origin.includes(host)) {
-        return res.status(403).json({ error: "CSRF validation failed: origin mismatch" });
+      if (host) {
+        try {
+          const originHost = new URL(origin).host;
+          if (originHost !== host) {
+            return res.status(403).json({ error: "CSRF validation failed: origin mismatch" });
+          }
+        } catch {
+          return res.status(403).json({ error: "CSRF validation failed: invalid origin" });
+        }
       }
     }
   }
