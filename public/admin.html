@@ -8,11 +8,12 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   </head>
   <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
     <header class="app-header no-print">
       <div class="app-header-inner">
         <div class="brand">
@@ -21,7 +22,14 @@
         </div>
         <nav class="flex gap-sm center" style="margin-left: auto">
           <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-line"></i> Admin Dashboard</a>
+          <a href="/api-keys" class="btn btn-outline btn-small"><i class="fa-solid fa-key"></i> API Keys</a>
           <a href="/admin" class="btn btn-primary btn-small"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <a href="/profile" class="btn btn-outline btn-small" title="Profile"><i class="fa-solid fa-user"></i></a>
           <div class="clock" aria-label="Đồng hồ">--:--:--</div>
           <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
           <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
@@ -34,7 +42,7 @@
       </div>
     </header>
 
-    <main class="container" style="padding: var(--spacing-lg) var(--spacing-md)">
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md)">
       <!-- API Health Dashboard -->
       <details id="healthDashboard" class="glass-card" style="max-width:900px;margin:0 auto var(--spacing-md);padding:var(--spacing-sm) var(--spacing-md)">
         <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
@@ -161,8 +169,34 @@
       </div>
     </div>
 
+    <!-- Audit Log Section -->
+    <div class="glass-card" style="max-width: 900px; margin: var(--spacing-md) auto 0">
+      <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm)">
+        <div class="card-header" style="margin: 0"><i class="fa-solid fa-clipboard-list"></i> Audit Log</div>
+        <div class="flex gap-xs">
+          <select id="auditActionFilter" style="font-size: 0.72rem; padding: 4px 8px; width: auto">
+            <option value="">Tất cả</option>
+            <option value="user_login">Đăng nhập</option>
+            <option value="user_logout">Đăng xuất</option>
+            <option value="login_failed">Đăng nhập thất bại</option>
+            <option value="user_created">Tạo user</option>
+            <option value="user_updated">Sửa user</option>
+            <option value="user_deleted">Xóa user</option>
+          </select>
+          <button id="clearAuditBtn" class="btn btn-outline btn-small" title="Xóa audit log">
+            <i class="fa-solid fa-trash"></i><span>Xóa</span>
+          </button>
+          <button id="exportAuditBtn" class="btn btn-outline btn-small" title="Xuất CSV">
+            <i class="fa-solid fa-download"></i><span>CSV</span>
+          </button>
+        </div>
+      </div>
+      <div id="auditList" style="max-height: 300px; overflow: auto; font-size: 0.72rem"></div>
+    </div>
+
     <script type="module">
       import { Toasts, escapeHtml } from "/ui.js";
+      import { createPasswordStrengthIndicator } from "/passwordStrength.js";
       const API = "/api/users";
       let currentUserId = null;
 
@@ -233,6 +267,12 @@
             </td>
             <td style="padding: 8px; font-size: 0.82rem">${u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '-'}</td>
             <td style="padding: 8px; text-align: center">
+              <button class="btn btn-outline btn-small btn-view-bookmarks" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Xem bookmarks">
+                <i class="fa-solid fa-bookmark"></i>
+              </button>
+              <button class="btn btn-outline btn-small btn-view-history" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Xem lịch sử">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+              </button>
               <button class="btn btn-outline btn-small btn-edit-user" data-id="${u.id}" title="Sửa">
                 <i class="fa-solid fa-pen"></i>
               </button>
@@ -258,7 +298,48 @@
         tbody.querySelectorAll('.btn-delete-user').forEach(btn => {
           btn.onclick = () => deleteUser(parseInt(btn.dataset.id), btn.dataset.username);
         });
+        tbody.querySelectorAll('.btn-view-bookmarks').forEach(btn => {
+          btn.onclick = () => viewUserBookmarks(parseInt(btn.dataset.id), btn.dataset.username);
+        });
+        tbody.querySelectorAll('.btn-view-history').forEach(btn => {
+          btn.onclick = () => viewUserHistory(parseInt(btn.dataset.id), btn.dataset.username);
+        });
       }
+
+      async function viewUserBookmarks(userId, username) {
+        try {
+          const res = await fetch(`/api/users/${userId}/bookmarks`);
+          const data = await res.json();
+          const bookmarks = data.bookmarks || [];
+          if (bookmarks.length === 0) {
+            alert(`${username} không có bookmark nào`);
+            return;
+          }
+          const lines = bookmarks.map(b => `• ${b.title}\n  ${b.url}\n  Engine: ${b.engine} | ${new Date(b.timestamp).toLocaleString("vi-VN")}`).join("\n\n");
+          alert(`Bookmarks của ${username} (${bookmarks.length}):\n\n${lines}`);
+        } catch {
+          Toasts.error("Lỗi tải bookmarks");
+        }
+      }
+
+      async function viewUserHistory(userId, username) {
+        try {
+          const res = await fetch(`/api/users/${userId}/history`);
+          const data = await res.json();
+          const history = data.history || [];
+          if (history.length === 0) {
+            alert(`${username} không có lịch sử tìm kiếm`);
+            return;
+          }
+          const lines = history.slice(0, 20).map(h => `• ${h.query}\n  Engine: ${h.engine} | ${h.resultCount} kết quả | ${new Date(h.timestamp).toLocaleString("vi-VN")}`).join("\n\n");
+          alert(`Lịch sử tìm kiếm của ${username} (${history.length}, hiển thị 20 gần nhất):\n\n${lines}`);
+        } catch {
+          Toasts.error("Lỗi tải lịch sử");
+        }
+      }
+
+      let userModalStrength = null;
+      let passwordModalStrength = null;
 
       function openModal(title, user) {
         document.getElementById("modalTitle").textContent = title;
@@ -274,6 +355,10 @@
         document.getElementById("featureTavily").checked = features.includes("tavily");
         document.getElementById("featureDDG").checked = features.includes("ddg");
         document.getElementById("featureCase12").checked = features.includes("case12");
+
+        // Password strength indicator
+        if (userModalStrength) userModalStrength.destroy();
+        userModalStrength = createPasswordStrengthIndicator(document.getElementById("modalPassword"));
 
         document.getElementById("userModal").style.display = "flex";
       }
@@ -295,6 +380,8 @@
       window.changePassword = (id) => {
         document.getElementById("pwUserId").value = id;
         document.getElementById("newPassword").value = "";
+        if (passwordModalStrength) passwordModalStrength.destroy();
+        passwordModalStrength = createPasswordStrengthIndicator(document.getElementById("newPassword"));
         document.getElementById("passwordModal").style.display = "flex";
       };
 
@@ -377,8 +464,68 @@
       if (stored) document.documentElement.setAttribute("data-theme", stored);
       applyIcon();
 
+      // ---- Audit Log ----
+      const actionLabels = {
+        user_login: "Đăng nhập", user_logout: "Đăng xuất", login_failed: "Đăng nhập thất bại",
+        user_created: "Tạo user", user_updated: "Sửa user", user_deleted: "Xóa user",
+        audit_log_cleared: "Xóa audit log"
+      };
+      const actionIcons = {
+        user_login: "fa-right-to-bracket", user_logout: "fa-right-from-bracket", login_failed: "fa-triangle-exclamation",
+        user_created: "fa-user-plus", user_updated: "fa-user-pen", user_deleted: "fa-user-minus",
+        audit_log_cleared: "fa-trash"
+      };
+
+      async function loadAudit() {
+        const action = document.getElementById("auditActionFilter").value;
+        const url = action ? `/api/admin/audit-log?action=${action}` : "/api/admin/audit-log";
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          const list = document.getElementById("auditList");
+          const items = data.entries || [];
+          if (items.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)">Chưa có audit log</div>';
+            return;
+          }
+          list.innerHTML = items.map(e => {
+            const time = new Date(e.timestamp).toLocaleString("vi-VN");
+            const icon = actionIcons[e.action] || "fa-circle-info";
+            const label = actionLabels[e.action] || e.action;
+            const isDanger = e.action === "login_failed" || e.action === "user_deleted";
+            const color = isDanger ? "#ff4d4f" : e.action === "user_login" ? "#3ba55d" : "var(--text-secondary)";
+            return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">
+              <i class="fa-solid ${icon}" style="color:${color};font-size:.72rem;width:18px;text-align:center"></i>
+              <span style="min-width:100px;font-weight:500">${escapeHtml(label)}</span>
+              <span style="min-width:70px;color:var(--text-tertiary)">${escapeHtml(e.username || "-")}</span>
+              ${e.target ? `<span style="color:var(--text-tertiary)">→ ${escapeHtml(e.target)}</span>` : ""}
+              ${e.detail ? `<span style="color:var(--text-tertiary);font-size:.65rem">${escapeHtml(e.detail)}</span>` : ""}
+              <span style="margin-left:auto;color:var(--text-tertiary);font-size:.65rem;min-width:120px;text-align:right">${time}</span>
+            </div>`;
+          }).join("");
+        } catch {
+          document.getElementById("auditList").innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)">Lỗi tải audit log</div>';
+        }
+      }
+
+      document.getElementById("auditActionFilter").addEventListener("change", loadAudit);
+      document.getElementById("clearAuditBtn").addEventListener("click", async () => {
+        if (!confirm("Xóa toàn bộ audit log?")) return;
+        try {
+          const res = await fetch("/api/admin/audit-log", { method: "DELETE" });
+          if (res.ok) { Toasts.success("Đã xóa audit log"); loadAudit(); }
+        } catch { Toasts.error("Lỗi xóa"); }
+      });
+      document.getElementById("exportAuditBtn").addEventListener("click", () => {
+        const action = document.getElementById("auditActionFilter").value;
+        const url = action ? `/api/admin/audit-log/export?action=${action}` : "/api/admin/audit-log/export";
+        window.location.href = url;
+      });
+
       loadCurrentUser();
       loadUsers();
+      loadAudit();
     </script>
   </body>
 </html>
+

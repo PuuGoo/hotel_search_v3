@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/app.css" />
@@ -45,7 +45,25 @@
         </div>
         <div class="flex gap-sm center" style="margin-left: auto">
           <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <span id="rateLimitBadge" class="badge" style="font-size: 0.65rem; display: none" title="Giới hạn tìm kiếm"></span>
           <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/profile" class="btn btn-outline btn-small" title="Profile"
+            ><i class="fa-solid fa-user"></i
+          ></a>
+          <a href="/bookmarks" class="btn btn-outline btn-small" title="Bookmarks"
+            ><i class="fa-solid fa-bookmark"></i
+          ></a>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"
+            ><i class="fa-solid fa-chart-pie"></i
+          ></a>
+          <a href="/api-keys" class="btn btn-outline btn-small" title="API Keys"
+            ><i class="fa-solid fa-key"></i> API Keys</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small" title="Tìm kiếm đã lưu"
+            ><i class="fa-solid fa-bookmark"></i
+          ></a>
+          <a href="/shares" class="btn btn-outline btn-small" title="Link chia sẻ"
+            ><i class="fa-solid fa-share-nodes"></i
+          ></a>
           <button id="changeMyPasswordBtn" class="btn btn-outline btn-small" title="Đổi mật khẩu"
             ><i class="fa-solid fa-key"></i
           ></button>
@@ -247,6 +265,13 @@
                     title="Xuất XLSX"
                   >
                     <i class="fa-solid fa-file-excel"></i><span>XLSX</span>
+                  </button>
+                  <button
+                    id="printResultsButton"
+                    class="btn btn-outline btn-small hidden no-print"
+                    title="In kết quả"
+                  >
+                    <i class="fa-solid fa-print"></i><span>Print</span>
                   </button>
                   <button
                     id="importCSVButton"
@@ -1065,7 +1090,7 @@
     <footer class="app-footer text-tertiary">
       © <span id="year"></span> PuuGoo
     </footer>
-    <script type="module" src="/ui.js"></script>
+    <script type="module" src="/ui.js?v=2"></script>
     <script type="module" src="/hotelSearchTavily.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
@@ -1167,6 +1192,7 @@
         (function loadSearchHistory() {
           const HISTORY_KEY = "tavily_search_history";
           const MAX_HISTORY = 20;
+          const escapeHtml = (s) => s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : "";
           const list = document.getElementById("historyList");
           const countEl = document.getElementById("historyCount");
           if (!list) return;
@@ -1288,6 +1314,17 @@
           document.documentElement.setAttribute("data-theme", next);
           localStorage.setItem("theme", next);
         });
+
+        // Print results
+        const printBtn = document.getElementById("printResultsButton");
+        if (printBtn) {
+          printBtn.addEventListener("click", () => {
+            document.body.setAttribute("data-page-title", "Search Results");
+            document.body.setAttribute("data-print-date", new Date().toLocaleString("vi-VN"));
+            window.print();
+          });
+        }
+
         const resultsSection = document.getElementById("resultsSection");
         const tabButtons = [...document.querySelectorAll('[role="tab"]')];
         const resultsTab = tabButtons.find(

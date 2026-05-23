@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rate Limits</title>
+    <meta name="description" content="Rate limit monitoring" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .rate-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .rate-meter { height: 24px; background: var(--glass-border); border-radius: 12px; overflow: hidden; position: relative; }
+      .rate-fill { height: 100%; border-radius: 12px; transition: width 0.5s; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; color: white; min-width: 30px; }
+      .rate-fill.low { background: #3ba55d; }
+      .rate-fill.medium { background: #faa61a; }
+      .rate-fill.high { background: #e74c3c; }
+      .entry-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .entry-row:last-child { border-bottom: none; }
+      .metric-value { font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .metric-label { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Rate Limits</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-gauge-high"></i> Rate Limits
+        </h1>
+        <button id="refreshBtn" class="btn btn-outline btn-small" style="margin-left: auto">
+          <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+      </div>
+
+      <!-- My Status -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <div class="rate-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-right-to-bracket"></i> Login Rate Limit
+            <span class="text-tertiary" style="font-size: 0.7rem; font-weight: normal">(per IP)</span>
+          </h3>
+          <div class="rate-meter" style="margin-bottom: 8px">
+            <div id="loginMeter" class="rate-fill low" style="width: 0%">0</div>
+          </div>
+          <div class="flex" style="justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary)">
+            <span id="loginUsed">0 used</span>
+            <span id="loginRemaining">-- remaining</span>
+          </div>
+        </div>
+
+        <div class="rate-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-magnifying-glass"></i> Search Rate Limit
+            <span class="text-tertiary" style="font-size: 0.7rem; font-weight: normal">(per user)</span>
+          </h3>
+          <div class="rate-meter" style="margin-bottom: 8px">
+            <div id="searchMeter" class="rate-fill low" style="width: 0%">0</div>
+          </div>
+          <div class="flex" style="justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary)">
+            <span id="searchUsed">0 used</span>
+            <span id="searchRemaining">-- remaining</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Global Stats (Admin) -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--spacing-md)">
+        <div class="rate-card" style="text-align: center">
+          <div class="metric-value" id="loginActive">0</div>
+          <div class="metric-label">Active Login IPs</div>
+        </div>
+        <div class="rate-card" style="text-align: center">
+          <div class="metric-value" id="searchActive">0</div>
+          <div class="metric-label">Active Search Users</div>
+        </div>
+        <div class="rate-card" style="text-align: center">
+          <div class="metric-value" id="loginMax">--</div>
+          <div class="metric-label">Login Limit</div>
+        </div>
+        <div class="rate-card" style="text-align: center">
+          <div class="metric-value" id="searchMax">--</div>
+          <div class="metric-label">Search Limit</div>
+        </div>
+      </div>
+
+      <!-- Active Login Entries -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <div class="rate-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-right-to-bracket"></i> Active Login Attempts
+          </h3>
+          <div id="loginEntries" style="max-height: 300px; overflow-y: auto"></div>
+        </div>
+
+        <div class="rate-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-magnifying-glass"></i> Active Search Requests
+          </h3>
+          <div id="searchEntries" style="max-height: 300px; overflow-y: auto"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function formatTime(ms) {
+          if (ms < 1000) return "< 1s";
+          if (ms < 60000) return Math.round(ms / 1000) + "s";
+          return Math.round(ms / 60000) + "m";
+        }
+
+        function meterClass(pct) {
+          if (pct >= 80) return "high";
+          if (pct >= 50) return "medium";
+          return "low";
+        }
+
+        async function loadDashboard() {
+          try {
+            const [statusRes, globalRes] = await Promise.all([
+              axios.get("/api/rate-limit/status"),
+              axios.get("/api/admin/rate-limits"),
+            ]);
+            const status = statusRes.data;
+            const global = globalRes.data;
+
+            // My login status
+            const loginPct = status.login.limit > 0 ? Math.round((status.login.used / status.login.limit) * 100) : 0;
+            const loginMeter = document.getElementById("loginMeter");
+            loginMeter.style.width = Math.max(loginPct, 5) + "%";
+            loginMeter.className = `rate-fill ${meterClass(loginPct)}`;
+            loginMeter.textContent = status.login.used;
+            document.getElementById("loginUsed").textContent = `${status.login.used} used`;
+            document.getElementById("loginRemaining").textContent = `${status.login.remaining} remaining`;
+
+            // My search status
+            const searchPct = status.search.limit > 0 ? Math.round((status.search.used / status.search.limit) * 100) : 0;
+            const searchMeter = document.getElementById("searchMeter");
+            searchMeter.style.width = Math.max(searchPct, 5) + "%";
+            searchMeter.className = `rate-fill ${meterClass(searchPct)}`;
+            searchMeter.textContent = status.search.used;
+            document.getElementById("searchUsed").textContent = `${status.search.used} used`;
+            document.getElementById("searchRemaining").textContent = `${status.search.remaining} remaining`;
+
+            // Global stats
+            document.getElementById("loginActive").textContent = global.login.total;
+            document.getElementById("searchActive").textContent = global.search.total;
+            document.getElementById("loginMax").textContent = global.config.login.max;
+            document.getElementById("searchMax").textContent = global.config.search.max;
+
+            // Login entries
+            const loginContainer = document.getElementById("loginEntries");
+            if (global.login.entries.length === 0) {
+              loginContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No active login attempts</p>';
+            } else {
+              loginContainer.innerHTML = global.login.entries.map(e => {
+                const pct = Math.round((e.count / global.config.login.max) * 100);
+                return `
+                  <div class="entry-row">
+                    <span style="flex: 1; font-family: monospace; font-size: 0.72rem">${escapeHtml(e.ip)}</span>
+                    <span class="badge" style="background: rgba(${pct >= 80 ? '231,76,60' : pct >= 50 ? '250,166,26' : '59,165,93'},.2); color: ${pct >= 80 ? '#e74c3c' : pct >= 50 ? '#faa61a' : '#3ba55d'}; font-size: 0.6rem">${e.count}/${global.config.login.max}</span>
+                    <span class="text-tertiary" style="font-size: 0.65rem">${formatTime(e.resetInMs)}</span>
+                  </div>
+                `;
+              }).join("");
+            }
+
+            // Search entries
+            const searchContainer = document.getElementById("searchEntries");
+            if (global.search.entries.length === 0) {
+              searchContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No active search requests</p>';
+            } else {
+              searchContainer.innerHTML = global.search.entries.map(e => {
+                const pct = Math.round((e.count / global.config.search.max) * 100);
+                return `
+                  <div class="entry-row">
+                    <span style="flex: 1; font-family: monospace; font-size: 0.72rem">${escapeHtml(e.key)}</span>
+                    <span class="badge" style="background: rgba(${pct >= 80 ? '231,76,60' : pct >= 50 ? '250,166,26' : '59,165,93'},.2); color: ${pct >= 80 ? '#e74c3c' : pct >= 50 ? '#faa61a' : '#3ba55d'}; font-size: 0.6rem">${e.count}/${global.config.search.max}</span>
+                    <span class="text-tertiary" style="font-size: 0.65rem">${formatTime(e.resetInMs)}</span>
+                  </div>
+                `;
+              }).join("");
+            }
+          } catch (err) {
+            console.error("Rate limit dashboard error:", err);
+          }
+        }
+
+        document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+        loadDashboard();
+        setInterval(loadDashboard, 15000);
+      });
+    </script>
+  </body>
+</html>
+

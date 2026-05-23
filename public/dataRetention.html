@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Data Retention Settings</title>
+    <meta name="description" content="Cấu hình thời gian lưu trữ dữ liệu" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .setting-row { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--glass-border); }
+      .setting-row:last-child { border-bottom: none; }
+      .setting-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+      .setting-info { flex: 1; }
+      .setting-label { font-weight: 600; font-size: 0.85rem; }
+      .setting-desc { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .setting-input { width: 80px; text-align: center; }
+      .setting-unit { font-size: 0.75rem; color: var(--text-tertiary); min-width: 50px; }
+      .toggle-switch { position: relative; width: 44px; height: 24px; background: var(--glass-border); border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+      .toggle-switch.active { background: var(--accent-primary, #667eea); }
+      .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.2s; }
+      .toggle-switch.active::after { transform: translateX(20px); }
+      .preview-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--spacing-sm); }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Data Retention</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-database"></i> Data Retention
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="previewBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-eye"></i> Preview
+          </button>
+          <button id="cleanupBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-broom"></i> Run Cleanup
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-md); font-size: 0.9rem">
+          <i class="fa-solid fa-clock"></i> Retention Periods
+        </h3>
+        <div id="settingsContainer" class="stack-sm"></div>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-md); font-size: 0.9rem">
+          <i class="fa-solid fa-gear"></i> Automation
+        </h3>
+        <div class="setting-row">
+          <div class="setting-icon" style="background: #9b59b622; color: #9b59b6">
+            <i class="fa-solid fa-rotate"></i>
+          </div>
+          <div class="setting-info">
+            <div class="setting-label">Auto Cleanup</div>
+            <div class="setting-desc">Automatically clean expired data based on these settings</div>
+          </div>
+          <div id="autoCleanupToggle" class="toggle-switch"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-icon" style="background: #e74c3c22; color: #e74c3c">
+            <i class="fa-solid fa-hourglass-half"></i>
+          </div>
+          <div class="setting-info">
+            <div class="setting-label">Cleanup Interval</div>
+            <div class="setting-desc">How often to run automatic cleanup</div>
+          </div>
+          <input id="cleanupInterval" type="number" class="setting-input" min="1" max="168" />
+          <span class="setting-unit">hours</span>
+        </div>
+      </div>
+
+      <div id="previewContainer" class="glass-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-eye"></i> Cleanup Preview
+        </h3>
+        <p class="text-tertiary" style="font-size: 0.78rem; margin: 0 0 var(--spacing-sm)">
+          Items that would be cleaned with current settings:
+        </p>
+        <div id="previewContent" class="stack-xs"></div>
+      </div>
+
+      <div class="flex gap-sm">
+        <button id="saveBtn" class="btn btn-primary">
+          <i class="fa-solid fa-save"></i> Save Settings
+        </button>
+        <button id="resetBtn" class="btn btn-outline">
+          <i class="fa-solid fa-rotate-left"></i> Reset to Defaults
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentSettings = {};
+
+        const settingDefs = [
+          { key: "historyDays", icon: "fa-clock-rotate-left", color: "#667eea", label: "Search History", desc: "How long to keep search history", unit: "days", min: 1, max: 365 },
+          { key: "cacheHours", icon: "fa-database", color: "#3ba55d", label: "Result Cache", desc: "How long to cache search results", unit: "hours", min: 0, max: 168 },
+          { key: "recentSearchesDays", icon: "fa-list", color: "#faa61a", label: "Recent Searches", desc: "How long to keep recent search suggestions", unit: "days", min: 1, max: 90 },
+          { key: "sharedSearchesDays", icon: "fa-share-nodes", color: "#e74c3c", label: "Shared Searches", desc: "Default expiration for shared search links", unit: "days", min: 1, max: 30 },
+          { key: "analyticsDays", icon: "fa-chart-line", color: "#9b59b6", label: "Analytics Data", desc: "How long to keep analytics and statistics", unit: "days", min: 7, max: 365 },
+          { key: "notificationsDays", icon: "fa-bell", color: "#1abc9c", label: "Read Notifications", desc: "How long to keep read notifications", unit: "days", min: 1, max: 30 },
+        ];
+
+        function renderSettings() {
+          const container = document.getElementById("settingsContainer");
+          container.innerHTML = settingDefs.map(s => `
+            <div class="setting-row">
+              <div class="setting-icon" style="background: ${s.color}22; color: ${s.color}">
+                <i class="fa-solid ${s.icon}"></i>
+              </div>
+              <div class="setting-info">
+                <div class="setting-label">${s.label}</div>
+                <div class="setting-desc">${s.desc}</div>
+              </div>
+              <input type="number" class="setting-input" id="setting-${s.key}"
+                     min="${s.min}" max="${s.max}" value="${currentSettings[s.key] || 0}" />
+              <span class="setting-unit">${s.unit}</span>
+            </div>
+          `).join("");
+
+          // Auto cleanup toggle
+          const toggle = document.getElementById("autoCleanupToggle");
+          if (currentSettings.autoCleanup) toggle.classList.add("active");
+          toggle.addEventListener("click", () => {
+            toggle.classList.toggle("active");
+            currentSettings.autoCleanup = toggle.classList.contains("active");
+          });
+
+          document.getElementById("cleanupInterval").value = currentSettings.cleanupIntervalHours || 24;
+        }
+
+        async function loadSettings() {
+          try {
+            const { data } = await axios.get("/api/data-retention");
+            currentSettings = data;
+            renderSettings();
+          } catch (err) {
+            Toasts.error("Không thể tải cài đặt");
+          }
+        }
+
+        function gatherSettings() {
+          const settings = {};
+          for (const s of settingDefs) {
+            const input = document.getElementById(`setting-${s.key}`);
+            settings[s.key] = parseInt(input.value) || 0;
+          }
+          settings.autoCleanup = document.getElementById("autoCleanupToggle").classList.contains("active");
+          settings.cleanupIntervalHours = parseInt(document.getElementById("cleanupInterval").value) || 24;
+          return settings;
+        }
+
+        document.getElementById("saveBtn").addEventListener("click", async () => {
+          const settings = gatherSettings();
+          try {
+            const { data } = await axios.put("/api/data-retention", settings);
+            currentSettings = data;
+            Toasts.success("Đã lưu cài đặt");
+          } catch (err) {
+            Toasts.error("Không thể lưu cài đặt");
+          }
+        });
+
+        document.getElementById("resetBtn").addEventListener("click", async () => {
+          if (!confirm("Reset all retention settings to defaults?")) return;
+          try {
+            const { data } = await axios.delete("/api/data-retention");
+            currentSettings = data;
+            renderSettings();
+            Toasts.success("Đã reset về mặc định");
+          } catch (err) {
+            Toasts.error("Không thể reset");
+          }
+        });
+
+        document.getElementById("previewBtn").addEventListener("click", async () => {
+          // Save first
+          const settings = gatherSettings();
+          await axios.put("/api/data-retention", settings);
+
+          try {
+            const { data } = await axios.get("/api/data-retention/preview");
+            const container = document.getElementById("previewContainer");
+            const content = document.getElementById("previewContent");
+            container.style.display = "block";
+
+            const items = Object.entries(data.wouldClean).filter(([_, v]) => v > 0);
+            if (items.length === 0) {
+              content.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">Nothing to clean with current settings</p>';
+            } else {
+              content.innerHTML = items.map(([key, count]) => `
+                <div class="flex gap-sm" style="align-items: center; font-size: 0.82rem">
+                  <span style="flex: 1; text-transform: capitalize">${key}</span>
+                  <span class="badge" style="background: rgba(102,126,234,.15); color: #667eea">${count} items</span>
+                </div>
+              `).join("");
+            }
+          } catch (err) {
+            Toasts.error("Không thể tải preview");
+          }
+        });
+
+        document.getElementById("cleanupBtn").addEventListener("click", async () => {
+          if (!confirm("Run cleanup with current settings?")) return;
+
+          const btn = document.getElementById("cleanupBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cleaning...';
+
+          try {
+            // Save settings first
+            const settings = gatherSettings();
+            await axios.put("/api/data-retention", settings);
+
+            const { data } = await axios.post("/api/data-retention/cleanup");
+            Toasts.success(`Cleanup complete: ${data.totalCleaned} items removed`);
+
+            document.getElementById("previewContainer").style.display = "block";
+            document.getElementById("previewContent").innerHTML = `
+              <div class="flex gap-sm" style="align-items: center; font-size: 0.82rem; color: #3ba55d">
+                <i class="fa-solid fa-check-circle"></i>
+                <span>Cleaned ${data.totalCleaned} items</span>
+              </div>
+            `;
+          } catch (err) {
+            Toasts.error("Cleanup failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-broom"></i> Run Cleanup';
+          }
+        });
+
+        loadSettings();
+      });
+    </script>
+  </body>
+</html>
+

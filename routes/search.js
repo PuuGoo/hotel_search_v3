@@ -8,6 +8,9 @@ import { validateSearchQuery } from "../middleware/validation.js";
 import { rateLimitSearch, rateLimitStatus } from "../middleware/rateLimit.js";
 import { CircuitBreaker } from "../utils/circuitBreaker.js";
 import config from "../utils/config.js";
+import { searchCache } from "../utils/cache.js";
+import { logSearchHistory } from "./history.js";
+import { getActiveKey, getAllKeys } from "../utils/managedKeys.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -127,18 +130,23 @@ const googleBreaker = new CircuitBreaker({ failureThreshold: 5, resetTimeout: 60
 const ddgBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 30000 });
 
 // ---- Tavily API key rotation ----
-const apiTavilyKeys = [
-  process.env.TAVILY_API_KEY_1, process.env.TAVILY_API_KEY_2,
-  process.env.TAVILY_API_KEY_3, process.env.TAVILY_API_KEY_4,
-  process.env.TAVILY_API_KEY_5, process.env.TAVILY_API_KEY_6,
-  process.env.TAVILY_API_KEY_7, process.env.TAVILY_API_KEY_8,
-  process.env.TAVILY_API_KEY_9, process.env.TAVILY_API_KEY_10,
-  process.env.TAVILY_API_KEY_11, process.env.TAVILY_API_KEY_12,
-  process.env.TAVILY_API_KEY_13, process.env.TAVILY_API_KEY_14,
-  process.env.TAVILY_API_KEY_15, process.env.TAVILY_API_KEY_16,
-  process.env.TAVILY_API_KEY_17, process.env.TAVILY_API_KEY_18,
-  process.env.TAVILY_API_KEY_19, process.env.TAVILY_API_KEY_20,
-].filter(Boolean);
+function loadTavilyKeys() {
+  const managed = getAllKeys("tavily");
+  if (managed.length > 0) return managed;
+  return [
+    process.env.TAVILY_API_KEY_1, process.env.TAVILY_API_KEY_2,
+    process.env.TAVILY_API_KEY_3, process.env.TAVILY_API_KEY_4,
+    process.env.TAVILY_API_KEY_5, process.env.TAVILY_API_KEY_6,
+    process.env.TAVILY_API_KEY_7, process.env.TAVILY_API_KEY_8,
+    process.env.TAVILY_API_KEY_9, process.env.TAVILY_API_KEY_10,
+    process.env.TAVILY_API_KEY_11, process.env.TAVILY_API_KEY_12,
+    process.env.TAVILY_API_KEY_13, process.env.TAVILY_API_KEY_14,
+    process.env.TAVILY_API_KEY_15, process.env.TAVILY_API_KEY_16,
+    process.env.TAVILY_API_KEY_17, process.env.TAVILY_API_KEY_18,
+    process.env.TAVILY_API_KEY_19, process.env.TAVILY_API_KEY_20,
+  ].filter(Boolean);
+}
+const apiTavilyKeys = loadTavilyKeys();
 
 let currentKeyTavilyIndex = 0;
 function getTavilyClient() {
@@ -178,13 +186,18 @@ async function searchWithRetry(query) {
 }
 
 // ---- Google API key rotation ----
-const apiGoogleKeys = [
-  process.env.GO_API_KEY_1, process.env.GO_API_KEY_2,
-  process.env.GO_API_KEY_3, process.env.GO_API_KEY_4,
-  process.env.GO_API_KEY_5, process.env.GO_API_KEY_6,
-  process.env.GO_API_KEY_7, process.env.GO_API_KEY_8,
-  process.env.GO_API_KEY_9, process.env.GO_API_KEY_10,
-].filter(Boolean);
+function loadGoogleKeys() {
+  const managed = getAllKeys("google");
+  if (managed.length > 0) return managed;
+  return [
+    process.env.GO_API_KEY_1, process.env.GO_API_KEY_2,
+    process.env.GO_API_KEY_3, process.env.GO_API_KEY_4,
+    process.env.GO_API_KEY_5, process.env.GO_API_KEY_6,
+    process.env.GO_API_KEY_7, process.env.GO_API_KEY_8,
+    process.env.GO_API_KEY_9, process.env.GO_API_KEY_10,
+  ].filter(Boolean);
+}
+const apiGoogleKeys = loadGoogleKeys();
 
 const SEARCH_ENGINE_ID = process.env.GOOGLE_SEARCH_ENGINE_ID;
 let currentKeyGoogleIndex = 0;
@@ -345,8 +358,12 @@ router.get("/searchGo", checkAuthenticated, (req, res) => {
 // Google search API
 router.get("/searchApiGo", checkAuthenticated, rateLimitSearch, validateSearchQuery, async (req, res) => {
   const query = req.query.q;
+  const cached = searchCache.get("google", query);
+  if (cached) return res.json(cached);
   try {
     const result = await googleBreaker.execute(() => searchWithRetryGo(query));
+    searchCache.set("google", query, result);
+    logSearchHistory(req.session.user.id, query, "google", result.items?.length || 0);
     res.json(result);
   } catch (error) {
     console.error("Google error:", error.message);
@@ -363,8 +380,12 @@ router.get("/searchTavily", checkAuthenticated, (req, res) => {
 // Tavily search API
 router.get("/searchApiTavily", checkAuthenticated, checkFeature("tavily"), rateLimitSearch, validateSearchQuery, async (req, res) => {
   const query = req.query.q;
+  const cached = searchCache.get("tavily", query);
+  if (cached) return res.json(cached);
   try {
     const result = await tavilyBreaker.execute(() => searchWithRetry(query));
+    searchCache.set("tavily", query, result);
+    logSearchHistory(req.session.user.id, query, "tavily", result.results?.length || 0);
     res.json(result);
   } catch (error) {
     console.error("Tavily error:", error.message);
@@ -378,6 +399,10 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
   const query = req.query.q;
   const hotelName = (req.query.hotel_name || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
   const hotelAddress = (req.query.hotel_address || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
+
+  const cacheKey = hotelName ? `${query}|${hotelName}` : query;
+  const cached = searchCache.get("ddg", cacheKey);
+  if (cached) return res.json(cached);
 
   try {
     if (!(await isDdgServerRunning())) {
@@ -397,12 +422,20 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
     }
 
     const result = await resp.json();
-    return res.json({ query, results: result.results || [] });
+    const output = { query, results: result.results || [] };
+    searchCache.set("ddg", cacheKey, output);
+    logSearchHistory(req.session.user.id, query, "ddg", result.results?.length || 0);
+    return res.json(output);
   } catch (error) {
     console.error("DDG search error:", error.message);
     const status = error.message.includes("Circuit breaker is open") ? 503 : 500;
     return res.status(status).json({ error: status === 503 ? "Service temporarily unavailable" : "DuckDuckGo search error" });
   }
+});
+
+// Cache stats endpoint
+router.get("/api/search-cache/stats", checkAuthenticated, (_req, res) => {
+  res.json(searchCache.stats());
 });
 
 export default router;

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search Comparison</title>
+    <meta name="description" content="So sánh kết quả tìm kiếm từ nhiều engine" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Search Comparison</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <a href="/bookmarks" class="btn btn-outline btn-small" title="Bookmarks"><i class="fa-solid fa-bookmark"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện (Alt+D)">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-code-compare"></i> So sánh kết quả tìm kiếm
+      </h1>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md); max-width: 720px">
+        Tìm kiếm trên nhiều engine cùng lúc và so sánh kết quả song song.
+      </p>
+
+      <!-- Search Form -->
+      <section class="glass-card gradient" style="margin-bottom: var(--spacing-md)">
+        <div class="card-header">
+          <i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm
+        </div>
+        <div class="form-row">
+          <div class="form-col" style="flex: 1">
+            <label for="searchQuery">Từ khóa tìm kiếm</label>
+            <input id="searchQuery" type="text" placeholder="Nhập tên khách sạn, địa chỉ..." autocomplete="off" />
+          </div>
+          <div class="form-col" style="max-width: 320px">
+            <label>Chọn engine</label>
+            <div class="flex gap-sm wrap" style="margin-top: 4px">
+              <label class="flex gap-xs center" style="cursor: pointer; font-size: 0.82rem">
+                <input type="checkbox" id="engTavily" checked /> Tavily
+              </label>
+              <label class="flex gap-xs center" style="cursor: pointer; font-size: 0.82rem">
+                <input type="checkbox" id="engGoogle" checked /> Google
+              </label>
+              <label class="flex gap-xs center" style="cursor: pointer; font-size: 0.82rem">
+                <input type="checkbox" id="engDDG" checked /> DDG
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-sm wrap" style="margin-top: var(--spacing-md)">
+          <button id="searchBtn" type="button" class="btn btn-primary btn-modern" style="flex: 1">
+            <i class="fa-solid fa-magnifying-glass"></i><span>So sánh ngay</span>
+          </button>
+          <button id="clearBtn" type="button" class="btn btn-outline hidden">
+            <i class="fa-solid fa-trash"></i><span>Xóa kết quả</span>
+          </button>
+        </div>
+        <div id="searchStatus" class="text-tertiary" style="font-size: 0.72rem; margin-top: var(--spacing-sm)"></div>
+      </section>
+
+      <!-- Results -->
+      <section id="resultsSection" class="hidden">
+        <div class="glass-card">
+          <div class="card-header">
+            <i class="fa-solid fa-table"></i> Kết quả so sánh
+          </div>
+          <div id="statsBar" class="flex gap-md wrap" style="margin-bottom: var(--spacing-md); font-size: 0.75rem">
+            <!-- Stats populated by JS -->
+          </div>
+          <div id="comparisonGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--spacing-md)">
+            <!-- Engine columns populated by JS -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer text-tertiary">
+      © <span id="year"></span> PuuGoo
+    </footer>
+
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const searchInput = document.getElementById("searchQuery");
+        const searchBtn = document.getElementById("searchBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const statusEl = document.getElementById("searchStatus");
+        const resultsSection = document.getElementById("resultsSection");
+        const statsBar = document.getElementById("statsBar");
+        const grid = document.getElementById("comparisonGrid");
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function truncate(str, len) {
+          str = str || "";
+          return str.length > len ? str.slice(0, len) + "..." : str;
+        }
+
+        async function doSearch() {
+          const q = searchInput.value.trim();
+          if (!q) {
+            statusEl.textContent = "Vui lòng nhập từ khóa";
+            statusEl.style.color = "#ff8a8a";
+            return;
+          }
+
+          const engines = [];
+          if (document.getElementById("engTavily").checked) engines.push("tavily");
+          if (document.getElementById("engGoogle").checked) engines.push("google");
+          if (document.getElementById("engDDG").checked) engines.push("ddg");
+          if (engines.length === 0) {
+            statusEl.textContent = "Chọn ít nhất 1 engine";
+            statusEl.style.color = "#ff8a8a";
+            return;
+          }
+
+          searchBtn.disabled = true;
+          searchBtn.innerHTML = '<div class="loading-inline"></div><span>Đang tìm...</span>';
+          statusEl.textContent = `Đang tìm "${q}" trên ${engines.length} engine...`;
+          statusEl.style.color = "";
+
+          try {
+            const resp = await axios.get(`/api/compare?q=${encodeURIComponent(q)}&engines=${engines.join(",")}`);
+            const data = resp.data;
+            renderResults(data);
+          } catch (err) {
+            statusEl.textContent = "Lỗi: " + (err.response?.data?.error || err.message);
+            statusEl.style.color = "#ff8a8a";
+          } finally {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><span>So sánh ngay</span>';
+          }
+        }
+
+        function renderResults(data) {
+          resultsSection.classList.remove("hidden");
+          clearBtn.classList.remove("hidden");
+
+          const engineNames = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+          const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+          const engineIcons = { tavily: "fa-bolt", google: "fa-brands fa-google", ddg: "fa-brands fa-searchengin" };
+
+          // Stats bar
+          const totalResults = Object.values(data.results).reduce((s, r) => s + r.total, 0);
+          const engineCount = Object.keys(data.results).length;
+          const errorCount = Object.keys(data.errors).length;
+          statsBar.innerHTML = `
+            <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+              <i class="fa-solid fa-magnifying-glass"></i> "${escapeHtml(data.query)}"
+            </div>
+            <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
+              <i class="fa-solid fa-list"></i> ${totalResults} kết quả
+            </div>
+            <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+              <i class="fa-solid fa-layer-group"></i> ${engineCount} engine
+            </div>
+            ${errorCount ? `<div class="badge" style="background: rgba(255,77,79,.2); color: #ff4d4f">
+              <i class="fa-solid fa-triangle-exclamation"></i> ${errorCount} lỗi
+            </div>` : ""}
+          `;
+
+          // Render engine columns
+          grid.innerHTML = "";
+          for (const [engine, result] of Object.entries(data.results)) {
+            const col = document.createElement("div");
+            col.className = "glass-card";
+            col.style.borderTop = `3px solid ${engineColors[engine] || "#667eea"}`;
+            col.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: var(--spacing-sm)">
+                <i class="${engineIcons[engine] || 'fa-solid fa-search'}" style="color: ${engineColors[engine] || '#667eea'}; font-size: 1.1rem"></i>
+                <strong style="font-size: 0.9rem">${engineNames[engine] || engine}</strong>
+                <span class="badge" style="margin-left: auto; background: rgba(255,255,255,.1); font-size: 0.65rem">${result.total} kết quả</span>
+              </div>
+              <div class="stack-sm" style="max-height: 500px; overflow-y: auto; font-size: 0.75rem">
+                ${result.items.length ? result.items.map((item, i) => `
+                  <div class="glass-card" style="padding: var(--spacing-sm); border-left: 2px solid ${engineColors[engine] || '#667eea'}">
+                    <div style="font-weight: 600; margin-bottom: 4px">
+                      <span style="color: var(--text-tertiary); font-size: 0.6rem">#${i + 1}</span>
+                      <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" style="color: #21d4fd; text-decoration: none; margin-left: 4px">
+                        ${escapeHtml(truncate(item.title, 80))}
+                      </a>
+                    </div>
+                    <div class="text-tertiary" style="font-size: 0.65rem; word-break: break-all; margin-bottom: 4px">
+                      ${escapeHtml(truncate(item.url, 60))}
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.68rem; line-height: 1.5">
+                      ${escapeHtml(truncate(item.snippet, 150))}
+                    </div>
+                    ${item.score ? `<div style="margin-top: 4px; font-size: 0.6rem; color: var(--text-tertiary)">Score: ${item.score.toFixed(3)}</div>` : ""}
+                  </div>
+                `).join("") : '<div class="text-tertiary" style="text-align: center; padding: var(--spacing-md)">Không có kết quả</div>'}
+              </div>
+            `;
+            grid.appendChild(col);
+          }
+
+          // Show errors
+          if (Object.keys(data.errors).length > 0) {
+            const errCol = document.createElement("div");
+            errCol.className = "glass-card";
+            errCol.style.borderTop = "3px solid #ff4d4f";
+            errCol.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: var(--spacing-sm)">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #ff4d4f; font-size: 1.1rem"></i>
+                <strong style="font-size: 0.9rem; color: #ff4d4f">Lỗi</strong>
+              </div>
+              <div class="stack-sm" style="font-size: 0.72rem">
+                ${Object.entries(data.errors).map(([eng, msg]) => `
+                  <div style="padding: 6px 8px; background: rgba(255,77,79,.08); border-radius: 6px">
+                    <strong>${engineNames[eng] || eng}:</strong> ${escapeHtml(msg)}
+                  </div>
+                `).join("")}
+              </div>
+            `;
+            grid.appendChild(errCol);
+          }
+
+          statusEl.textContent = `Tìm xong "${data.query}" — ${totalResults} kết quả từ ${engineCount} engine`;
+          statusEl.style.color = "#3ba55d";
+        }
+
+        searchBtn.addEventListener("click", doSearch);
+        searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+        clearBtn.addEventListener("click", () => {
+          resultsSection.classList.add("hidden");
+          clearBtn.classList.add("hidden");
+          grid.innerHTML = "";
+          statsBar.innerHTML = "";
+          statusEl.textContent = "";
+          searchInput.value = "";
+          searchInput.focus();
+        });
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IP Access Control</title>
+    <meta name="description" content="IP whitelist/blacklist management" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .ip-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .mode-btn { padding: 10px 20px; border-radius: var(--radius-md); border: 2px solid var(--glass-border); background: transparent; cursor: pointer; transition: all 0.2s; font-weight: 600; font-size: 0.85rem; }
+      .mode-btn.active { border-color: #667eea; background: #667eea22; color: #667eea; }
+      .mode-btn:hover:not(.active) { border-color: var(--text-tertiary); }
+      .ip-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(0,0,0,.2); border-radius: var(--radius-md); margin: 4px; font-family: monospace; font-size: 0.82rem; }
+      .ip-tag .remove { cursor: pointer; color: #e74c3c; opacity: 0.7; transition: opacity 0.2s; }
+      .ip-tag .remove:hover { opacity: 1; }
+      .ip-tag-whitelist { border: 1px solid #3ba55d44; }
+      .ip-tag-blacklist { border: 1px solid #e74c3c44; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>IP Access Control</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-network-wired"></i> IP Access Control
+      </h1>
+
+      <!-- Mode Selection -->
+      <div class="ip-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-sliders"></i> Access Mode
+        </h3>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: var(--spacing-md)">
+          Choose how IP access control is applied. Whitelist allows only listed IPs. Blacklist blocks listed IPs.
+        </p>
+        <div class="flex gap-sm wrap">
+          <button class="mode-btn" data-mode="disabled" onclick="setMode('disabled')">
+            <i class="fa-solid fa-ban"></i> Disabled
+          </button>
+          <button class="mode-btn" data-mode="whitelist" onclick="setMode('whitelist')">
+            <i class="fa-solid fa-check-circle"></i> Whitelist
+          </button>
+          <button class="mode-btn" data-mode="blacklist" onclick="setMode('blacklist')">
+            <i class="fa-solid fa-xmark-circle"></i> Blacklist
+          </button>
+        </div>
+      </div>
+
+      <!-- Whitelist -->
+      <div id="whitelistSection" class="ip-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-check-circle" style="color: #3ba55d"></i> Whitelist
+        </h3>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm)">
+          Only these IPs can access admin routes. Supports exact IP and CIDR notation (e.g., 192.168.1.0/24).
+        </p>
+        <div class="flex gap-sm" style="margin-bottom: var(--spacing-sm)">
+          <input id="whitelistInput" type="text" placeholder="192.168.1.100 or 10.0.0.0/8" style="flex: 1; font-family: monospace" />
+          <button class="btn btn-primary btn-small" onclick="addIP('whitelist')">
+            <i class="fa-solid fa-plus"></i> Add
+          </button>
+        </div>
+        <div id="whitelistTags"></div>
+      </div>
+
+      <!-- Blacklist -->
+      <div id="blacklistSection" class="ip-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-xmark-circle" style="color: #e74c3c"></i> Blacklist
+        </h3>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm)">
+          These IPs are blocked from accessing admin routes. Supports exact IP and CIDR notation.
+        </p>
+        <div class="flex gap-sm" style="margin-bottom: var(--spacing-sm)">
+          <input id="blacklistInput" type="text" placeholder="192.168.1.100 or 10.0.0.0/8" style="flex: 1; font-family: monospace" />
+          <button class="btn btn-primary btn-small" onclick="addIP('blacklist')">
+            <i class="fa-solid fa-plus"></i> Add
+          </button>
+        </div>
+        <div id="blacklistTags"></div>
+      </div>
+
+      <!-- Info -->
+      <div class="ip-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-info-circle"></i> Your IP
+        </h3>
+        <p style="font-family: monospace; font-size: 0.9rem" id="yourIP">Loading...</p>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      let currentConfig = { mode: "disabled", whitelist: [], blacklist: [] };
+
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        // Get user's IP
+        fetch("/api/system/health/simple").then(r => r.json()).then(() => {
+          document.getElementById("yourIP").textContent = "Check request headers";
+        }).catch(() => {});
+
+        loadConfig();
+      });
+
+      async function loadConfig() {
+        try {
+          const { data } = await axios.get("/api/admin/ip-access");
+          currentConfig = data;
+          updateUI();
+        } catch {
+          Toasts.error("Failed to load IP config");
+        }
+      }
+
+      function updateUI() {
+        // Update mode buttons
+        document.querySelectorAll(".mode-btn").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.mode === currentConfig.mode);
+        });
+
+        // Show/hide sections
+        document.getElementById("whitelistSection").style.display = currentConfig.mode === "whitelist" ? "block" : "none";
+        document.getElementById("blacklistSection").style.display = currentConfig.mode === "blacklist" ? "block" : "none";
+
+        // Render tags
+        renderTags("whitelist", currentConfig.whitelist);
+        renderTags("blacklist", currentConfig.blacklist);
+      }
+
+      function renderTags(type, ips) {
+        const container = document.getElementById(type + "Tags");
+        if (ips.length === 0) {
+          container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No IPs added</p>';
+          return;
+        }
+
+        container.innerHTML = ips.map(ip => `
+          <span class="ip-tag ip-tag-${type}">
+            <i class="fa-solid fa-globe"></i>
+            ${escapeHtml(ip)}
+            <span class="remove" onclick="removeIP('${type}', '${escapeHtml(ip)}')"><i class="fa-solid fa-xmark"></i></span>
+          </span>
+        `).join("");
+      }
+
+      function escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      window.setMode = async function(mode) {
+        try {
+          await axios.put("/api/admin/ip-access", { mode });
+          currentConfig.mode = mode;
+          updateUI();
+          Toasts.success(`Mode set to ${mode}`);
+        } catch {
+          Toasts.error("Failed to update mode");
+        }
+      };
+
+      window.addIP = async function(type) {
+        const input = document.getElementById(type + "Input");
+        const ip = input.value.trim();
+        if (!ip) {
+          Toasts.warning("Enter an IP address");
+          return;
+        }
+
+        try {
+          const { data } = await axios.post(`/api/admin/ip-access/${type}`, { ip });
+          currentConfig[type] = data[type];
+          input.value = "";
+          updateUI();
+          Toasts.success(`Added ${ip} to ${type}`);
+        } catch (err) {
+          Toasts.error(err.response?.data?.error || "Failed to add IP");
+        }
+      };
+
+      window.removeIP = async function(type, ip) {
+        try {
+          const { data } = await axios.delete(`/api/admin/ip-access/${type}`, { data: { ip } });
+          currentConfig[type] = data[type];
+          updateUI();
+          Toasts.success(`Removed ${ip} from ${type}`);
+        } catch {
+          Toasts.error("Failed to remove IP");
+        }
+      };
+
+      // Enter key to add
+      document.getElementById("whitelistInput")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addIP("whitelist");
+      });
+      document.getElementById("blacklistInput")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addIP("blacklist");
+      });
+    </script>
+  </body>
+</html>
+

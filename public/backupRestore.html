@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backup & Restore</title>
+    <meta name="description" content="Backup and restore data" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .backup-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 10px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); margin-bottom: 8px; }
+      .backup-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(102,126,234,.15); color: #667eea; font-size: 0.9rem; }
+      .backup-info { flex: 1; }
+      .backup-name { font-weight: 600; font-size: 0.82rem; }
+      .backup-meta { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 2px; }
+      .restore-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: var(--spacing-sm) 0; }
+      .restore-option { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; padding: 6px 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; }
+      .restore-option:hover { border-color: var(--accent-primary, #667eea); }
+      .restore-option input { accent-color: var(--accent-primary, #667eea); }
+      .upload-zone { border: 2px dashed var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-lg); text-align: center; cursor: pointer; transition: all 0.2s; }
+      .upload-zone:hover { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.05); }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Backup & Restore</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-database"></i> Backup & Restore
+      </h1>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-lg)">
+        <!-- Backup Section -->
+        <div class="glass-card">
+          <h3 style="margin: 0 0 var(--spacing-md); font-size: 0.9rem">
+            <i class="fa-solid fa-download"></i> Create Backup
+          </h3>
+          <p class="text-secondary" style="font-size: 0.78rem; margin-bottom: var(--spacing-md)">
+            Download a complete backup of all system data including users, bookmarks, history, settings, and more.
+          </p>
+          <button id="backupBtn" class="btn btn-primary" style="width: 100%">
+            <i class="fa-solid fa-download"></i> Create & Download Backup
+          </button>
+        </div>
+
+        <!-- Restore Section -->
+        <div class="glass-card">
+          <h3 style="margin: 0 0 var(--spacing-md); font-size: 0.9rem">
+            <i class="fa-solid fa-upload"></i> Restore from Backup
+          </h3>
+          <div id="uploadZone" class="upload-zone">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--text-tertiary)"></i>
+            <p style="margin: 8px 0 0; font-size: 0.82rem; color: var(--text-secondary)">Drop backup file or click to browse</p>
+            <input type="file" id="fileInput" accept=".json" style="display: none" />
+          </div>
+          <div id="restoreOptions" style="display: none; margin-top: var(--spacing-md)">
+            <h4 style="font-size: 0.82rem; margin-bottom: 8px">Select files to restore:</h4>
+            <div id="fileCheckboxes" class="restore-options"></div>
+            <div class="flex gap-sm" style="margin-top: var(--spacing-sm)">
+              <button id="selectAllBtn" class="btn btn-outline btn-small">Select All</button>
+              <button id="restoreBtn" class="btn btn-primary btn-small" style="flex: 1">
+                <i class="fa-solid fa-upload"></i> Restore Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Saved Backups -->
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-md); font-size: 0.9rem">
+          <i class="fa-solid fa-archive"></i> Saved Backups
+        </h3>
+        <div id="backupsList"></div>
+      </div>
+
+      <!-- Restore Result -->
+      <div id="restoreResult" class="glass-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-check-circle"></i> Restore Result
+        </h3>
+        <div id="restoreContent"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentBackup = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function formatSize(bytes) {
+          if (bytes < 1024) return bytes + " B";
+          if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+          return (bytes / 1048576).toFixed(1) + " MB";
+        }
+
+        function formatDate(dateStr) {
+          return new Date(dateStr).toLocaleString();
+        }
+
+        // Create backup
+        document.getElementById("backupBtn").addEventListener("click", async () => {
+          const btn = document.getElementById("backupBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating backup...';
+
+          try {
+            const { data } = await axios.get("/api/admin/backup");
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            Toasts.success("Backup created and downloaded");
+            loadBackups();
+          } catch (err) {
+            Toasts.error("Failed to create backup");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-download"></i> Create & Download Backup';
+          }
+        });
+
+        // Load saved backups
+        async function loadBackups() {
+          try {
+            const { data } = await axios.get("/api/admin/backups");
+            const container = document.getElementById("backupsList");
+            if (data.backups.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No saved backups</p>';
+              return;
+            }
+            container.innerHTML = data.backups.map(b => `
+              <div class="backup-item">
+                <div class="backup-icon"><i class="fa-solid fa-file-code"></i></div>
+                <div class="backup-info">
+                  <div class="backup-name">${escapeHtml(b.filename)}</div>
+                  <div class="backup-meta">${formatSize(b.size)} • ${formatDate(b.createdAt)}</div>
+                </div>
+                <a href="/api/admin/backup/download/${encodeURIComponent(b.filename)}" class="btn btn-outline btn-small" title="Download">
+                  <i class="fa-solid fa-download"></i>
+                </a>
+                <button class="btn btn-outline btn-small delete-backup" data-filename="${escapeHtml(b.filename)}" title="Delete" style="color: #e74c3c">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            `).join("");
+
+            container.querySelectorAll(".delete-backup").forEach(btn => {
+              btn.addEventListener("click", async () => {
+                if (!confirm("Delete this backup?")) return;
+                try {
+                  await axios.delete(`/api/admin/backups/${btn.dataset.filename}`);
+                  Toasts.success("Backup deleted");
+                  loadBackups();
+                } catch {
+                  Toasts.error("Failed to delete backup");
+                }
+              });
+            });
+          } catch {
+            document.getElementById("backupsList").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">Failed to load backups</p>';
+          }
+        }
+
+        // File upload for restore
+        const uploadZone = document.getElementById("uploadZone");
+        const fileInput = document.getElementById("fileInput");
+
+        uploadZone.addEventListener("click", () => fileInput.click());
+        uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.style.borderColor = "var(--accent-primary)"; });
+        uploadZone.addEventListener("dragleave", () => { uploadZone.style.borderColor = ""; });
+        uploadZone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          uploadZone.style.borderColor = "";
+          if (e.dataTransfer.files.length > 0) handleRestoreFile(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener("change", (e) => {
+          if (e.target.files.length > 0) handleRestoreFile(e.target.files[0]);
+        });
+
+        function handleRestoreFile(file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              currentBackup = JSON.parse(e.target.result);
+              if (!currentBackup.files) throw new Error("Invalid backup format");
+
+              const container = document.getElementById("restoreOptions");
+              const checkboxes = document.getElementById("fileCheckboxes");
+              container.style.display = "block";
+
+              const files = Object.keys(currentBackup.files);
+              checkboxes.innerHTML = files.map(f => `
+                <label class="restore-option">
+                  <input type="checkbox" value="${f}" checked />
+                  ${escapeHtml(f)}
+                </label>
+              `).join("");
+            } catch (err) {
+              Toasts.error("Invalid backup file");
+              currentBackup = null;
+              document.getElementById("restoreOptions").style.display = "none";
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        document.getElementById("selectAllBtn").addEventListener("click", () => {
+          const checkboxes = document.querySelectorAll("#fileCheckboxes input[type=checkbox]");
+          const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+          checkboxes.forEach(cb => cb.checked = !allChecked);
+        });
+
+        document.getElementById("restoreBtn").addEventListener("click", async () => {
+          if (!currentBackup) return Toasts.warning("No backup loaded");
+
+          const selectedFiles = Array.from(document.querySelectorAll("#fileCheckboxes input:checked"))
+            .map(cb => cb.value);
+
+          if (selectedFiles.length === 0) return Toasts.warning("Select files to restore");
+
+          if (!confirm(`Restore ${selectedFiles.length} files? This will overwrite current data.`)) return;
+
+          const btn = document.getElementById("restoreBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Restoring...';
+
+          try {
+            const { data } = await axios.post("/api/admin/restore", {
+              backup: currentBackup,
+              selective: selectedFiles,
+            });
+
+            document.getElementById("restoreResult").style.display = "block";
+            document.getElementById("restoreContent").innerHTML = `
+              <div class="stack-xs">
+                <div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                  <i class="fa-solid fa-check-circle" style="color: #3ba55d"></i>
+                  <span>Restored <strong>${data.restored}</strong> files</span>
+                </div>
+                ${data.skipped ? `<div style="font-size: 0.78rem; color: var(--text-tertiary)">Skipped: ${data.skipped}</div>` : ''}
+                <div style="font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px">
+                  ${Object.entries(data.results).map(([f, r]) => `${f}: ${r}`).join("<br>")}
+                </div>
+              </div>
+            `;
+            Toasts.success(`Restored ${data.restored} files`);
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Restore failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-upload"></i> Restore Selected';
+          }
+        });
+
+        loadBackups();
+      });
+    </script>
+  </body>
+</html>
+

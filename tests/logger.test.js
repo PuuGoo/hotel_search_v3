@@ -85,7 +85,7 @@ describe("Request Logger Middleware", () => {
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
-    const req = { method: "POST", url: "/api/test" };
+    const req = { method: "POST", url: "/api/test", headers: {}, session: {} };
     const res = { on: jest.fn(), statusCode: 500, end: jest.fn() };
     const next = jest.fn();
 

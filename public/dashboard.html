@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard | Hotel Search</title>
+    <meta name="description" content="Thống kê và phân tích hoạt động tìm kiếm" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .stat-card {
+        text-align: center;
+        padding: var(--spacing-md);
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+      }
+      .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .stat-label {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .stat-icon {
+        font-size: 1.4rem;
+        opacity: 0.6;
+        margin-bottom: 4px;
+      }
+      .bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .bar-label {
+        min-width: 90px;
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+      .bar-track {
+        flex: 1;
+        height: 28px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: var(--radius-sm);
+        transition: width 0.8s var(--easing-out);
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: #fff;
+        min-width: fit-content;
+      }
+      .bar-fill.tavily { background: linear-gradient(90deg, #667eea, #764ba2); }
+      .bar-fill.google { background: linear-gradient(90deg, #4285f4, #34a853); }
+      .bar-fill.ddg { background: linear-gradient(90deg, #de5833, #ff8c00); }
+      .query-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .query-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        transition: background var(--transition-fast);
+        font-size: var(--font-size-sm);
+      }
+      .query-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .query-rank {
+        min-width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+      }
+      .query-rank.top-3 {
+        background: var(--primary-gradient);
+        color: #fff;
+      }
+      .query-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .query-count {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+        font-weight: 500;
+      }
+      .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--font-size-sm);
+      }
+      .activity-item:last-child {
+        border-bottom: none;
+      }
+      .activity-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+      }
+      .activity-content {
+        flex: 1;
+        min-width: 0;
+      }
+      .activity-action {
+        font-weight: 500;
+      }
+      .activity-time {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+        margin-top: 2px;
+      }
+      .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .tag-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-round);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        background: rgba(102, 126, 234, 0.15);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        transition: all var(--transition-fast);
+      }
+      .tag-item:hover {
+        background: rgba(102, 126, 234, 0.25);
+        transform: translateY(-1px);
+      }
+      .tag-count {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 2px 6px;
+        border-radius: var(--radius-round);
+        font-size: 0.65rem;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 32px;
+        color: var(--text-tertiary);
+      }
+      .empty-state i {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 12px;
+        opacity: 0.3;
+      }
+      .donut-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .donut-chart {
+        width: 140px;
+        height: 140px;
+        position: relative;
+      }
+      .donut-chart svg {
+        transform: rotate(-90deg);
+      }
+      .donut-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .donut-total {
+        font-size: 1.6rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .donut-label {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+      }
+      .donut-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--font-size-sm);
+      }
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .legend-value {
+        margin-left: auto;
+        font-weight: 600;
+        min-width: 40px;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <a href="/profile" class="btn btn-outline btn-small"><i class="fa-solid fa-user"></i></a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 1100px">
+      <!-- Header -->
+      <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="flex" style="align-items: center; gap: var(--spacing-md); flex-wrap: wrap">
+          <div class="flex center gap-sm" style="flex: 1; min-width: 200px">
+            <i class="fa-solid fa-chart-pie" style="font-size: 1.8rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent"></i>
+            <div>
+              <h1 class="gradient-text" style="font-size: 1.4rem; margin: 0">Dashboard</h1>
+              <div class="text-secondary" style="font-size: 0.82rem">Thống kê hoạt động tìm kiếm</div>
+            </div>
+          </div>
+          <button id="refreshBtn" class="btn btn-outline btn-small" title="Làm mới">
+            <i class="fa-solid fa-arrows-rotate"></i><span>Làm mới</span>
+          </button>
+          <a href="/search-patterns" class="btn btn-outline btn-small" title="Search Patterns">
+            <i class="fa-solid fa-chart-line"></i><span>Patterns</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="grid grid-3" style="margin-bottom: var(--spacing-md)">
+        <div class="glass-card stat-card animate-fade-in">
+          <i class="fa-solid fa-magnifying-glass stat-icon" style="color: #667eea"></i>
+          <div id="totalSearches" class="stat-value gradient-text">--</div>
+          <div class="stat-label">Tổng tìm kiếm</div>
+        </div>
+        <div class="glass-card stat-card animate-fade-in" style="animation-delay: 0.1s">
+          <i class="fa-solid fa-calendar-day stat-icon" style="color: #3ba55d"></i>
+          <div id="todaySearches" class="stat-value" style="background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent">--</div>
+          <div class="stat-label">Hôm nay</div>
+        </div>
+        <div class="glass-card stat-card animate-fade-in" style="animation-delay: 0.2s">
+          <i class="fa-solid fa-calendar-week stat-icon" style="color: #f7971e"></i>
+          <div id="weekSearches" class="stat-value" style="background: var(--warning-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent">--</div>
+          <div class="stat-label">Tuần này</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-bottom: var(--spacing-md)">
+        <!-- Searches by Engine (Donut Chart) -->
+        <div class="glass-card" style="animation-delay: 0.3s">
+          <div class="card-header"><i class="fa-solid fa-chart-pie"></i> Tìm kiếm theo Engine</div>
+          <div id="engineDonut" class="donut-container">
+            <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+          </div>
+        </div>
+
+        <!-- Bookmarks by Engine -->
+        <div class="glass-card" style="animation-delay: 0.4s">
+          <div class="card-header"><i class="fa-solid fa-bookmark"></i> Bookmarks theo Engine</div>
+          <div id="bookmarkChart" class="bar-chart">
+            <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-bottom: var(--spacing-md)">
+        <!-- Top Queries -->
+        <div class="glass-card" style="animation-delay: 0.5s">
+          <div class="card-header"><i class="fa-solid fa-ranking-star"></i> Top Queries</div>
+          <div id="topQueries" class="query-list">
+            <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+          </div>
+        </div>
+
+        <!-- Top Tags -->
+        <div class="glass-card" style="animation-delay: 0.6s">
+          <div class="card-header"><i class="fa-solid fa-tags"></i> Top Tags</div>
+          <div id="topTags" class="tag-cloud">
+            <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="glass-card" style="animation-delay: 0.7s">
+        <div class="card-header"><i class="fa-solid fa-clock-rotate-left"></i> Hoạt động gần đây</div>
+        <div id="recentActivity">
+          <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Recent Searches -->
+      <div class="glass-card" style="animation-delay: 0.8s; margin-top: var(--spacing-md)">
+        <div class="card-header"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm gần đây</div>
+        <div id="recentSearches">
+          <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+      import { initSessionTimeout } from "/sessionTimeout.js";
+      initSessionTimeout();
+
+      const engineColors = {
+        tavily: "#667eea",
+        google: "#4285f4",
+        ddg: "#de5833"
+      };
+      const engineLabels = {
+        tavily: "Tavily",
+        google: "Google",
+        ddg: "DuckDuckGo"
+      };
+
+      const actionLabels = {
+        user_login: "Đăng nhập",
+        user_logout: "Đăng xuất",
+        login_failed: "Đăng nhập thất bại",
+        user_created: "Tạo user",
+        user_updated: "Sửa user",
+        user_deleted: "Xóa user",
+        bookmarks_cleared: "Xóa bookmarks",
+        audit_log_cleared: "Xóa audit log"
+      };
+
+      const actionIcons = {
+        user_login: "fa-right-to-bracket",
+        user_logout: "fa-right-from-bracket",
+        login_failed: "fa-triangle-exclamation",
+        user_created: "fa-user-plus",
+        user_updated: "fa-user-pen",
+        user_deleted: "fa-user-minus",
+        bookmarks_cleared: "fa-bookmark",
+        audit_log_cleared: "fa-trash"
+      };
+
+      const actionColors = {
+        user_login: "#3ba55d",
+        user_logout: "var(--text-tertiary)",
+        login_failed: "#ff4d4f",
+        user_created: "#667eea",
+        user_updated: "#f7971e",
+        user_deleted: "#ff4d4f",
+        bookmarks_cleared: "#f7971e",
+        audit_log_cleared: "#f7971e"
+      };
+
+      // Load user info
+      async function loadUser() {
+        try {
+          const res = await fetch("/api/me");
+          if (!res.ok) throw new Error();
+          const user = await res.json();
+          if (user.role === "admin") {
+            document.getElementById("adminLink").style.display = "";
+          }
+        } catch {
+          window.location.href = "/";
+        }
+      }
+
+      // Create donut chart SVG
+      function createDonutChart(data, total) {
+        const size = 140;
+        const strokeWidth = 24;
+        const radius = (size - strokeWidth) / 2;
+        const circumference = 2 * Math.PI * radius;
+
+        let offset = 0;
+        const segments = [];
+
+        for (const [engine, count] of Object.entries(data)) {
+          if (count === 0) continue;
+          const percent = count / total;
+          const dashArray = `${circumference * percent} ${circumference * (1 - percent)}`;
+          segments.push({
+            engine,
+            count,
+            percent,
+            dashArray,
+            dashOffset: -offset,
+            color: engineColors[engine] || "#666"
+          });
+          offset += circumference * percent;
+        }
+
+        const svgPaths = segments.map(s =>
+          `<circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="${s.color}" stroke-width="${strokeWidth}" stroke-dasharray="${s.dashArray}" stroke-dashoffset="${s.dashOffset}" stroke-linecap="round" />`
+        ).join("");
+
+        const legendItems = segments.map(s =>
+          `<div class="legend-item">
+            <span class="legend-dot" style="background:${s.color}"></span>
+            <span>${engineLabels[s.engine] || s.engine}</span>
+            <span class="legend-value">${s.count}</span>
+          </div>`
+        ).join("");
+
+        return `
+          <div class="donut-chart">
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+              <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeWidth}" />
+              ${svgPaths}
+            </svg>
+            <div class="donut-center">
+              <div class="donut-total">${total}</div>
+              <div class="donut-label">tổng</div>
+            </div>
+          </div>
+          <div class="donut-legend">${legendItems}</div>
+        `;
+      }
+
+      // Load dashboard data
+      async function loadDashboard() {
+        try {
+          const res = await fetch("/api/dashboard/stats");
+          if (!res.ok) throw new Error("Failed to load");
+          const data = await res.json();
+
+          // Summary stats
+          document.getElementById("totalSearches").textContent = data.searches.total;
+          document.getElementById("todaySearches").textContent = data.searches.today;
+          document.getElementById("weekSearches").textContent = data.searches.thisWeek;
+
+          // Engine donut chart
+          const engineDonut = document.getElementById("engineDonut");
+          const engineData = data.searches.byEngine;
+          const totalSearches = data.searches.total;
+
+          if (totalSearches > 0) {
+            engineDonut.innerHTML = createDonutChart(engineData, totalSearches);
+          } else {
+            engineDonut.innerHTML = '<div class="empty-state"><i class="fa-solid fa-chart-pie"></i>Chưa có dữ liệu tìm kiếm</div>';
+          }
+
+          // Bookmarks bar chart
+          const bookmarkChart = document.getElementById("bookmarkChart");
+          const bookmarkData = data.bookmarks.byEngine;
+          const totalBookmarks = data.bookmarks.total;
+          const maxBookmarks = Math.max(...Object.values(bookmarkData), 1);
+
+          if (totalBookmarks > 0) {
+            bookmarkChart.innerHTML = Object.entries(bookmarkData).map(([engine, count]) => {
+              const percent = (count / maxBookmarks) * 100;
+              return `<div class="bar-row">
+                <span class="bar-label">${engineLabels[engine] || engine}</span>
+                <div class="bar-track">
+                  <div class="bar-fill ${engine}" style="width: ${percent}%">${count}</div>
+                </div>
+              </div>`;
+            }).join("");
+          } else {
+            bookmarkChart.innerHTML = '<div class="empty-state"><i class="fa-solid fa-bookmark"></i>Chưa có bookmark nào</div>';
+          }
+
+          // Top queries
+          const topQueries = document.getElementById("topQueries");
+          if (data.searches.topQueries.length > 0) {
+            topQueries.innerHTML = data.searches.topQueries.map((q, i) =>
+              `<div class="query-item">
+                <span class="query-rank ${i < 3 ? 'top-3' : ''}">${i + 1}</span>
+                <span class="query-text" title="${escapeHtml(q.query)}">${escapeHtml(q.query)}</span>
+                <span class="query-count">${q.count}x</span>
+              </div>`
+            ).join("");
+          } else {
+            topQueries.innerHTML = '<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i>Chưa có query nào</div>';
+          }
+
+          // Top tags
+          const topTags = document.getElementById("topTags");
+          if (data.bookmarks.topTags.length > 0) {
+            topTags.innerHTML = data.bookmarks.topTags.map(t =>
+              `<span class="tag-item">
+                <i class="fa-solid fa-tag"></i>
+                ${escapeHtml(t.tag)}
+                <span class="tag-count">${t.count}</span>
+              </span>`
+            ).join("");
+          } else {
+            topTags.innerHTML = '<div class="empty-state"><i class="fa-solid fa-tags"></i>Chưa có tag nào</div>';
+          }
+
+          // Recent activity
+          const recentActivity = document.getElementById("recentActivity");
+          if (data.recentActivity.length > 0) {
+            recentActivity.innerHTML = data.recentActivity.map(a => {
+              const icon = actionIcons[a.action] || "fa-circle-info";
+              const label = actionLabels[a.action] || a.action;
+              const color = actionColors[a.action] || "var(--text-tertiary)";
+              const time = new Date(a.timestamp).toLocaleString("vi-VN");
+              return `<div class="activity-item">
+                <div class="activity-icon" style="background: ${color}22; color: ${color}">
+                  <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="activity-content">
+                  <div class="activity-action">${escapeHtml(label)}</div>
+                  ${a.target ? `<div style="font-size: var(--font-size-xs); color: var(--text-tertiary)">${escapeHtml(a.target)}</div>` : ""}
+                  <div class="activity-time">${time}</div>
+                </div>
+              </div>`;
+            }).join("");
+          } else {
+            recentActivity.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i>Chưa có hoạt động nào</div>';
+          }
+
+          // Recent searches
+          const recentSearches = document.getElementById("recentSearches");
+          if (data.recentSearches && data.recentSearches.length > 0) {
+            recentSearches.innerHTML = data.recentSearches.map(s => {
+              const color = engineColors[s.engine] || "#667eea";
+              const icon = s.engine === "tavily" ? "fa-hotel" : s.engine === "google" ? "fa-google" : "fa-searchengin";
+              const time = new Date(s.timestamp).toLocaleString("vi-VN");
+              return `<div class="activity-item">
+                <div class="activity-icon" style="background: ${color}22; color: ${color}">
+                  <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="activity-content" style="flex:1;min-width:0">
+                  <div class="activity-action" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.query)}</div>
+                  <div style="font-size: var(--font-size-xs); color: var(--text-tertiary)">${engineLabels[s.engine] || s.engine} · ${s.resultCount} kết quả · ${time}</div>
+                </div>
+              </div>`;
+            }).join("");
+          } else {
+            recentSearches.innerHTML = '<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i>Chưa có tìm kiếm nào</div>';
+          }
+
+        } catch (err) {
+          console.error("Dashboard error:", err);
+          Toasts.error("Lỗi tải dữ liệu dashboard");
+        }
+      }
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      // Refresh button
+      document.getElementById("refreshBtn").addEventListener("click", () => {
+        loadDashboard();
+        Toasts.info("Đang làm mới...");
+      });
+
+      // Clock
+      function updateClock() {
+        const now = new Date();
+        const time = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        document.querySelectorAll(".clock").forEach(el => el.textContent = time);
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
+
+      loadUser();
+      loadDashboard();
+    </script>
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>
+

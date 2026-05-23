@@ -62,14 +62,45 @@ document.addEventListener("DOMContentLoaded", function () {
       `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all;font-size:0.72rem;display:block">${escapeHtml(url)}</a>`
     ).join("") || "-";
 
+    const bestLink = (result.matchedLinks || [])[0] || "";
     tr.innerHTML = `
       <td>${escapeHtml(String(result.order))}</td>
       <td>${escapeHtml(result.hotelNo || "")}</td>
       <td>${escapeHtml(result.hotelName || "")}</td>
       <td style="font-size:0.78rem">${escapeHtml(result.hotelAddress || "")}</td>
       <td style="font-size:0.68rem">${linksHtml}</td>
+      <td><button class="btn btn-sm btn-outline-custom btn-bookmark" data-url="${escapeHtml(bestLink)}" data-title="${escapeHtml(result.hotelName || "")}" data-snippet="${escapeHtml(result.hotelAddress || "")}" ${!bestLink ? "disabled" : ""} title="Lưu bookmark"><i class="fa-solid fa-bookmark"></i></button></td>
     `;
     resultsBody.appendChild(tr);
+
+    const bookmarkBtn = tr.querySelector(".btn-bookmark");
+    if (bookmarkBtn && bestLink) {
+      bookmarkBtn.addEventListener("click", async () => {
+        try {
+          const res = await fetch("/api/bookmarks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: bookmarkBtn.dataset.title || "Untitled",
+              url: bookmarkBtn.dataset.url,
+              snippet: bookmarkBtn.dataset.snippet || "",
+              engine: "google",
+              query: bookmarkBtn.dataset.title || "",
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success("Đã bookmark");
+            bookmarkBtn.disabled = true;
+            bookmarkBtn.style.opacity = "0.4";
+          } else {
+            Toasts.error(data.error || "Lỗi bookmark");
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+    }
     if (resultsCount) resultsCount.textContent = resultsBody.querySelectorAll("tr").length;
   }
 

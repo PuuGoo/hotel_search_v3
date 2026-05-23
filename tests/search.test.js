@@ -47,8 +47,20 @@ process.env.GO_API_KEY_2 = "test-google-key-2";
 await import("@tavily/core");
 const { default: axios } = await import("axios");
 
+// Mock global fetch for external URLs (case12, DDG health) but pass through localhost
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  const urlStr = typeof url === "string" ? url : url.toString();
+  if (urlStr.includes("localhost") || urlStr.includes("127.0.0.1")) {
+    return realFetch(url, opts);
+  }
+  // Mock external requests (case12 health check)
+  return { ok: true, status: 200, json: async () => ({}) };
+};
+
 // Import actual search routes
 const { default: searchRoutes } = await import("../routes/search.js");
+const { searchCache } = await import("../utils/cache.js");
 
 function createTestApp() {
   const app = express();
@@ -105,6 +117,7 @@ async function loginAs(username, password) {
 
 describe("Search Routes", () => {
   beforeAll(async () => {
+    searchCache.clear();
     if (fs.existsSync(TEST_USERS_FILE)) {
       originalUsers = fs.readFileSync(TEST_USERS_FILE, "utf8");
     }
@@ -144,6 +157,7 @@ describe("Search Routes", () => {
   });
 
   afterAll((done) => {
+    globalThis.fetch = realFetch;
     if (originalUsers !== undefined) {
       fs.writeFileSync(TEST_USERS_FILE, originalUsers, "utf8");
     }
@@ -307,6 +321,7 @@ describe("Search Routes", () => {
 
     beforeEach(() => {
       ddgMockQueue = [];
+      searchCache.clear();
     });
 
     afterEach(() => {
@@ -422,6 +437,8 @@ describe("Search Routes", () => {
   });
 
   describe("Tavily - Additional Rotation", () => {
+    beforeEach(() => searchCache.clear());
+
     test("should rotate on 403 error", async () => {
       const error403 = new Error("Forbidden");
       error403.response = { status: 403 };
@@ -477,6 +494,8 @@ describe("Search Routes", () => {
   });
 
   describe("Google - Additional Rotation", () => {
+    beforeEach(() => searchCache.clear());
+
     test("should rotate on 403 error", async () => {
       const error403 = new Error("Forbidden");
       error403.response = { status: 403 };
@@ -508,6 +527,8 @@ describe("Search Routes", () => {
   });
 
   describe("Tavily - All Keys Exhausted", () => {
+    beforeEach(() => searchCache.clear());
+
     test("should return 500 when all Tavily keys fail", async () => {
       const error429 = new Error("Rate limited");
       error429.response = { status: 429 };
@@ -525,6 +546,8 @@ describe("Search Routes", () => {
   });
 
   describe("Google - All Keys Exhausted", () => {
+    beforeEach(() => searchCache.clear());
+
     test("should return 500 when all Google keys fail", async () => {
       const error429 = new Error("Rate limited");
       error429.response = { status: 429 };
@@ -540,6 +563,8 @@ describe("Search Routes", () => {
   });
 
   describe("Circuit Breaker 503 Responses", () => {
+    beforeEach(() => searchCache.clear());
+
     test("should return 503 when Tavily circuit breaker is open", async () => {
       // The circuit breaker is a module-level singleton; previous error tests
       // may have already incremented the failure count. We'll make enough

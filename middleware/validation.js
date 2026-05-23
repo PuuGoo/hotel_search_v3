@@ -1,3 +1,71 @@
+// Password strength requirements
+const PASSWORD_RULES = {
+  minLength: 8,
+  maxLength: 128,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireDigit: true,
+  requireSpecial: true,
+};
+
+/**
+ * Check password strength and return score + details.
+ * @param {string} password
+ * @returns {{ score: number, level: string, errors: string[] }}
+ */
+export function checkPasswordStrength(password) {
+  const errors = [];
+  if (!password || typeof password !== "string") {
+    return { score: 0, level: "invalid", errors: ["Password is required"] };
+  }
+  if (password.length < PASSWORD_RULES.minLength) {
+    errors.push(`At least ${PASSWORD_RULES.minLength} characters`);
+  }
+  if (password.length > PASSWORD_RULES.maxLength) {
+    errors.push(`At most ${PASSWORD_RULES.maxLength} characters`);
+  }
+  if (PASSWORD_RULES.requireUppercase && !/[A-Z]/.test(password)) {
+    errors.push("At least one uppercase letter");
+  }
+  if (PASSWORD_RULES.requireLowercase && !/[a-z]/.test(password)) {
+    errors.push("At least one lowercase letter");
+  }
+  if (PASSWORD_RULES.requireDigit && !/\d/.test(password)) {
+    errors.push("At least one digit");
+  }
+  if (PASSWORD_RULES.requireSpecial && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
+    errors.push("At least one special character");
+  }
+
+  // Score: 0-4 based on how many criteria are met
+  let score = 0;
+  if (password.length >= PASSWORD_RULES.minLength) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) score++;
+
+  const levels = ["very-weak", "weak", "fair", "good", "strong", "strong"];
+  return { score, level: levels[score] || "very-weak", errors };
+}
+
+/**
+ * Middleware to enforce password strength on newPassword field.
+ */
+export function validatePasswordStrength(req, res, next) {
+  const password = req.body.newPassword || req.body.password;
+  if (!password) return next(); // Let other validators handle missing password
+
+  const { errors } = checkPasswordStrength(password);
+  if (errors.length > 0) {
+    return res.status(400).json({
+      error: "Password does not meet strength requirements",
+      requirements: errors,
+    });
+  }
+  next();
+}
+
 // Input validation middleware
 export function validateSearchQuery(req, res, next) {
   const query = req.query.q;

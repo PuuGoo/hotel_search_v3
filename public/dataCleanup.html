@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Data Cleanup</title>
+    <meta name="description" content="Dọn dẹp dữ liệu cũ" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .cleanup-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); display: flex; align-items: center; gap: var(--spacing-md); }
+      .cleanup-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+      .cleanup-info { flex: 1; }
+      .cleanup-title { font-weight: 600; font-size: 0.95rem; }
+      .cleanup-desc { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
+      .cleanup-stat { font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-detail { font-size: 0.65rem; color: var(--text-tertiary); }
+      .progress-bar { height: 6px; background: var(--glass-border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+      .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Data Cleanup</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-broom"></i> Data Cleanup
+        </h1>
+        <button id="runAllBtn" class="btn btn-primary btn-small">
+          <i class="fa-solid fa-play"></i> Run All Cleanup
+        </button>
+      </div>
+
+      <div id="statsContainer" class="stack-md"></div>
+
+      <div id="resultsContainer" class="glass-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-check-circle"></i> Cleanup Results</h3>
+        <div id="resultsContent" class="stack-xs"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const cleanupItems = [
+          { key: "cache", icon: "fa-database", color: "#667eea", title: "Result Cache", desc: "Remove expired cache entries (older than 1 hour)", stats: (s) => `${s.cacheEntries} entries`, detail: (s) => `${s.cacheExpired} expired`, endpoint: "/api/cleanup/cache" },
+          { key: "recent", icon: "fa-clock-rotate-left", color: "#3ba55d", title: "Recent Searches", desc: "Remove searches older than 30 days", stats: (s) => `${s.recentSearches} entries`, detail: (s) => `${s.recentOlderThanWeek} older than 7 days`, endpoint: "/api/cleanup/recent" },
+          { key: "shared", icon: "fa-share-nodes", color: "#faa61a", title: "Shared Searches", desc: "Remove expired shared links", stats: (s) => `${s.sharedSearches} entries`, detail: (s) => `${s.sharedExpired} expired`, endpoint: "/api/cleanup/shared" },
+          { key: "analytics", icon: "fa-chart-line", color: "#e74c3c", title: "Analytics Data", desc: "Remove data older than 90 days", stats: (s) => `${s.analyticsEntries} entries`, detail: (s) => `${s.analyticsDays} days tracked`, endpoint: "/api/cleanup/analytics" },
+          { key: "notifications", icon: "fa-bell", color: "#9b59b6", title: "Notifications", desc: "Remove read notifications older than 7 days", stats: (s) => `${s.notifications} total`, detail: (s) => `${s.readNotifications} read`, endpoint: "/api/cleanup/notifications" },
+        ];
+
+        async function loadStats() {
+          try {
+            const { data } = await axios.get("/api/cleanup/stats");
+            const container = document.getElementById("statsContainer");
+            container.innerHTML = cleanupItems.map(item => {
+              const value = item.stats(data);
+              const detail = item.detail(data);
+              const expiredPct = data[item.key === "recent" ? "recentSearches" : item.key === "cache" ? "cacheEntries" : item.key === "shared" ? "sharedSearches" : item.key === "analytics" ? "analyticsEntries" : "notifications"] || 0;
+              const expiredCount = data[item.key === "recent" ? "recentOlderThanWeek" : item.key === "cache" ? "cacheExpired" : item.key === "shared" ? "sharedExpired" : item.key === "analytics" ? "analyticsDays" : "readNotifications"] || 0;
+              const pct = expiredPct > 0 ? Math.round((expiredCount / expiredPct) * 100) : 0;
+              return `
+                <div class="cleanup-card">
+                  <div class="cleanup-icon" style="background: ${item.color}22; color: ${item.color}">
+                    <i class="fa-solid ${item.icon}"></i>
+                  </div>
+                  <div class="cleanup-info">
+                    <div class="cleanup-title">${item.title}</div>
+                    <div class="cleanup-desc">${item.desc}</div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" style="width: ${Math.min(pct, 100)}%; background: ${item.color}"></div>
+                    </div>
+                  </div>
+                  <div style="text-align: right">
+                    <div class="cleanup-stat">${value}</div>
+                    <div class="stat-detail">${detail}</div>
+                  </div>
+                  <button class="btn btn-outline btn-small cleanup-btn" data-endpoint="${item.endpoint}" data-title="${item.title}">
+                    <i class="fa-solid fa-trash-can"></i> Clean
+                  </button>
+                </div>
+              `;
+            }).join("");
+
+            document.querySelectorAll(".cleanup-btn").forEach(btn => {
+              btn.addEventListener("click", async () => {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                try {
+                  const { data: result } = await axios.post(btn.dataset.endpoint);
+                  Toasts.success(`${btn.dataset.title}: cleaned ${result.cleaned} items`);
+                  loadStats();
+                } catch (err) {
+                  Toasts.error(`Failed to clean ${btn.dataset.title}`);
+                } finally {
+                  btn.disabled = false;
+                  btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Clean';
+                }
+              });
+            });
+          } catch (err) {
+            console.error("Load stats error:", err);
+            Toasts.error("Không thể tải thống kê");
+          }
+        }
+
+        document.getElementById("runAllBtn").addEventListener("click", async () => {
+          const btn = document.getElementById("runAllBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...';
+          try {
+            const { data } = await axios.post("/api/cleanup/all");
+            const container = document.getElementById("resultsContainer");
+            const content = document.getElementById("resultsContent");
+            container.style.display = "block";
+            content.innerHTML = Object.entries(data.details).map(([key, count]) => `
+              <div class="flex gap-sm" style="align-items: center; font-size: 0.82rem">
+                <span style="flex: 1; text-transform: capitalize">${key}</span>
+                <span class="badge" style="background: rgba(102,126,234,.15); color: #667eea">${count} cleaned</span>
+              </div>
+            `).join("") + `<div style="margin-top: 8px; font-weight: 600; font-size: 0.9rem">Total: ${data.totalCleaned} items cleaned</div>`;
+            Toasts.success(`Cleanup complete: ${data.totalCleaned} items removed`);
+            loadStats();
+          } catch (err) {
+            Toasts.error("Cleanup failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-play"></i> Run All Cleanup';
+          }
+        });
+
+        loadStats();
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shared bookmark collection">
+  <title>Shared Collection</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .collection-header { margin-bottom: 24px; }
+    .collection-header h1 { margin: 0 0 8px; }
+    .collection-header .desc { color: var(--text-secondary, #666); font-size: 14px; margin: 0 0 8px; }
+    .collection-header .meta { font-size: 12px; color: var(--text-muted, #999); }
+    .bookmark-list { list-style: none; padding: 0; margin: 0; }
+    .bookmark-item { padding: 14px 16px; border-bottom: 1px solid var(--border, #eee); }
+    .bookmark-item:last-child { border-bottom: none; }
+    .bookmark-item a { color: var(--link, #1976d2); text-decoration: none; font-size: 15px; font-weight: 500; }
+    .bookmark-item a:hover { text-decoration: underline; }
+    .bookmark-item .snippet { color: var(--text-secondary, #666); font-size: 13px; margin-top: 4px; }
+    .engine-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; display: inline-block; margin-left: 8px; vertical-align: middle; }
+    .engine-tavily { background: #e3f2fd; color: #1565c0; }
+    .engine-google { background: #fce4ec; color: #c62828; }
+    .engine-ddg { background: #e8f5e9; color: #2e7d32; }
+    .card { background: var(--card-bg, #fff); border: 1px solid var(--border, #e0e0e0); border-radius: 8px; overflow: hidden; }
+    .error-state { text-align: center; padding: 60px 20px; color: var(--text-muted, #999); }
+    .error-state h2 { color: var(--text, #333); }
+  </style>
+</head>
+<body>
+  <header class="app-header no-print">
+    <nav>
+      <a href="/">Home</a>
+      <a href="/login">Login</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div id="loading" style="text-align:center;padding:40px;">Loading...</div>
+    <div id="content" style="display:none;">
+      <div class="collection-header">
+        <h1 id="collName"></h1>
+        <p class="desc" id="collDesc"></p>
+        <p class="meta"><span id="collCount"></span> bookmarks</p>
+      </div>
+      <div class="card">
+        <ul id="bookmarkList" class="bookmark-list"></ul>
+      </div>
+    </div>
+    <div id="errorState" class="error-state" style="display:none;">
+      <h2>Collection not found</h2>
+      <p>This share link may have expired or been revoked.</p>
+    </div>
+  </main>
+
+  <script>
+    const token = window.location.pathname.split("/").pop();
+
+    async function loadCollection() {
+      try {
+        const res = await fetch(`/api/collections/view/${token}`);
+        if (!res.ok) {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("errorState").style.display = "block";
+          return;
+        }
+        const data = await res.json();
+
+        document.getElementById("collName").textContent = data.name;
+        document.getElementById("collDesc").textContent = data.description || "";
+        document.getElementById("collCount").textContent = data.bookmarkCount;
+
+        const list = document.getElementById("bookmarkList");
+        if (data.bookmarks.length === 0) {
+          list.innerHTML = "<li style='padding:20px;text-align:center;color:var(--text-muted,#999);'>No bookmarks in this collection</li>";
+        } else {
+          list.innerHTML = data.bookmarks.map(b => `
+            <li class="bookmark-item">
+              <div>
+                <a href="${esc(b.url)}" target="_blank">${esc(b.title)}</a>
+                <span class="engine-badge engine-${b.engine}">${b.engine}</span>
+              </div>
+              ${b.snippet ? `<div class="snippet">${esc(b.snippet)}</div>` : ""}
+            </li>
+          `).join("");
+        }
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "block";
+      } catch {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("errorState").style.display = "block";
+      }
+    }
+
+    function esc(str) {
+      const d = document.createElement("div");
+      d.textContent = str || "";
+      return d.innerHTML;
+    }
+
+    loadCollection();
+  </script>
+</body>
+</html>

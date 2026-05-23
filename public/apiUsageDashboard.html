@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API Usage</title>
+    <meta name="description" content="API usage metrics dashboard" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .usage-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #5865f2, #7289da); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .endpoint-row { padding: 8px 12px; background: rgba(0,0,0,.1); border-radius: var(--radius-md); margin-bottom: 4px; font-size: 0.78rem; display: flex; align-items: center; gap: var(--spacing-sm); }
+      .endpoint-row:hover { background: rgba(0,0,0,.2); }
+      .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 50px; text-align: center; }
+      .method-GET { background: #3ba55d22; color: #3ba55d; }
+      .method-POST { background: #faa61a22; color: #faa61a; }
+      .method-PUT { background: #5865f222; color: #5865f2; }
+      .method-DELETE { background: #e74c3c22; color: #e74c3c; }
+      .freq-bar { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .freq-bar:last-child { border-bottom: none; }
+      .freq-count { min-width: 50px; text-align: right; font-weight: 600; }
+      .freq-fill { height: 8px; background: #5865f2; border-radius: 4px; transition: width 0.3s; }
+      .chart-bar { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding: 0 4px; }
+      .chart-bar .bar { flex: 1; background: #5865f2; border-radius: 2px 2px 0 0; min-width: 4px; transition: height 0.3s; position: relative; }
+      .chart-bar .bar:hover { background: #7289da; }
+      .chart-bar .bar .bar-tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; z-index: 10; }
+      .chart-bar .bar:hover .bar-tooltip { display: block; }
+      .error-rate { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; }
+      .error-rate-low { background: #3ba55d22; color: #3ba55d; }
+      .error-rate-medium { background: #faa61a22; color: #faa61a; }
+      .error-rate-high { background: #e74c3c22; color: #e74c3c; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>API Usage</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-chart-line"></i> API Usage Metrics
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+          <button id="resetBtn" class="btn btn-outline btn-small" style="color: #e74c3c">
+            <i class="fa-solid fa-trash"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="usage-card" style="text-align: center">
+          <div class="stat-value" id="totalCalls">0</div>
+          <div class="stat-label">Total API Calls</div>
+        </div>
+        <div class="usage-card" style="text-align: center">
+          <div class="stat-value" id="uniqueEndpoints">0</div>
+          <div class="stat-label">Unique Endpoints</div>
+        </div>
+        <div class="usage-card" style="text-align: center">
+          <div class="stat-value" id="uniqueUsers">0</div>
+          <div class="stat-label">Unique Users</div>
+        </div>
+        <div class="usage-card" style="text-align: center">
+          <div class="stat-value" id="errorRate">0%</div>
+          <div class="stat-label">Error Rate (4xx+5xx)</div>
+        </div>
+      </div>
+
+      <!-- Hourly Trend -->
+      <div class="usage-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-chart-bar"></i> Hourly Trend (Last 24h)
+        </h3>
+        <div id="hourlyChart" class="chart-bar"></div>
+        <div id="hourlyLabels" style="display: flex; gap: 2px; padding: 0 4px; margin-top: 4px"></div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- Top Endpoints -->
+        <div class="usage-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-ranking-star"></i> Top Endpoints
+          </h3>
+          <div id="topEndpoints" style="max-height: 400px; overflow-y: auto"></div>
+        </div>
+
+        <!-- Top Users -->
+        <div class="usage-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-users"></i> Top Users
+          </h3>
+          <div id="topUsers" style="max-height: 400px; overflow-y: auto"></div>
+        </div>
+      </div>
+
+      <!-- By Status -->
+      <div class="usage-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-chart-pie"></i> By Status Code
+        </h3>
+        <div id="byStatus"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;').replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        function errorRateClass(rate) {
+          if (rate > 20) return "error-rate-high";
+          if (rate > 5) return "error-rate-medium";
+          return "error-rate-low";
+        }
+
+        async function loadUsage() {
+          try {
+            const { data } = await axios.get("/api/admin/api-usage");
+
+            document.getElementById("totalCalls").textContent = data.totalCalls.toLocaleString();
+            document.getElementById("uniqueEndpoints").textContent = data.topEndpoints.length;
+            document.getElementById("uniqueUsers").textContent = data.topUsers.length;
+
+            // Calculate error rate
+            const totalStatus = Object.values(data.byStatus).reduce((a, b) => a + b, 0);
+            const errorCount = Object.entries(data.byStatus)
+              .filter(([k]) => k.startsWith("4") || k.startsWith("5"))
+              .reduce((a, [, v]) => a + v, 0);
+            const errorRate = totalStatus ? Math.round((errorCount / totalStatus) * 100) : 0;
+            document.getElementById("errorRate").textContent = errorRate + "%";
+
+            // Hourly chart
+            const chartContainer = document.getElementById("hourlyChart");
+            const labelsContainer = document.getElementById("hourlyLabels");
+            if (data.hourlyTrend.length === 0) {
+              chartContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No data</p>';
+              labelsContainer.innerHTML = "";
+            } else {
+              const maxCount = Math.max(...data.hourlyTrend.map(h => h.count), 1);
+              chartContainer.innerHTML = data.hourlyTrend.map(h => {
+                const pct = (h.count / maxCount) * 100;
+                const hourLabel = h.hour.slice(11, 13) + ":00";
+                return `<div class="bar" style="height: ${Math.max(pct, 2)}%"><span class="bar-tooltip">${hourLabel}: ${h.count}</span></div>`;
+              }).join("");
+              labelsContainer.innerHTML = data.hourlyTrend.map(h => {
+                const hourLabel = h.hour.slice(11, 13);
+                return `<div style="flex: 1; text-align: center; font-size: 0.6rem; color: var(--text-tertiary)">${hourLabel}</div>`;
+              }).join("");
+            }
+
+            // Top endpoints
+            const endpointsContainer = document.getElementById("topEndpoints");
+            if (data.topEndpoints.length === 0) {
+              endpointsContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No data</p>';
+            } else {
+              const maxEp = Math.max(...data.topEndpoints.map(e => e.count), 1);
+              endpointsContainer.innerHTML = data.topEndpoints.slice(0, 20).map(e => {
+                const parts = e.endpoint.split(" ");
+                const method = parts[0];
+                const path = parts.slice(1).join(" ");
+                return `
+                  <div class="endpoint-row">
+                    <span class="method-badge method-${method}">${method}</span>
+                    <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: 0.72rem" title="${escapeHtml(path)}">${escapeHtml(path)}</span>
+                    <span class="error-rate ${errorRateClass(e.errorRate)}">${e.errorRate}% err</span>
+                    <span style="min-width: 40px; text-align: right; font-size: 0.7rem; color: var(--text-tertiary)">${e.avgDuration}ms</span>
+                    <span class="freq-count">${e.count}</span>
+                  </div>
+                `;
+              }).join("");
+            }
+
+            // Top users
+            const usersContainer = document.getElementById("topUsers");
+            if (data.topUsers.length === 0) {
+              usersContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No data</p>';
+            } else {
+              const maxUser = Math.max(...data.topUsers.map(u => u.count), 1);
+              usersContainer.innerHTML = data.topUsers.slice(0, 20).map(u => `
+                <div class="freq-bar">
+                  <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${escapeHtml(u.username)}</span>
+                  <span style="min-width: 80px; text-align: right; font-size: 0.7rem; color: var(--text-tertiary)">${formatTime(u.lastSeen)}</span>
+                  <div style="width: 80px">
+                    <div class="freq-fill" style="width: ${(u.count / maxUser) * 100}%"></div>
+                  </div>
+                  <span class="freq-count">${u.count}</span>
+                </div>
+              `).join("");
+            }
+
+            // By status
+            const statusContainer = document.getElementById("byStatus");
+            const statusEntries = Object.entries(data.byStatus).sort(([a], [b]) => a.localeCompare(b));
+            if (statusEntries.length === 0) {
+              statusContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No data</p>';
+            } else {
+              const maxStatus = Math.max(...statusEntries.map(([, v]) => v), 1);
+              statusContainer.innerHTML = statusEntries.map(([bucket, count]) => `
+                <div class="freq-bar">
+                  <span style="min-width: 40px; font-weight: 600">${bucket}</span>
+                  <div style="flex: 1">
+                    <div class="freq-fill" style="width: ${(count / maxStatus) * 100}%; background: ${bucket === '5xx' ? '#e74c3c' : bucket === '4xx' ? '#faa61a' : '#3ba55d'}"></div>
+                  </div>
+                  <span class="freq-count">${count}</span>
+                </div>
+              `).join("");
+            }
+          } catch {
+            // Silent fail
+          }
+        }
+
+        document.getElementById("refreshBtn").addEventListener("click", loadUsage);
+        document.getElementById("resetBtn").addEventListener("click", async () => {
+          if (!confirm("Reset all API usage data?")) return;
+          try {
+            await axios.delete("/api/admin/api-usage");
+            Toasts.success("API usage data reset");
+            loadUsage();
+          } catch {
+            Toasts.error("Failed to reset data");
+          }
+        });
+
+        loadUsage();
+      });
+    </script>
+  </body>
+</html>
+

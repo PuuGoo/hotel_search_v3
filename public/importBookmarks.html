@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Import Bookmarks</title>
+    <meta name="description" content="Nhập bookmark từ trình duyệt" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .upload-zone { border: 2px dashed var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-xl); text-align: center; transition: all 0.3s; cursor: pointer; }
+      .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.05); }
+      .upload-zone i { font-size: 2.5rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm); }
+      .upload-zone p { color: var(--text-secondary); font-size: 0.85rem; }
+      .upload-zone .hint { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px; }
+      .drop-area { display: none; }
+      .drop-area.active { display: block; }
+      .preview-list { max-height: 300px; overflow-y: auto; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--spacing-sm); }
+      .preview-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .preview-item:last-child { border-bottom: none; }
+      .method-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); cursor: pointer; transition: all 0.2s; }
+      .method-card:hover, .method-card.selected { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.08); }
+      .method-card i { font-size: 1.5rem; color: var(--accent-primary, #667eea); margin-bottom: 8px; }
+      .method-card h3 { margin: 0; font-size: 0.9rem; }
+      .method-card p { margin: 4px 0 0; font-size: 0.72rem; color: var(--text-secondary); }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Import Bookmarks</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/bookmarks" class="btn btn-outline btn-small" title="My Bookmarks"><i class="fa-solid fa-bookmark"></i></a>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-file-import"></i> Import Bookmarks
+      </h1>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <div class="method-card selected" data-method="html">
+          <i class="fa-solid fa-globe"></i>
+          <h3>Browser Export (HTML)</h3>
+          <p>Import from Chrome, Firefox, Edge bookmark export file</p>
+        </div>
+        <div class="method-card" data-method="csv">
+          <i class="fa-solid fa-file-csv"></i>
+          <h3>CSV File</h3>
+          <p>Import from CSV file with Title, URL, Engine columns</p>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-upload"></i> Upload File
+        </h3>
+        <div id="uploadZone" class="upload-zone">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <p>Drop file here or click to browse</p>
+          <div class="hint" id="fileHint">Supports .html bookmark export files</div>
+          <input type="file" id="fileInput" accept=".html,.htm,.csv" style="display: none" />
+        </div>
+      </div>
+
+      <div id="pasteSection" class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-paste"></i> Or Paste Content
+        </h3>
+        <textarea id="pasteContent" class="bulk-textarea" style="min-height: 150px" placeholder="Paste your bookmark HTML or CSV content here..."></textarea>
+        <div style="margin-top: var(--spacing-sm)">
+          <button id="parseBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-magnifying-glass"></i> Parse Content
+          </button>
+        </div>
+      </div>
+
+      <div id="previewSection" class="glass-card" style="display: none">
+        <div class="flex gap-md wrap" style="align-items: center; margin-bottom: var(--spacing-sm)">
+          <h3 style="margin: 0; font-size: 0.9rem">
+            <i class="fa-solid fa-list"></i> Preview
+            <span id="previewCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0 bookmarks</span>
+          </h3>
+          <div style="margin-left: auto">
+            <button id="importBtn" class="btn btn-primary btn-small">
+              <i class="fa-solid fa-download"></i> Import All
+            </button>
+          </div>
+        </div>
+        <div id="previewList" class="preview-list"></div>
+      </div>
+
+      <div id="resultsSection" class="glass-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-check-circle"></i> Import Results
+        </h3>
+        <div id="resultsContent"></div>
+        <div style="margin-top: var(--spacing-sm)">
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> View Bookmarks</a>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let selectedMethod = "html";
+        let parsedBookmarks = [];
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        // Method selection
+        document.querySelectorAll(".method-card").forEach(card => {
+          card.addEventListener("click", () => {
+            document.querySelectorAll(".method-card").forEach(c => c.classList.remove("selected"));
+            card.classList.add("selected");
+            selectedMethod = card.dataset.method;
+            document.getElementById("fileHint").textContent =
+              selectedMethod === "html" ? "Supports .html bookmark export files" : "Supports .csv files with Title, URL columns";
+            document.getElementById("fileInput").accept =
+              selectedMethod === "html" ? ".html,.htm" : ".csv";
+          });
+        });
+
+        // File upload
+        const uploadZone = document.getElementById("uploadZone");
+        const fileInput = document.getElementById("fileInput");
+
+        uploadZone.addEventListener("click", () => fileInput.click());
+        uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+        uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+        uploadZone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          uploadZone.classList.remove("dragover");
+          if (e.dataTransfer.files.length > 0) {
+            handleFile(e.dataTransfer.files[0]);
+          }
+        });
+
+        fileInput.addEventListener("change", (e) => {
+          if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
+            parseContent(content);
+          };
+          reader.readAsText(file);
+        }
+
+        // Parse button
+        document.getElementById("parseBtn").addEventListener("click", () => {
+          const content = document.getElementById("pasteContent").value.trim();
+          if (!content) return Toasts.warning("Paste content first");
+          parseContent(content);
+        });
+
+        function parseContent(content) {
+          parsedBookmarks = [];
+
+          if (selectedMethod === "html") {
+            parseHtml(content);
+          } else {
+            parseCsv(content);
+          }
+
+          if (parsedBookmarks.length === 0) {
+            Toasts.warning("No bookmarks found in content");
+            document.getElementById("previewSection").style.display = "none";
+            return;
+          }
+
+          showPreview();
+        }
+
+        function parseHtml(html) {
+          const linkRegex = /<A\s+[^>]*HREF="([^"]*)"[^>]*>([^<]*)<\/A>/gi;
+          let match;
+          const seen = new Set();
+
+          while ((match = linkRegex.exec(html)) !== null) {
+            const url = match[1].trim();
+            const title = match[2].trim();
+
+            if (!url || !title || url.startsWith("place:") || url.startsWith("javascript:")) continue;
+            if (seen.has(url)) continue;
+            seen.add(url);
+
+            const addDateMatch = match[0].match(/ADD_DATE="(\d+)"/i);
+            const timestamp = addDateMatch ? parseInt(addDateMatch[1]) * 1000 : Date.now();
+
+            parsedBookmarks.push({ title, url, timestamp });
+          }
+        }
+
+        function parseCsv(csv) {
+          const lines = csv.trim().split("\n");
+          if (lines.length < 2) return;
+
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const fields = [];
+            let current = "";
+            let inQuotes = false;
+
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j];
+              if (char === '"') {
+                if (inQuotes && line[j + 1] === '"') { current += '"'; j++; }
+                else inQuotes = !inQuotes;
+              } else if (char === "," && !inQuotes) {
+                fields.push(current.trim());
+                current = "";
+              } else {
+                current += char;
+              }
+            }
+            fields.push(current.trim());
+
+            const [title, url, engine, query, tagsStr] = fields;
+            if (!title || !url) continue;
+
+            parsedBookmarks.push({
+              title,
+              url,
+              engine: ["tavily", "google", "ddg"].includes(engine?.toLowerCase()) ? engine.toLowerCase() : "tavily",
+              query: query || "",
+              tags: tagsStr ? tagsStr.split(";").map(t => t.trim()).filter(Boolean) : [],
+            });
+          }
+        }
+
+        function showPreview() {
+          const section = document.getElementById("previewSection");
+          const list = document.getElementById("previewList");
+          const count = document.getElementById("previewCount");
+
+          section.style.display = "block";
+          count.textContent = `${parsedBookmarks.length} bookmarks`;
+
+          list.innerHTML = parsedBookmarks.slice(0, 50).map((b, i) => `
+            <div class="preview-item">
+              <span style="color: var(--text-tertiary); width: 24px">${i + 1}</span>
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${escapeHtml(b.title)}</span>
+              <span style="color: var(--text-tertiary); font-size: 0.65rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${escapeHtml(b.url)}</span>
+            </div>
+          `).join("") + (parsedBookmarks.length > 50 ? `<div style="text-align: center; color: var(--text-tertiary); font-size: 0.72rem; padding: 8px">... and ${parsedBookmarks.length - 50} more</div>` : "");
+        }
+
+        document.getElementById("importBtn").addEventListener("click", async () => {
+          const btn = document.getElementById("importBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing...';
+
+          try {
+            const content = document.getElementById("pasteContent").value.trim();
+            let result;
+
+            if (selectedMethod === "html") {
+              const htmlContent = content || await readFileFromInput();
+              const { data } = await axios.post("/api/bookmarks/import-html", { html: htmlContent });
+              result = data;
+            } else {
+              const csvContent = content || await readFileFromInput();
+              const { data } = await axios.post("/api/bookmarks/import", { csv: csvContent });
+              result = data;
+            }
+
+            document.getElementById("resultsSection").style.display = "block";
+            document.getElementById("resultsContent").innerHTML = `
+              <div class="stack-xs">
+                <div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                  <i class="fa-solid fa-check-circle" style="color: #3ba55d"></i>
+                  <span>Imported: <strong>${result.imported}</strong> bookmarks</span>
+                </div>
+                ${result.skipped ? `<div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                  <i class="fa-solid fa-forward" style="color: #faa61a"></i>
+                  <span>Skipped: <strong>${result.skipped}</strong> duplicates</span>
+                </div>` : ''}
+                ${result.errors ? `<div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                  <i class="fa-solid fa-exclamation-triangle" style="color: #e74c3c"></i>
+                  <span>Errors: <strong>${result.errors}</strong></span>
+                </div>` : ''}
+                <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px">
+                  Total bookmarks: ${result.total}
+                </div>
+              </div>
+            `;
+            Toasts.success(`Imported ${result.imported} bookmarks`);
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Import failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-download"></i> Import All';
+          }
+        });
+
+        function readFileFromInput() {
+          return new Promise((resolve, reject) => {
+            const file = fileInput.files[0];
+            if (!file) reject(new Error("No file selected"));
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsText(file);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
+

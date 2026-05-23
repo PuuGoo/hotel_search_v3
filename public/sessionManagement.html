@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Session Management</title>
+    <meta name="description" content="User session management dashboard" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .session-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #3ba55d, #2d7d46); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .session-row { padding: 12px; background: rgba(0,0,0,.1); border-radius: var(--radius-md); margin-bottom: 6px; display: flex; align-items: center; gap: var(--spacing-sm); transition: all 0.2s; border: 1px solid transparent; }
+      .session-row:hover { border-color: var(--glass-border); }
+      .session-row .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.82rem; flex-shrink: 0; }
+      .role-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; }
+      .role-admin { background: #e74c3c22; color: #e74c3c; }
+      .role-user { background: #5865f222; color: #5865f2; }
+      .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .activity-active { background: #3ba55d; box-shadow: 0 0 6px #3ba55d88; }
+      .activity-idle { background: #faa61a; }
+      .activity-stale { background: #747f8d; }
+      .freq-bar { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .freq-bar:last-child { border-bottom: none; }
+      .freq-count { min-width: 30px; text-align: right; font-weight: 600; }
+      .pagination { display: flex; align-items: center; gap: var(--spacing-sm); justify-content: center; }
+      .btn-danger { background: #e74c3c22; color: #e74c3c; border: 1px solid #e74c3c44; }
+      .btn-danger:hover { background: #e74c3c33; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Sessions</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-users"></i> Session Management
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="session-card" style="text-align: center">
+          <div class="stat-value" id="totalSessions">0</div>
+          <div class="stat-label">Active Sessions</div>
+        </div>
+        <div class="session-card" style="text-align: center">
+          <div class="stat-value" id="adminSessions">0</div>
+          <div class="stat-label">Admin Sessions</div>
+        </div>
+        <div class="session-card" style="text-align: center">
+          <div class="stat-value" id="userSessions">0</div>
+          <div class="stat-label">User Sessions</div>
+        </div>
+        <div class="session-card" style="text-align: center">
+          <div class="stat-value" id="multiSessionUsers">0</div>
+          <div class="stat-label">Multi-Session Users</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="session-card">
+        <div class="flex gap-sm wrap">
+          <input id="searchInput" type="text" placeholder="Search users or IP..." style="flex: 1; min-width: 200px" />
+          <button id="filterBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Session List -->
+      <div class="session-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-desktop"></i> Active Sessions
+          <span id="sessionCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0</span>
+        </h3>
+        <div id="sessionList" style="max-height: 600px; overflow-y: auto"></div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span id="pageInfo" style="font-size: 0.82rem">Page 1 of 1</span>
+        <button id="nextBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        function timeAgo(ts) {
+          const diff = Date.now() - ts;
+          if (diff < 60000) return "just now";
+          if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+          if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+          return Math.floor(diff / 86400000) + "d ago";
+        }
+
+        function activityClass(ts) {
+          const diff = Date.now() - ts;
+          if (diff < 300000) return "activity-active";   // < 5min
+          if (diff < 3600000) return "activity-idle";     // < 1h
+          return "activity-stale";
+        }
+
+        async function loadStats() {
+          try {
+            const { data } = await axios.get("/api/admin/sessions/stats");
+            document.getElementById("totalSessions").textContent = data.total;
+            document.getElementById("adminSessions").textContent = data.byRole.admin || 0;
+            document.getElementById("userSessions").textContent = data.byRole.user || 0;
+            document.getElementById("multiSessionUsers").textContent = data.multiSessionUsers.length;
+          } catch {}
+        }
+
+        async function loadSessions() {
+          const search = document.getElementById("searchInput").value;
+
+          try {
+            const params = { page: currentPage, limit: 50 };
+            if (search) params.search = search;
+
+            const { data } = await axios.get("/api/admin/sessions", { params });
+
+            document.getElementById("sessionCount").textContent = data.total;
+            totalPages = data.totalPages;
+            document.getElementById("pageInfo").textContent = `Page ${data.page} of ${totalPages || 1}`;
+            document.getElementById("prevBtn").disabled = data.page <= 1;
+            document.getElementById("nextBtn").disabled = !data.hasMore;
+
+            const container = document.getElementById("sessionList");
+            if (data.sessions.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No active sessions</p>';
+              return;
+            }
+
+            container.innerHTML = data.sessions.map(s => `
+              <div class="session-row">
+                <div class="user-avatar">${(s.displayName || s.username || "?")[0].toUpperCase()}</div>
+                <div style="flex: 1; min-width: 0">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                    <span style="font-weight: 600; font-size: 0.85rem">${escapeHtml(s.displayName || s.username)}</span>
+                    <span class="role-badge role-${s.role}">${s.role}</span>
+                    <span class="activity-dot ${activityClass(s.lastActivity)}" title="Last active: ${formatTime(s.lastActivity)}"></span>
+                  </div>
+                  <div style="font-size: 0.7rem; color: var(--text-tertiary); display: flex; gap: var(--spacing-sm); flex-wrap: wrap; margin-top: 2px">
+                    <span><i class="fa-solid fa-globe"></i> ${escapeHtml(s.ip || '-')}</span>
+                    <span><i class="fa-solid fa-clock"></i> Login: ${formatTime(s.loginTime)}</span>
+                    <span><i class="fa-solid fa-arrow-right"></i> Active: ${timeAgo(s.lastActivity)}</span>
+                  </div>
+                </div>
+                <button class="btn btn-danger btn-small" onclick="forceLogout('${s.sessionId}', '${escapeHtml(s.username)}')" title="Force logout">
+                  <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+              </div>
+            `).join("");
+          } catch {
+            document.getElementById("sessionList").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">Failed to load sessions</p>';
+          }
+        }
+
+        window.forceLogout = async function(sessionId, username) {
+          if (!confirm(`Force logout session for ${username}?`)) return;
+          try {
+            await axios.delete(`/api/admin/sessions/${sessionId}`);
+            Toasts.success(`Session terminated for ${username}`);
+            loadStats();
+            loadSessions();
+          } catch {
+            Toasts.error("Failed to terminate session");
+          }
+        };
+
+        document.getElementById("filterBtn").addEventListener("click", () => {
+          currentPage = 1;
+          loadSessions();
+        });
+
+        document.getElementById("searchInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { currentPage = 1; loadSessions(); }
+        });
+
+        document.getElementById("prevBtn").addEventListener("click", () => {
+          if (currentPage > 1) { currentPage--; loadSessions(); }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          if (currentPage < totalPages) { currentPage++; loadSessions(); }
+        });
+
+        document.getElementById("refreshBtn").addEventListener("click", () => {
+          loadStats();
+          loadSessions();
+        });
+
+        loadStats();
+        loadSessions();
+      });
+    </script>
+  </body>
+</html>
+

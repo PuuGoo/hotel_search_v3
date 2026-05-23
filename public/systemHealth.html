@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>System Health</title>
+    <meta name="description" content="System health dashboard" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .health-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+      .status-ok { background: rgba(59,165,93,.15); color: #3ba55d; }
+      .status-degraded { background: rgba(250,166,26,.15); color: #faa61a; }
+      .status-unavailable { background: rgba(231,76,60,.15); color: #e74c3c; }
+      .metric-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .metric-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .progress-bar { height: 8px; background: var(--glass-border); border-radius: 4px; overflow: hidden; }
+      .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+      .file-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: 4px 0; font-size: 0.75rem; border-bottom: 1px solid var(--glass-border); }
+      .file-row:last-child { border-bottom: none; }
+      .dep-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 0; border-bottom: 1px solid var(--glass-border); }
+      .dep-row:last-child { border-bottom: none; }
+      .log-line { font-family: monospace; font-size: 0.7rem; color: var(--text-secondary); padding: 2px 0; border-bottom: 1px solid var(--glass-border); word-break: break-all; }
+      .log-line:last-child { border-bottom: none; }
+      .auto-refresh { display: flex; align-items: center; gap: 8px; }
+      .pulse { animation: pulse 2s infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>System Health</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-heartbeat"></i> System Health
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <div class="auto-refresh">
+            <label style="font-size: 0.78rem; color: var(--text-secondary)">
+              <input type="checkbox" id="autoRefresh" checked /> Auto-refresh
+            </label>
+            <span id="lastUpdate" class="text-tertiary" style="font-size: 0.7rem"></span>
+          </div>
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Status overview -->
+      <div id="statusBadge" class="status-badge status-ok" style="font-size: 0.9rem">
+        <i class="fa-solid fa-circle-check"></i> <span id="statusText">All Systems Operational</span>
+      </div>
+
+      <!-- Key metrics -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="uptime">--</div>
+          <div class="metric-label">Uptime</div>
+        </div>
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="heapUsed">--</div>
+          <div class="metric-label">Heap Used</div>
+        </div>
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="systemMem">--</div>
+          <div class="metric-label">System Memory</div>
+        </div>
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="loadAvg">--</div>
+          <div class="metric-label">Load Avg (1m)</div>
+        </div>
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="cpuCores">--</div>
+          <div class="metric-label">CPU Cores</div>
+        </div>
+        <div class="health-card" style="text-align: center">
+          <div class="metric-value" id="dataSize">--</div>
+          <div class="metric-label">Data Size</div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- Memory bar -->
+        <div class="health-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-memory"></i> Memory Usage</h3>
+          <div style="margin-bottom: 8px">
+            <div class="flex" style="justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px">
+              <span>Heap</span>
+              <span id="heapDetail">--</span>
+            </div>
+            <div class="progress-bar">
+              <div id="heapBar" class="progress-fill" style="width: 0%; background: #667eea"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex" style="justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px">
+              <span>System</span>
+              <span id="sysDetail">--</span>
+            </div>
+            <div class="progress-bar">
+              <div id="sysBar" class="progress-fill" style="width: 0%; background: #3ba55d"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dependencies -->
+        <div class="health-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-plug"></i> Dependencies</h3>
+          <div id="dependencies" class="stack-xs"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- Server info -->
+        <div class="health-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-server"></i> Server Info</h3>
+          <div id="serverInfo" class="stack-xs" style="font-size: 0.78rem"></div>
+        </div>
+
+        <!-- Config -->
+        <div class="health-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-gear"></i> Configuration</h3>
+          <div id="configInfo" class="stack-xs" style="font-size: 0.78rem"></div>
+        </div>
+      </div>
+
+      <!-- Data files -->
+      <div class="health-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-folder"></i> Data Files
+          <span id="totalFiles" class="badge" style="font-size: 0.6rem; margin-left: 8px">0 files</span>
+        </h3>
+        <div id="dataFiles" style="max-height: 300px; overflow-y: auto"></div>
+      </div>
+
+      <!-- Logs -->
+      <div class="health-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-terminal"></i> Recent Logs
+          <span id="logCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0</span>
+        </h3>
+        <div id="logContainer" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,.2); border-radius: var(--radius-md); padding: var(--spacing-sm)"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let refreshInterval = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        async function loadHealth() {
+          try {
+            const [healthRes, logsRes] = await Promise.all([
+              axios.get("/api/system/health"),
+              axios.get("/api/system/logs?lines=30").catch(() => ({ data: { logs: [] } })),
+            ]);
+            const data = healthRes.data;
+            const logs = logsRes.data;
+
+            // Status
+            const badge = document.getElementById("statusBadge");
+            const statusText = document.getElementById("statusText");
+            badge.className = `status-badge status-${data.status}`;
+            statusText.textContent = data.status === "ok" ? "All Systems Operational" : "System Degraded";
+
+            // Metrics
+            document.getElementById("uptime").textContent = data.server.uptime;
+            document.getElementById("heapUsed").textContent = data.memory.heapUsed;
+            document.getElementById("systemMem").textContent = data.memory.systemUsedPercent + "%";
+            document.getElementById("loadAvg").textContent = data.cpu.loadAvg["1m"];
+            document.getElementById("cpuCores").textContent = data.cpu.cores;
+            document.getElementById("dataSize").textContent = data.data.totalSize;
+
+            // Memory bars
+            const heapPct = Math.round((parseInt(data.memory.heapUsed) / parseInt(data.memory.heapTotal)) * 100) || 0;
+            document.getElementById("heapBar").style.width = heapPct + "%";
+            document.getElementById("heapBar").style.background = heapPct > 80 ? "#e74c3c" : heapPct > 60 ? "#faa61a" : "#667eea";
+            document.getElementById("heapDetail").textContent = `${data.memory.heapUsed} / ${data.memory.heapTotal}`;
+
+            document.getElementById("sysBar").style.width = data.memory.systemUsedPercent + "%";
+            document.getElementById("sysBar").style.background = data.memory.systemUsedPercent > 80 ? "#e74c3c" : data.memory.systemUsedPercent > 60 ? "#faa61a" : "#3ba55d";
+            document.getElementById("sysDetail").textContent = `${data.memory.systemFree} free of ${data.memory.systemTotal}`;
+
+            // Dependencies
+            const depContainer = document.getElementById("dependencies");
+            depContainer.innerHTML = Object.entries(data.dependencies).map(([name, dep]) => `
+              <div class="dep-row">
+                <span class="status-badge status-${dep.status}" style="font-size: 0.65rem">
+                  <i class="fa-solid fa-circle" style="font-size: 0.5rem"></i> ${dep.status}
+                </span>
+                <span style="flex: 1; text-transform: uppercase; font-size: 0.78rem; font-weight: 600">${name}</span>
+                <span class="text-tertiary" style="font-size: 0.7rem">${dep.responseTime ? dep.responseTime + 'ms' : ''}</span>
+              </div>
+            `).join("");
+
+            // Server info
+            document.getElementById("serverInfo").innerHTML = [
+              ["Node", data.server.nodeVersion],
+              ["Platform", `${data.server.platform} (${data.server.arch})`],
+              ["PID", data.server.pid],
+              ["Hostname", data.server.hostname],
+            ].map(([k, v]) => `
+              <div class="flex" style="justify-content: space-between">
+                <span class="text-secondary">${k}</span>
+                <span>${escapeHtml(String(v))}</span>
+              </div>
+            `).join("");
+
+            // Config
+            document.getElementById("configInfo").innerHTML = [
+              ["Environment", data.config.environment],
+              ["Port", data.config.port],
+              ["Session Max Age", Math.round(data.config.sessionMaxAge / 3600000) + "h"],
+              ["Login Rate Limit", `${data.config.rateLimit.login.max}/${data.config.rateLimit.login.window}`],
+              ["Search Rate Limit", `${data.config.rateLimit.search.max}/${data.config.rateLimit.search.window}`],
+            ].map(([k, v]) => `
+              <div class="flex" style="justify-content: space-between">
+                <span class="text-secondary">${k}</span>
+                <span>${escapeHtml(String(v))}</span>
+              </div>
+            `).join("");
+
+            // Data files
+            const fileEntries = Object.entries(data.data.files).filter(([_, f]) => f.exists);
+            document.getElementById("totalFiles").textContent = `${fileEntries.length} files`;
+            document.getElementById("dataFiles").innerHTML = fileEntries
+              .sort((a, b) => b[1].sizeBytes - a[1].sizeBytes)
+              .map(([name, file]) => `
+                <div class="file-row">
+                  <i class="fa-solid fa-file-code" style="color: var(--text-tertiary); font-size: 0.7rem"></i>
+                  <span style="flex: 1">${escapeHtml(name)}</span>
+                  <span class="text-tertiary">${file.size}</span>
+                </div>
+              `).join("");
+
+            // Logs
+            document.getElementById("logCount").textContent = logs.logs?.length || 0;
+            document.getElementById("logContainer").innerHTML = (logs.logs || []).length === 0
+              ? '<p class="text-tertiary" style="font-size: 0.75rem; margin: 0">No logs available</p>'
+              : logs.logs.map(line => `<div class="log-line">${escapeHtml(line)}</div>`).join("");
+
+            document.getElementById("lastUpdate").textContent = "Updated: " + new Date().toLocaleTimeString();
+          } catch (err) {
+            console.error("Health load error:", err);
+            document.getElementById("statusBadge").className = "status-badge status-unavailable";
+            document.getElementById("statusText").textContent = "Failed to load health data";
+          }
+        }
+
+        document.getElementById("refreshBtn").addEventListener("click", loadHealth);
+
+        document.getElementById("autoRefresh").addEventListener("change", (e) => {
+          if (e.target.checked) {
+            refreshInterval = setInterval(loadHealth, 30000);
+          } else {
+            clearInterval(refreshInterval);
+          }
+        });
+
+        loadHealth();
+        refreshInterval = setInterval(loadHealth, 30000);
+      });
+    </script>
+  </body>
+</html>
+

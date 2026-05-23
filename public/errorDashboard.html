@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Error Tracking</title>
+    <meta name="description" content="Error tracking dashboard" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .error-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #e74c3c, #c0392b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .error-row { padding: 10px 12px; background: rgba(0,0,0,.15); border-radius: var(--radius-md); margin-bottom: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+      .error-row:hover { border-color: var(--glass-border); }
+      .error-row.expanded { border-color: var(--accent-primary, #667eea); }
+      .error-message { font-weight: 600; font-size: 0.82rem; color: #e74c3c; margin-bottom: 4px; }
+      .error-meta { font-size: 0.7rem; color: var(--text-tertiary); display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
+      .error-stack { font-family: monospace; font-size: 0.7rem; color: var(--text-secondary); background: rgba(0,0,0,.3); padding: var(--spacing-sm); border-radius: var(--radius-md); margin-top: 8px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; display: none; }
+      .error-row.expanded .error-stack { display: block; }
+      .freq-bar { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .freq-bar:last-child { border-bottom: none; }
+      .freq-count { min-width: 40px; text-align: right; font-weight: 600; color: #e74c3c; }
+      .freq-fill { height: 6px; background: #e74c3c; border-radius: 3px; transition: width 0.3s; }
+      .pagination { display: flex; align-items: center; gap: var(--spacing-sm); justify-content: center; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Error Tracking</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-bug"></i> Error Tracking
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+          <button id="clearBtn" class="btn btn-outline btn-small" style="color: #e74c3c">
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="error-card" style="text-align: center">
+          <div class="stat-value" id="totalErrors">0</div>
+          <div class="stat-label">Total Errors</div>
+        </div>
+        <div class="error-card" style="text-align: center">
+          <div class="stat-value" id="recentErrors">0</div>
+          <div class="stat-label">Last 24 Hours</div>
+        </div>
+        <div class="error-card" style="text-align: center">
+          <div class="stat-value" id="uniqueErrors">0</div>
+          <div class="stat-label">Unique Errors</div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- Top Errors -->
+        <div class="error-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-ranking-star"></i> Most Frequent Errors
+          </h3>
+          <div id="topErrors"></div>
+        </div>
+
+        <!-- By Status Code -->
+        <div class="error-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-chart-pie"></i> By Status Code
+          </h3>
+          <div id="byStatus"></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="error-card">
+        <div class="flex gap-sm wrap">
+          <input id="searchInput" type="text" placeholder="Search errors..." style="flex: 1; min-width: 200px" />
+          <select id="statusFilter" style="width: 120px">
+            <option value="">All Status</option>
+            <option value="500">500</option>
+            <option value="404">404</option>
+            <option value="403">403</option>
+            <option value="400">400</option>
+          </select>
+          <button id="filterBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Error List -->
+      <div class="error-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-list"></i> Recent Errors
+          <span id="errorCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0</span>
+        </h3>
+        <div id="errorList" style="max-height: 600px; overflow-y: auto"></div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span id="pageInfo" style="font-size: 0.82rem">Page 1 of 1</span>
+        <button id="nextBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        async function loadStats() {
+          try {
+            const { data } = await axios.get("/api/admin/errors/stats");
+            document.getElementById("totalErrors").textContent = data.total;
+            document.getElementById("recentErrors").textContent = data.recentCount;
+            document.getElementById("uniqueErrors").textContent = data.topErrors.length;
+
+            // Top errors
+            const topContainer = document.getElementById("topErrors");
+            const maxCount = Math.max(...data.topErrors.map(e => e.count), 1);
+            if (data.topErrors.length === 0) {
+              topContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No errors</p>';
+            } else {
+              topContainer.innerHTML = data.topErrors.slice(0, 10).map(e => `
+                <div class="freq-bar">
+                  <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" title="${escapeHtml(e.message)}">${escapeHtml(e.message)}</div>
+                  <div class="freq-count">${e.count}</div>
+                  <div style="width: 60px">
+                    <div class="freq-fill" style="width: ${(e.count / maxCount) * 100}%"></div>
+                  </div>
+                </div>
+              `).join("");
+            }
+
+            // By status
+            const statusContainer = document.getElementById("byStatus");
+            const statusEntries = Object.entries(data.byStatus).sort(([, a], [, b]) => b - a);
+            if (statusEntries.length === 0) {
+              statusContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No errors</p>';
+            } else {
+              const maxStatus = Math.max(...statusEntries.map(([, v]) => v), 1);
+              statusContainer.innerHTML = statusEntries.map(([code, count]) => `
+                <div class="freq-bar">
+                  <span style="min-width: 40px; font-weight: 600">${code}</span>
+                  <div style="flex: 1">
+                    <div class="freq-fill" style="width: ${(count / maxStatus) * 100}%; background: ${code >= 500 ? '#e74c3c' : code >= 400 ? '#faa61a' : '#3ba55d'}"></div>
+                  </div>
+                  <span class="freq-count">${count}</span>
+                </div>
+              `).join("");
+            }
+          } catch {}
+        }
+
+        async function loadErrors() {
+          const search = document.getElementById("searchInput").value;
+          const statusCode = document.getElementById("statusFilter").value;
+
+          try {
+            const params = { page: currentPage, limit: 30 };
+            if (search) params.search = search;
+            if (statusCode) params.statusCode = statusCode;
+
+            const { data } = await axios.get("/api/admin/errors", { params });
+
+            document.getElementById("errorCount").textContent = data.total;
+            totalPages = data.totalPages;
+            document.getElementById("pageInfo").textContent = `Page ${data.page} of ${totalPages || 1}`;
+            document.getElementById("prevBtn").disabled = data.page <= 1;
+            document.getElementById("nextBtn").disabled = !data.hasMore;
+
+            const container = document.getElementById("errorList");
+            if (data.errors.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No errors found</p>';
+              return;
+            }
+
+            container.innerHTML = data.errors.map(e => `
+              <div class="error-row" onclick="this.classList.toggle('expanded')">
+                <div class="error-message">${escapeHtml(e.message)}</div>
+                <div class="error-meta">
+                  <span><i class="fa-solid fa-clock"></i> ${formatTime(e.timestamp)}</span>
+                  ${e.path ? `<span><i class="fa-solid fa-route"></i> ${escapeHtml(e.path)}</span>` : ''}
+                  ${e.method ? `<span><i class="fa-solid fa-code"></i> ${e.method}</span>` : ''}
+                  ${e.statusCode ? `<span><i class="fa-solid fa-circle-exclamation"></i> ${e.statusCode}</span>` : ''}
+                  ${e.username ? `<span><i class="fa-solid fa-user"></i> ${escapeHtml(e.username)}</span>` : ''}
+                </div>
+                ${e.stack ? `<div class="error-stack">${escapeHtml(e.stack)}</div>` : ''}
+              </div>
+            `).join("");
+          } catch {
+            document.getElementById("errorList").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">Failed to load errors</p>';
+          }
+        }
+
+        document.getElementById("filterBtn").addEventListener("click", () => {
+          currentPage = 1;
+          loadErrors();
+        });
+
+        document.getElementById("searchInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { currentPage = 1; loadErrors(); }
+        });
+
+        document.getElementById("prevBtn").addEventListener("click", () => {
+          if (currentPage > 1) { currentPage--; loadErrors(); }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          if (currentPage < totalPages) { currentPage++; loadErrors(); }
+        });
+
+        document.getElementById("refreshBtn").addEventListener("click", () => {
+          loadStats();
+          loadErrors();
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", async () => {
+          if (!confirm("Clear all error logs?")) return;
+          try {
+            await axios.delete("/api/admin/errors");
+            Toasts.success("Error log cleared");
+            loadStats();
+            loadErrors();
+          } catch {
+            Toasts.error("Failed to clear errors");
+          }
+        });
+
+        loadStats();
+        loadErrors();
+      });
+    </script>
+  </body>
+</html>
+

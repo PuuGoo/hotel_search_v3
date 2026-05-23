@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Link chia sẻ | Hotel Search</title>
+    <meta name="description" content="Quản lý các link chia sẻ kết quả tìm kiếm" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .share-card { padding: var(--spacing-sm) var(--spacing-md); background: var(--surface-glass); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: var(--spacing-sm); transition: border-color var(--transition-fast); }
+      .share-card:hover { border-color: var(--border-glass); }
+      .engine-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-round); font-size: 0.68rem; font-weight: 500; }
+      .share-link { font-size: 0.72rem; color: #8ab4ff; word-break: break-all; cursor: pointer; }
+      .share-link:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <a href="#sharesList" class="skip-link">Bỏ qua tới danh sách link chia sẻ</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+          <a href="/profile" class="btn btn-outline btn-small"><i class="fa-solid fa-user"></i> Profile</a>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 900px">
+      <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-sm)">
+          <div>
+            <h1 style="font-size: 1.3rem; margin: 0"><i class="fa-solid fa-share-nodes" style="color: #21d4fd"></i> Link chia sẻ</h1>
+            <p class="text-secondary" style="font-size: 0.82rem; margin: 4px 0 0">Quản lý các link chia sẻ kết quả tìm kiếm (hết hạn sau 7 ngày)</p>
+          </div>
+          <span id="shareCount" class="badge" style="font-size: 0.72rem">0 link</span>
+        </div>
+      </div>
+
+      <div id="sharesList"></div>
+    </main>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+
+      const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+      const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+
+      async function checkAdmin() {
+        try {
+          const res = await fetch("/api/me");
+          if (!res.ok) throw new Error();
+          const user = await res.json();
+          if (user.role === "admin") {
+            document.getElementById("adminLink").style.display = "";
+          }
+        } catch {
+          window.location.href = "/";
+        }
+      }
+
+      async function loadShares() {
+        try {
+          const res = await fetch("/api/shares");
+          const data = await res.json();
+          const list = document.getElementById("sharesList");
+          const items = data.shares || [];
+
+          document.getElementById("shareCount").textContent = `${items.length} link`;
+
+          if (items.length === 0) {
+            list.innerHTML = '<div class="glass-card" style="text-align:center;padding:40px"><i class="fa-solid fa-share-nodes" style="font-size:2rem;color:var(--text-tertiary);display:block;margin-bottom:12px"></i><div class="text-secondary">Chưa có link chia sẻ nào</div><div class="text-tertiary" style="font-size:0.72rem;margin-top:8px">Sử dụng nút chia sẻ trên kết quả tìm kiếm để tạo link</div></div>';
+            return;
+          }
+
+          list.innerHTML = items.map(s => {
+            const icon = engineIcons[s.engine] || "fa-search";
+            const color = engineColors[s.engine] || "#667eea";
+            const fullUrl = `${window.location.origin}/share/${s.token}`;
+            const created = new Date(s.createdAt).toLocaleString("vi-VN");
+            const expires = new Date(s.expiresAt).toLocaleString("vi-VN");
+            return `<div class="share-card animate-fade-in">
+              <div style="display:flex;align-items:center;gap:12px">
+                <i class="fa-solid ${icon}" style="color:${color};font-size:1rem;width:24px;text-align:center"></i>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:0.9rem">${escapeHtml(s.query)}</div>
+                  <div style="font-size:0.68rem;color:var(--text-tertiary);margin-top:2px">
+                    <span class="engine-badge" style="background:${color}22;color:${color}">${engineLabels[s.engine] || s.engine}</span>
+                    <span style="margin-left:8px">${s.resultCount} kết quả</span>
+                    <span style="margin-left:8px">${s.viewCount} lượt xem</span>
+                  </div>
+                  <div class="share-link" title="Click để sao chép" data-url="${escapeHtml(fullUrl)}">${fullUrl}</div>
+                  <div style="font-size:0.6rem;color:var(--text-tertiary);margin-top:4px">Tạo: ${created} · Hết hạn: ${expires}</div>
+                </div>
+                <div class="flex gap-xs">
+                  <button class="btn btn-outline btn-small btn-copy" data-url="${escapeHtml(fullUrl)}" title="Sao chép link">
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                  <button class="btn btn-outline btn-small btn-delete" data-token="${s.token}" title="Xóa" style="color:#ff4d4f">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          }).join("");
+
+          // Copy buttons
+          list.querySelectorAll(".btn-copy, .share-link").forEach(el => {
+            el.addEventListener("click", async () => {
+              const url = el.dataset.url;
+              try {
+                await navigator.clipboard.writeText(url);
+                Toasts.success("Đã sao chép link");
+              } catch {
+                Toasts.error("Lỗi sao chép");
+              }
+            });
+          });
+
+          // Delete buttons
+          list.querySelectorAll(".btn-delete").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              if (!confirm("Xóa link chia sẻ này?")) return;
+              try {
+                const res = await fetch(`/api/shares/${btn.dataset.token}`, { method: "DELETE" });
+                if (res.ok) {
+                  Toasts.success("Đã xóa");
+                  loadShares();
+                }
+              } catch {
+                Toasts.error("Lỗi xóa");
+              }
+            });
+          });
+        } catch {
+          document.getElementById("sharesList").innerHTML = '<div class="glass-card" style="text-align:center;padding:24px;color:var(--text-tertiary)">Lỗi tải dữ liệu</div>';
+        }
+      }
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      checkAdmin();
+      loadShares();
+    </script>
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>
+

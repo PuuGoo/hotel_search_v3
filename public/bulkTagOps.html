@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bulk Tag Operations</title>
+    <meta name="description" content="Gắn/xóa tag hàng loạt cho tìm kiếm" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .tag-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; user-select: none; }
+      .tag-pill.selected { border-color: #fff; box-shadow: 0 0 8px rgba(102,126,234,.4); }
+      .tag-pill:hover { opacity: 0.85; }
+      .query-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; }
+      .query-item.selected { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.1); }
+      .query-item:hover { border-color: var(--accent-primary, #667eea); }
+      .query-checkbox { width: 18px; height: 18px; accent-color: var(--accent-primary, #667eea); }
+      .bulk-textarea { width: 100%; min-height: 120px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--spacing-sm); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; resize: vertical; }
+      .bulk-textarea:focus { outline: none; border-color: var(--accent-primary, #667eea); }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Bulk Tags</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-tags"></i> Bulk Tag Operations
+      </h1>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-lg)">
+        <!-- Left: Queries -->
+        <div class="glass-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-list"></i> Search Queries
+            <span id="selectedCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0 selected</span>
+          </h3>
+          <div class="flex gap-sm" style="margin-bottom: var(--spacing-sm)">
+            <button id="selectAllBtn" class="btn btn-outline btn-small">Select All</button>
+            <button id="deselectAllBtn" class="btn btn-outline btn-small">Deselect All</button>
+            <div style="flex: 1"></div>
+            <select id="querySource" style="width: 150px; font-size: 0.78rem">
+              <option value="history">From History</option>
+              <option value="tagged">From Tagged</option>
+              <option value="manual">Manual Input</option>
+            </select>
+          </div>
+          <div id="queryList" class="stack-xs" style="max-height: 400px; overflow-y: auto"></div>
+          <div id="manualInput" style="display: none; margin-top: var(--spacing-sm)">
+            <textarea id="manualQueries" class="bulk-textarea" placeholder="Enter queries, one per line..."></textarea>
+          </div>
+        </div>
+
+        <!-- Right: Tags & Actions -->
+        <div class="stack-md">
+          <div class="glass-card">
+            <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+              <i class="fa-solid fa-tags"></i> Select Tags
+            </h3>
+            <div id="tagList" class="flex gap-sm wrap"></div>
+            <div style="margin-top: var(--spacing-sm)">
+              <div class="flex gap-sm">
+                <input id="newTagName" type="text" placeholder="New tag name..." style="flex: 1" />
+                <input id="newTagColor" type="color" value="#667eea" style="width: 40px; height: 32px; padding: 0; border: none" />
+                <button id="createTagBtn" class="btn btn-outline btn-small"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+              <i class="fa-solid fa-bolt"></i> Actions
+            </h3>
+            <div class="stack-sm">
+              <button id="bulkTagBtn" class="btn btn-primary" style="width: 100%" disabled>
+                <i class="fa-solid fa-plus"></i> Add Tags to Selected Queries
+              </button>
+              <button id="bulkUntagBtn" class="btn btn-outline" style="width: 100%; color: #e74c3c; border-color: #e74c3c" disabled>
+                <i class="fa-solid fa-minus"></i> Remove Tags from Selected Queries
+              </button>
+            </div>
+          </div>
+
+          <div id="resultsCard" class="glass-card" style="display: none">
+            <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+              <i class="fa-solid fa-check-circle"></i> Results
+            </h3>
+            <div id="resultsContent"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let tags = [];
+        let selectedTags = new Set();
+        let selectedQueries = new Set();
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function updateCounts() {
+          document.getElementById("selectedCount").textContent = `${selectedQueries.size} selected`;
+          const hasSelection = selectedQueries.size > 0 && selectedTags.size > 0;
+          document.getElementById("bulkTagBtn").disabled = !hasSelection;
+          document.getElementById("bulkUntagBtn").disabled = !hasSelection;
+        }
+
+        async function loadTags() {
+          try {
+            const { data } = await axios.get("/api/search-tags");
+            tags = data;
+            renderTags();
+          } catch (err) {
+            console.error("Load tags error:", err);
+          }
+        }
+
+        function renderTags() {
+          const container = document.getElementById("tagList");
+          if (tags.length === 0) {
+            container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No tags yet. Create one below.</p>';
+            return;
+          }
+          container.innerHTML = tags.map(tag => `
+            <span class="tag-pill ${selectedTags.has(tag.id) ? 'selected' : ''}"
+                  style="background: ${tag.color}22; color: ${tag.color}"
+                  data-id="${tag.id}">
+              <i class="fa-solid fa-tag" style="font-size: 0.6rem"></i>
+              ${escapeHtml(tag.name)}
+            </span>
+          `).join("");
+
+          container.querySelectorAll(".tag-pill").forEach(el => {
+            el.addEventListener("click", () => {
+              const id = el.dataset.id;
+              if (selectedTags.has(id)) {
+                selectedTags.delete(id);
+                el.classList.remove("selected");
+              } else {
+                selectedTags.add(id);
+                el.classList.add("selected");
+              }
+              updateCounts();
+            });
+          });
+        }
+
+        async function loadQueries(source) {
+          const container = document.getElementById("queryList");
+          const manualDiv = document.getElementById("manualInput");
+
+          if (source === "manual") {
+            container.innerHTML = "";
+            manualDiv.style.display = "block";
+            return;
+          }
+          manualDiv.style.display = "none";
+
+          try {
+            let queries = [];
+            if (source === "history") {
+              const { data } = await axios.get("/api/search-history", { params: { limit: 100 } });
+              queries = [...new Set((data.searches || data || []).map(s => s.query))];
+            } else if (source === "tagged") {
+              const { data } = await axios.get("/api/search-tags");
+              const allSearches = await Promise.all(
+                data.map(t => axios.get(`/api/search-tags/${t.id}/searches`).then(r => r.data))
+              );
+              queries = [...new Set(allSearches.flat().map(s => s.query))];
+            }
+
+            selectedQueries.clear();
+            container.innerHTML = queries.length === 0
+              ? '<p class="text-tertiary" style="font-size: 0.78rem">No queries found</p>'
+              : queries.map(q => `
+                <div class="query-item" data-query="${escapeHtml(q)}">
+                  <input type="checkbox" class="query-checkbox" />
+                  <span style="flex: 1; font-size: 0.82rem">${escapeHtml(q)}</span>
+                </div>
+              `).join("");
+
+            container.querySelectorAll(".query-item").forEach(el => {
+              el.addEventListener("click", (e) => {
+                if (e.target.tagName === "INPUT") return;
+                const cb = el.querySelector(".query-checkbox");
+                cb.checked = !cb.checked;
+                cb.dispatchEvent(new Event("change"));
+              });
+              el.querySelector(".query-checkbox").addEventListener("change", (e) => {
+                const query = el.dataset.query;
+                if (e.target.checked) {
+                  selectedQueries.add(query);
+                  el.classList.add("selected");
+                } else {
+                  selectedQueries.delete(query);
+                  el.classList.remove("selected");
+                }
+                updateCounts();
+              });
+            });
+          } catch (err) {
+            container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">Error loading queries</p>';
+          }
+        }
+
+        function getQueries() {
+          const source = document.getElementById("querySource").value;
+          if (source === "manual") {
+            return document.getElementById("manualQueries").value
+              .split("\n")
+              .map(q => q.trim())
+              .filter(q => q.length > 0);
+          }
+          return Array.from(selectedQueries);
+        }
+
+        document.getElementById("querySource").addEventListener("change", (e) => {
+          loadQueries(e.target.value);
+        });
+
+        document.getElementById("selectAllBtn").addEventListener("click", () => {
+          document.querySelectorAll(".query-checkbox").forEach(cb => {
+            cb.checked = true;
+            const query = cb.closest(".query-item").dataset.query;
+            selectedQueries.add(query);
+            cb.closest(".query-item").classList.add("selected");
+          });
+          updateCounts();
+        });
+
+        document.getElementById("deselectAllBtn").addEventListener("click", () => {
+          document.querySelectorAll(".query-checkbox").forEach(cb => {
+            cb.checked = false;
+            cb.closest(".query-item").classList.remove("selected");
+          });
+          selectedQueries.clear();
+          updateCounts();
+        });
+
+        document.getElementById("createTagBtn").addEventListener("click", async () => {
+          const name = document.getElementById("newTagName").value.trim();
+          const color = document.getElementById("newTagColor").value;
+          if (!name) return Toasts.warning("Enter a tag name");
+
+          try {
+            const { data } = await axios.post("/api/search-tags", { name, color });
+            tags.push(data);
+            selectedTags.add(data.id);
+            renderTags();
+            updateCounts();
+            document.getElementById("newTagName").value = "";
+            Toasts.success(`Tag "${name}" created`);
+          } catch (err) {
+            if (err.response?.status === 409) {
+              Toasts.warning("Tag already exists");
+            } else {
+              Toasts.error("Failed to create tag");
+            }
+          }
+        });
+
+        document.getElementById("bulkTagBtn").addEventListener("click", async () => {
+          const queries = getQueries();
+          if (queries.length === 0) return Toasts.warning("Select queries first");
+
+          const btn = document.getElementById("bulkTagBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Tagging...';
+
+          try {
+            const { data } = await axios.post("/api/search-tags/bulk/tag", {
+              queries,
+              tagIds: Array.from(selectedTags),
+            });
+            document.getElementById("resultsCard").style.display = "block";
+            document.getElementById("resultsContent").innerHTML = `
+              <div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                <i class="fa-solid fa-check-circle" style="color: #3ba55d"></i>
+                <span>Tagged <strong>${data.tagged}</strong> queries with <strong>${selectedTags.size}</strong> tags</span>
+              </div>
+            `;
+            Toasts.success(`Tagged ${data.tagged} queries`);
+          } catch (err) {
+            Toasts.error("Bulk tag failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Tags to Selected Queries';
+            updateCounts();
+          }
+        });
+
+        document.getElementById("bulkUntagBtn").addEventListener("click", async () => {
+          const queries = getQueries();
+          if (queries.length === 0) return Toasts.warning("Select queries first");
+
+          const btn = document.getElementById("bulkUntagBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
+
+          try {
+            const { data } = await axios.post("/api/search-tags/bulk/untag", {
+              queries,
+              tagIds: Array.from(selectedTags),
+            });
+            document.getElementById("resultsCard").style.display = "block";
+            document.getElementById("resultsContent").innerHTML = `
+              <div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                <i class="fa-solid fa-check-circle" style="color: #3ba55d"></i>
+                <span>Removed tags from <strong>${data.untagged}</strong> queries</span>
+              </div>
+            `;
+            Toasts.success(`Untagged ${data.untagged} queries`);
+          } catch (err) {
+            Toasts.error("Bulk untag failed");
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-minus"></i> Remove Tags from Selected Queries';
+            updateCounts();
+          }
+        });
+
+        loadTags();
+        loadQueries("history");
+      });
+    </script>
+  </body>
+</html>
+

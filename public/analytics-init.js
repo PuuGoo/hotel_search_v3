@@ -3,6 +3,11 @@
     return;
   }
 
+  // Skip on localhost - Vercel Analytics only works in production
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return;
+  }
+
   // Initialize the queue if the Vercel Analytics helper is not present yet.
   if (!window.va) {
     window.va = function (...args) {

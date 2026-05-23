@@ -33,6 +33,19 @@ Thumbs.db
 users.json
 chatbox_data.json
 *_chpw*.txt
+api_keys.json
+.encryption_key
 
 # Test artifacts
 tests/test_users_temp.json
+
+# Runtime data files
+active_sessions.json
+api_usage.json
+audit_log.json
+bookmarks.json
+price_alerts.json
+request_log.json
+search_history.json
+shares.json
+user_profiles.json

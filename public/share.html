@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kết quả chia sẻ | Hotel Search</title>
+    <meta name="description" content="Kết quả tìm kiếm được chia sẻ" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <style>
+      .result-card { padding: var(--spacing-sm) var(--spacing-md); background: var(--surface-glass); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: var(--spacing-sm); transition: border-color var(--transition-fast); }
+      .result-card:hover { border-color: var(--border-glass); }
+      .result-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+      .result-title a { color: var(--text-primary); text-decoration: none; }
+      .result-title a:hover { text-decoration: underline; color: #8ab4ff; }
+      .result-url { font-size: 0.68rem; color: #8ab4ff; word-break: break-all; }
+      .result-snippet { font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+      .engine-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-round); font-size: 0.68rem; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/" class="btn btn-outline btn-small"><i class="fa-solid fa-right-to-bracket"></i> Đăng nhập</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 800px">
+      <div id="loading" style="text-align:center;padding:60px">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <div class="text-secondary">Đang tải kết quả...</div>
+      </div>
+
+      <div id="content" style="display:none">
+        <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+          <div class="flex" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div>
+              <div class="text-tertiary" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Kết quả tìm kiếm được chia sẻ</div>
+              <h1 id="shareQuery" class="gradient-text" style="font-size:1.3rem;margin:4px 0 0"></h1>
+            </div>
+            <div class="flex gap-xs center">
+              <span id="engineBadge" class="engine-badge"></span>
+              <span id="resultCount" class="badge" style="font-size:0.68rem"></span>
+            </div>
+          </div>
+          <div style="margin-top:var(--spacing-sm);font-size:0.72rem;color:var(--text-tertiary)">
+            <span id="sharedBy"></span> · <span id="viewCount"></span> · <span id="shareTime"></span>
+          </div>
+        </div>
+
+        <div id="resultsList"></div>
+      </div>
+
+      <div id="error" style="display:none;text-align:center;padding:60px">
+        <i class="fa-solid fa-link-slash" style="font-size:3rem;color:var(--text-tertiary);display:block;margin-bottom:16px"></i>
+        <h2 style="font-size:1.2rem;margin-bottom:8px" id="errorTitle">Không tìm thấy</h2>
+        <p class="text-secondary" id="errorMsg"></p>
+      </div>
+    </main>
+
+    <script type="module">
+      import { escapeHtml, safeUrl } from "/utils.js";
+
+      const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+      const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+
+      const token = window.location.pathname.split("/share/")[1];
+
+      async function loadShare() {
+        try {
+          const res = await fetch(`/api/shares/view/${token}`);
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Không tìm thấy");
+          }
+          const data = await res.json();
+
+          document.getElementById("shareQuery").textContent = `"${data.query}"`;
+          document.getElementById("resultCount").textContent = `${data.results.length} kết quả`;
+
+          const badge = document.getElementById("engineBadge");
+          const color = engineColors[data.engine] || "#667eea";
+          const icon = engineIcons[data.engine] || "fa-search";
+          badge.style.background = `${color}22`;
+          badge.style.color = color;
+          badge.innerHTML = `<i class="fa-solid ${icon}"></i> ${engineLabels[data.engine] || data.engine}`;
+
+          document.getElementById("sharedBy").textContent = `Chia sẻ bởi ${escapeHtml(data.sharedBy)}`;
+          document.getElementById("viewCount").textContent = `${data.viewCount} lượt xem`;
+          document.getElementById("shareTime").textContent = new Date(data.createdAt).toLocaleString("vi-VN");
+
+          const list = document.getElementById("resultsList");
+          if (data.results.length === 0) {
+            list.innerHTML = '<div class="glass-card" style="text-align:center;padding:24px;color:var(--text-tertiary)">Không có kết quả</div>';
+          } else {
+            list.innerHTML = data.results.map((r, i) => {
+              const url = safeUrl(r.url);
+              const domain = url ? new URL(url).hostname : "";
+              return `<div class="result-card animate-fade-in" style="animation-delay:${i * 0.05}s">
+                <div class="result-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.title)}</a></div>
+                ${domain ? `<div class="result-url">${escapeHtml(domain)}</div>` : ""}
+                ${r.snippet ? `<div class="result-snippet">${escapeHtml(r.snippet)}</div>` : ""}
+              </div>`;
+            }).join("");
+          }
+
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("content").style.display = "block";
+        } catch (e) {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "block";
+          document.getElementById("errorMsg").textContent = e.message;
+        }
+      }
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      if (token) loadShare();
+    </script>
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>
+

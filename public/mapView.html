@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map View — Hotel Search</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    #map { height: 500px; border-radius: 10px; margin-bottom: 20px; }
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .controls select, .controls input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .hotel-list { max-height: 300px; overflow-y: auto; }
+    .hotel-item { padding: 10px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .hotel-item:hover { background: #f0f7ff; }
+    .hotel-item .name { font-weight: 600; }
+    .hotel-item .address { font-size: 0.85rem; color: #666; }
+    .loading { color: #999; font-style: italic; }
+    .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stats span { font-size: 0.9rem; color: #666; }
+    .stats strong { color: #333; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/searchTavily" class="nav-brand">Hotel Search</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/bookmarks">Bookmarks</a>
+      <a href="/map" class="active">Map</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+    <h1>Map View</h1>
+
+    <div class="controls">
+      <select id="dataSource" onchange="loadData()">
+        <option value="">Select data source...</option>
+        <option value="bookmarks">Bookmarks</option>
+        <option value="manual">Manual Input</option>
+      </select>
+      <button onclick="loadData()" class="btn btn-primary">Load</button>
+      <button onclick="geocodeAll()" class="btn btn-secondary" id="geocodeBtn" disabled>Plot on Map</button>
+      <button onclick="fitBounds()" class="btn">Fit All</button>
+    </div>
+
+    <div id="manualInput" style="display:none; margin-bottom: 20px;">
+      <textarea id="manualAddresses" placeholder="Enter one address per line..." rows="4" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;"></textarea>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div id="map"></div>
+
+    <h3>Locations</h3>
+    <div class="hotel-list" id="hotelList">
+      <div style="color: #999; padding: 20px; text-align: center;">Select a data source and click Load</div>
+    </div>
+  </main>
+
+  <script>
+    let map, markers = [], hotels = [];
+
+    // Initialize map
+    map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(map);
+
+    function toggleManualInput() {
+      document.getElementById('manualInput').style.display =
+        document.getElementById('dataSource').value === 'manual' ? 'block' : 'none';
+    }
+    document.getElementById('dataSource').addEventListener('change', toggleManualInput);
+
+    async function loadData() {
+      const source = document.getElementById('dataSource').value;
+      if (!source) return;
+
+      hotels = [];
+      const list = document.getElementById('hotelList');
+      list.innerHTML = '<div class="loading">Loading...</div>';
+
+      if (source === 'bookmarks') {
+        try {
+          const res = await fetch('/api/bookmarks?limit=100');
+          const data = await res.json();
+          hotels = (data.bookmarks || []).map(b => ({
+            name: b.title || b.name || 'Unknown',
+            address: b.address || b.location || b.url || '',
+            url: b.url
+          }));
+        } catch (err) {
+          list.innerHTML = `<div style="color:red">Error: ${err.message}</div>`;
+          return;
+        }
+      } else if (source === 'manual') {
+        const text = document.getElementById('manualAddresses').value.trim();
+        if (!text) { list.innerHTML = '<div style="color:#999">Enter addresses above</div>'; return; }
+        hotels = text.split('\n').filter(l => l.trim()).map((line, i) => ({
+          name: `Location ${i + 1}`,
+          address: line.trim()
+        }));
+      }
+
+      renderHotelList();
+      document.getElementById('geocodeBtn').disabled = hotels.length === 0;
+      updateStats(0);
+    }
+
+    function renderHotelList() {
+      const list = document.getElementById('hotelList');
+      if (hotels.length === 0) {
+        list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">No locations loaded</div>';
+        return;
+      }
+      list.innerHTML = hotels.map((h, i) => `
+        <div class="hotel-item" onclick="focusMarker(${i})">
+          <div>
+            <div class="name">${escapeHtml(h.name)}</div>
+            <div class="address">${escapeHtml(h.address)}</div>
+          </div>
+          <span style="color:${h.lat ? '#4caf50' : '#999'}">${h.lat ? '✓ Plotted' : 'Pending'}</span>
+        </div>
+      `).join('');
+    }
+
+    async function geocodeAll() {
+      const btn = document.getElementById('geocodeBtn');
+      btn.disabled = true;
+      btn.textContent = 'Geocoding...';
+
+      clearMarkers();
+      let plotted = 0;
+
+      for (let i = 0; i < hotels.length; i++) {
+        const h = hotels[i];
+        if (h.lat && h.lng) {
+          addMarker(h, i);
+          plotted++;
+          continue;
+        }
+
+        try {
+          const coords = await geocode(h.address);
+          if (coords) {
+            h.lat = coords.lat;
+            h.lng = coords.lng;
+            addMarker(h, i);
+            plotted++;
+          }
+        } catch {
+          // Skip failed geocoding
+        }
+
+        // Rate limit: 1 req/sec for Nominatim
+        if (i < hotels.length - 1) await sleep(1100);
+      }
+
+      renderHotelList();
+      updateStats(plotted);
+      fitBounds();
+      btn.textContent = 'Plot on Map';
+      btn.disabled = false;
+    }
+
+    async function geocode(address) {
+      if (!address) return null;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'HotelSearchApp/1.0' }
+      });
+      const data = await res.json();
+      if (data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+      return null;
+    }
+
+    function addMarker(hotel, index) {
+      const marker = L.marker([hotel.lat, hotel.lng])
+        .addTo(map)
+        .bindPopup(`<strong>${escapeHtml(hotel.name)}</strong><br>${escapeHtml(hotel.address)}${hotel.url ? `<br><a href="${escapeHtml(hotel.url)}" target="_blank">Open</a>` : ''}`);
+      marker._hotelIndex = index;
+      markers.push(marker);
+    }
+
+    function clearMarkers() {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+    }
+
+    function focusMarker(index) {
+      const marker = markers.find(m => m._hotelIndex === index);
+      if (marker) {
+        map.setView(marker.getLatLng(), 15);
+        marker.openPopup();
+      }
+    }
+
+    function fitBounds() {
+      if (markers.length === 0) return;
+      const group = L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.1));
+    }
+
+    function updateStats(plotted) {
+      document.getElementById('stats').innerHTML = `
+        <span>Total: <strong>${hotels.length}</strong></span>
+        <span>Plotted: <strong>${plotted}</strong></span>
+        <span>Failed: <strong>${hotels.length - plotted}</strong></span>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tìm kiếm đã lưu | Hotel Search</title>
+    <meta name="description" content="Quản lý các tìm kiếm đã lưu" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+          <a href="/profile" class="btn btn-outline btn-small"><i class="fa-solid fa-user"></i> Profile</a>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 900px">
+      <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-sm)">
+          <div>
+            <h1 style="font-size: 1.3rem; margin: 0"><i class="fa-solid fa-bookmark" style="color: #667eea"></i> Tìm kiếm đã lưu</h1>
+            <p class="text-secondary" style="font-size: 0.82rem; margin: 4px 0 0">Lưu và chạy lại các tìm kiếm yêu thích</p>
+          </div>
+          <div class="flex gap-xs">
+            <select id="engineFilter" style="font-size: 0.72rem; padding: 4px 8px; width: auto">
+              <option value="">Tất cả engine</option>
+              <option value="tavily">Tavily</option>
+              <option value="google">Google</option>
+              <option value="ddg">DuckDuckGo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Saved searches list -->
+      <div id="savedList"></div>
+    </main>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+
+      const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+      const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+      const engineSearchPaths = { tavily: "/searchTavily", google: "/searchGo", ddg: "/searchTavily" };
+
+      async function checkAdmin() {
+        try {
+          const res = await fetch("/api/me");
+          if (!res.ok) throw new Error();
+          const user = await res.json();
+          if (user.role === "admin") {
+            document.getElementById("adminLink").style.display = "";
+          }
+        } catch {
+          window.location.href = "/";
+        }
+      }
+
+      async function loadSavedSearches() {
+        const engine = document.getElementById("engineFilter").value;
+        const url = engine ? `/api/saved-searches?engine=${engine}` : "/api/saved-searches";
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          const list = document.getElementById("savedList");
+          const items = data.savedSearches || [];
+
+          if (items.length === 0) {
+            list.innerHTML = '<div class="glass-card" style="text-align:center;padding:40px"><i class="fa-solid fa-bookmark" style="font-size:2rem;color:var(--text-tertiary);display:block;margin-bottom:12px"></i><div class="text-secondary">Chưa có tìm kiếm nào được lưu</div><div class="text-tertiary" style="font-size:0.72rem;margin-top:8px">Sử dụng nút lưu trên trang Search để thêm</div></div>';
+            return;
+          }
+
+          list.innerHTML = items.map(s => {
+            const icon = engineIcons[s.engine] || "fa-search";
+            const color = engineColors[s.engine] || "#667eea";
+            const time = s.lastRun ? new Date(s.lastRun).toLocaleString("vi-VN") : "Chưa chạy";
+            return `<div class="glass-card" style="margin-bottom: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md)">
+              <div style="display:flex;align-items:center;gap:12px">
+                <i class="fa-solid ${icon}" style="color:${color};font-size:1rem;width:24px;text-align:center"></i>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.label)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-tertiary);margin-top:2px">
+                    <span class="badge" style="font-size:.6rem;background:rgba(255,255,255,.1)">${escapeHtml(engineLabels[s.engine] || s.engine)}</span>
+                    <span style="margin-left:8px">Đã chạy: ${s.runCount || 0} lần</span>
+                    <span style="margin-left:8px">Lần cuối: ${time}</span>
+                  </div>
+                </div>
+                <div class="flex gap-xs">
+                  <button class="btn btn-primary btn-small btn-run" data-id="${s.id}" data-query="${escapeHtml(s.query)}" data-engine="${s.engine}" title="Chạy tìm kiếm">
+                    <i class="fa-solid fa-play"></i>
+                  </button>
+                  <button class="btn btn-outline btn-small btn-edit" data-id="${s.id}" data-label="${escapeHtml(s.label)}" title="Đổi tên">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                  <button class="btn btn-outline btn-small btn-delete" data-id="${s.id}" title="Xóa" style="color:var(--danger-gradient)">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          }).join("");
+
+          // Run buttons
+          list.querySelectorAll(".btn-run").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const id = btn.dataset.id;
+              const query = btn.dataset.query;
+              const engine = btn.dataset.engine;
+              try {
+                await fetch(`/api/saved-searches/${id}/run`, { method: "POST" });
+              } catch {}
+              const basePath = engineSearchPaths[engine] || "/searchTavily";
+              window.location.href = `${basePath}?q=${encodeURIComponent(query)}`;
+            });
+          });
+
+          // Edit buttons
+          list.querySelectorAll(".btn-edit").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const id = btn.dataset.id;
+              const currentLabel = btn.dataset.label;
+              const newLabel = prompt("Nhập tên mới:", currentLabel);
+              if (!newLabel || newLabel === currentLabel) return;
+              try {
+                const res = await fetch(`/api/saved-searches/${id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ label: newLabel }),
+                });
+                if (res.ok) {
+                  Toasts.success("Đã cập nhật");
+                  loadSavedSearches();
+                }
+              } catch {
+                Toasts.error("Lỗi cập nhật");
+              }
+            });
+          });
+
+          // Delete buttons
+          list.querySelectorAll(".btn-delete").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              if (!confirm("Xóa tìm kiếm đã lưu này?")) return;
+              try {
+                const res = await fetch(`/api/saved-searches/${btn.dataset.id}`, { method: "DELETE" });
+                if (res.ok) {
+                  Toasts.success("Đã xóa");
+                  loadSavedSearches();
+                }
+              } catch {
+                Toasts.error("Lỗi xóa");
+              }
+            });
+          });
+        } catch {
+          document.getElementById("savedList").innerHTML = '<div class="glass-card" style="text-align:center;padding:24px;color:var(--text-tertiary)">Lỗi tải dữ liệu</div>';
+        }
+      }
+
+      document.getElementById("engineFilter").addEventListener("change", loadSavedSearches);
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      checkAdmin();
+      loadSavedSearches();
+    </script>
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>
+

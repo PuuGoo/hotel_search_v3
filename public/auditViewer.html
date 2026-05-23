@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Audit Log</title>
+    <meta name="description" content="Audit log viewer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .audit-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+      .audit-table th { text-align: left; padding: 8px 12px; background: var(--glass-bg); color: var(--text-secondary); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--glass-border); position: sticky; top: 0; }
+      .audit-table td { padding: 8px 12px; border-bottom: 1px solid var(--glass-border); vertical-align: top; }
+      .audit-table tr:hover td { background: rgba(102,126,234,.05); }
+      .action-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; background: rgba(102,126,234,.15); color: #667eea; }
+      .action-badge.login { background: rgba(59,165,93,.15); color: #3ba55d; }
+      .action-badge.delete { background: rgba(231,76,60,.15); color: #e74c3c; }
+      .action-badge.export { background: rgba(250,166,26,.15); color: #faa61a; }
+      .pagination { display: flex; align-items: center; gap: var(--spacing-sm); justify-content: center; }
+      .pagination button { min-width: 36px; }
+      .filter-bar { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; align-items: center; }
+      .filter-bar input, .filter-bar select { font-size: 0.78rem; }
+      .detail-text { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .table-container { max-height: 600px; overflow-y: auto; border-radius: var(--radius-md); border: 1px solid var(--glass-border); }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Audit Log</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System Health"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-clipboard-list"></i> Audit Log
+        </h1>
+        <span id="totalCount" class="badge" style="font-size: 0.7rem">0 entries</span>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <a href="/api/admin/audit-log/export" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-download"></i> Export CSV
+          </a>
+          <button id="clearBtn" class="btn btn-outline btn-small" style="color: #e74c3c">
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="glass-card">
+        <div class="filter-bar">
+          <div style="flex: 1; min-width: 200px">
+            <input id="searchInput" type="text" placeholder="Search username, action, IP, detail..." style="width: 100%" />
+          </div>
+          <select id="actionFilter" style="width: 180px">
+            <option value="">All Actions</option>
+          </select>
+          <input id="dateFrom" type="date" style="width: 140px" />
+          <input id="dateTo" type="date" style="width: 140px" />
+          <button id="filterBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+          <button id="resetBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="glass-card" style="padding: 0; overflow: hidden">
+        <div class="table-container">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="auditBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span id="pageInfo" style="font-size: 0.82rem">Page 1 of 1</span>
+        <button id="nextBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          const d = new Date(ts);
+          return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        }
+
+        function actionClass(action) {
+          if (action.includes("login")) return "login";
+          if (action.includes("delete") || action.includes("clear")) return "delete";
+          if (action.includes("export")) return "export";
+          return "";
+        }
+
+        async function loadActions() {
+          try {
+            const { data } = await axios.get("/api/admin/audit-log/actions");
+            const select = document.getElementById("actionFilter");
+            for (const action of data.actions) {
+              const opt = document.createElement("option");
+              opt.value = action;
+              opt.textContent = action.replace(/_/g, " ");
+              select.appendChild(opt);
+            }
+          } catch {}
+        }
+
+        async function loadAudit() {
+          const search = document.getElementById("searchInput").value;
+          const action = document.getElementById("actionFilter").value;
+          const dateFrom = document.getElementById("dateFrom").value;
+          const dateTo = document.getElementById("dateTo").value;
+
+          try {
+            const params = { page: currentPage, limit: 50 };
+            if (search) params.search = search;
+            if (action) params.action = action;
+            if (dateFrom) params.dateFrom = dateFrom;
+            if (dateTo) params.dateTo = dateTo;
+
+            const { data } = await axios.get("/api/admin/audit-log", { params });
+
+            document.getElementById("totalCount").textContent = `${data.total} entries`;
+            totalPages = data.totalPages;
+            document.getElementById("pageInfo").textContent = `Page ${data.page} of ${totalPages || 1}`;
+            document.getElementById("prevBtn").disabled = data.page <= 1;
+            document.getElementById("nextBtn").disabled = !data.hasMore;
+
+            const tbody = document.getElementById("auditBody");
+            if (data.entries.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 24px">No entries found</td></tr>';
+              return;
+            }
+
+            tbody.innerHTML = data.entries.map(e => `
+              <tr>
+                <td style="white-space: nowrap">${formatTime(e.timestamp)}</td>
+                <td><span class="action-badge ${actionClass(e.action)}">${escapeHtml(e.action)}</span></td>
+                <td>${escapeHtml(e.username || "-")}</td>
+                <td style="font-family: monospace; font-size: 0.7rem">${escapeHtml(e.ip || "-")}</td>
+                <td><div class="detail-text" title="${escapeHtml(e.detail || "")}">${escapeHtml(e.detail || "-")}</div></td>
+              </tr>
+            `).join("");
+          } catch (err) {
+            Toasts.error("Failed to load audit log");
+          }
+        }
+
+        document.getElementById("filterBtn").addEventListener("click", () => {
+          currentPage = 1;
+          loadAudit();
+        });
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          document.getElementById("actionFilter").value = "";
+          document.getElementById("dateFrom").value = "";
+          document.getElementById("dateTo").value = "";
+          currentPage = 1;
+          loadAudit();
+        });
+
+        document.getElementById("prevBtn").addEventListener("click", () => {
+          if (currentPage > 1) { currentPage--; loadAudit(); }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          if (currentPage < totalPages) { currentPage++; loadAudit(); }
+        });
+
+        document.getElementById("searchInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { currentPage = 1; loadAudit(); }
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", async () => {
+          if (!confirm("Clear all audit log entries? This cannot be undone.")) return;
+          try {
+            await axios.delete("/api/admin/audit-log");
+            Toasts.success("Audit log cleared");
+            loadAudit();
+          } catch {
+            Toasts.error("Failed to clear audit log");
+          }
+        });
+
+        loadActions();
+        loadAudit();
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Request Log</title>
+    <meta name="description" content="Request logging dashboard" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .log-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .log-row { padding: 8px 12px; background: rgba(0,0,0,.1); border-radius: var(--radius-md); margin-bottom: 4px; font-size: 0.78rem; display: flex; align-items: center; gap: var(--spacing-sm); transition: all 0.2s; }
+      .log-row:hover { background: rgba(0,0,0,.2); }
+      .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 50px; text-align: center; }
+      .method-GET { background: #3ba55d22; color: #3ba55d; }
+      .method-POST { background: #faa61a22; color: #faa61a; }
+      .method-PUT { background: #5865f222; color: #5865f2; }
+      .method-DELETE { background: #e74c3c22; color: #e74c3c; }
+      .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+      .status-2xx { background: #3ba55d22; color: #3ba55d; }
+      .status-3xx { background: #5865f222; color: #5865f2; }
+      .status-4xx { background: #faa61a22; color: #faa61a; }
+      .status-5xx { background: #e74c3c22; color: #e74c3c; }
+      .duration-bar { height: 4px; background: #3ba55d; border-radius: 2px; transition: width 0.3s; }
+      .duration-slow { background: #e74c3c; }
+      .duration-medium { background: #faa61a; }
+      .freq-bar { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .freq-bar:last-child { border-bottom: none; }
+      .freq-count { min-width: 40px; text-align: right; font-weight: 600; }
+      .pagination { display: flex; align-items: center; gap: var(--spacing-sm); justify-content: center; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Request Log</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-timeline"></i> Request Log
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+          <button id="clearBtn" class="btn btn-outline btn-small" style="color: #e74c3c">
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="log-card" style="text-align: center">
+          <div class="stat-value" id="totalRequests">0</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="log-card" style="text-align: center">
+          <div class="stat-value" id="recentRequests">0</div>
+          <div class="stat-label">Last 24 Hours</div>
+        </div>
+        <div class="log-card" style="text-align: center">
+          <div class="stat-value" id="avgDuration">0ms</div>
+          <div class="stat-label">Avg Duration</div>
+        </div>
+        <div class="log-card" style="text-align: center">
+          <div class="stat-value" id="slowestPath">-</div>
+          <div class="stat-label" style="font-size: 0.65rem">Slowest Endpoint</div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- By Method -->
+        <div class="log-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-code"></i> By Method
+          </h3>
+          <div id="byMethod"></div>
+        </div>
+
+        <!-- By Status -->
+        <div class="log-card">
+          <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+            <i class="fa-solid fa-chart-pie"></i> By Status Code
+          </h3>
+          <div id="byStatus"></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="log-card">
+        <div class="flex gap-sm wrap">
+          <input id="searchInput" type="text" placeholder="Search paths or users..." style="flex: 1; min-width: 200px" />
+          <select id="methodFilter" style="width: 100px">
+            <option value="">All Methods</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+          </select>
+          <select id="statusFilter" style="width: 120px">
+            <option value="">All Status</option>
+            <option value="200">200</option>
+            <option value="400">400</option>
+            <option value="401">401</option>
+            <option value="403">403</option>
+            <option value="404">404</option>
+            <option value="500">500</option>
+          </select>
+          <button id="filterBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Request List -->
+      <div class="log-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-list"></i> Recent Requests
+          <span id="entryCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0</span>
+        </h3>
+        <div id="entryList" style="max-height: 600px; overflow-y: auto"></div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span id="pageInfo" style="font-size: 0.82rem">Page 1 of 1</span>
+        <button id="nextBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentPage = 1;
+        let totalPages = 1;
+        const MAX_DURATION = 5000;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        function statusClass(code) {
+          if (code >= 500) return "status-5xx";
+          if (code >= 400) return "status-4xx";
+          if (code >= 300) return "status-3xx";
+          return "status-2xx";
+        }
+
+        function durationClass(ms) {
+          if (ms > 2000) return "duration-slow";
+          if (ms > 500) return "duration-medium";
+          return "";
+        }
+
+        async function loadStats() {
+          try {
+            const { data } = await axios.get("/api/admin/request-log/stats");
+            document.getElementById("totalRequests").textContent = data.total;
+            document.getElementById("recentRequests").textContent = data.recentCount;
+            document.getElementById("avgDuration").textContent = data.avgDuration + "ms";
+            document.getElementById("slowestPath").textContent = data.slowest ? data.slowest.path : "-";
+
+            // By method
+            const methodContainer = document.getElementById("byMethod");
+            const methodEntries = Object.entries(data.byMethod).sort(([, a], [, b]) => b - a);
+            if (methodEntries.length === 0) {
+              methodContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No requests</p>';
+            } else {
+              const maxMethod = Math.max(...methodEntries.map(([, v]) => v), 1);
+              methodContainer.innerHTML = methodEntries.map(([m, count]) => `
+                <div class="freq-bar">
+                  <span class="method-badge method-${m}">${m}</span>
+                  <div style="flex: 1">
+                    <div class="duration-bar" style="width: ${(count / maxMethod) * 100}%"></div>
+                  </div>
+                  <span class="freq-count">${count}</span>
+                </div>
+              `).join("");
+            }
+
+            // By status
+            const statusContainer = document.getElementById("byStatus");
+            const statusEntries = Object.entries(data.byStatus).sort(([, a], [, b]) => b - a);
+            if (statusEntries.length === 0) {
+              statusContainer.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No requests</p>';
+            } else {
+              const maxStatus = Math.max(...statusEntries.map(([, v]) => v), 1);
+              statusContainer.innerHTML = statusEntries.map(([bucket, count]) => `
+                <div class="freq-bar">
+                  <span style="min-width: 40px; font-weight: 600">${bucket}</span>
+                  <div style="flex: 1">
+                    <div class="duration-bar ${bucket === '5xx' ? 'duration-slow' : bucket === '4xx' ? 'duration-medium' : ''}" style="width: ${(count / maxStatus) * 100}%"></div>
+                  </div>
+                  <span class="freq-count">${count}</span>
+                </div>
+              `).join("");
+            }
+          } catch {}
+        }
+
+        async function loadEntries() {
+          const search = document.getElementById("searchInput").value;
+          const method = document.getElementById("methodFilter").value;
+          const statusCode = document.getElementById("statusFilter").value;
+
+          try {
+            const params = { page: currentPage, limit: 50 };
+            if (search) params.search = search;
+            if (method) params.method = method;
+            if (statusCode) params.statusCode = statusCode;
+
+            const { data } = await axios.get("/api/admin/request-log", { params });
+
+            document.getElementById("entryCount").textContent = data.total;
+            totalPages = data.totalPages;
+            document.getElementById("pageInfo").textContent = `Page ${data.page} of ${totalPages || 1}`;
+            document.getElementById("prevBtn").disabled = data.page <= 1;
+            document.getElementById("nextBtn").disabled = !data.hasMore;
+
+            const container = document.getElementById("entryList");
+            if (data.entries.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No requests found</p>';
+              return;
+            }
+
+            container.innerHTML = data.entries.map(e => `
+              <div class="log-row">
+                <span class="method-badge method-${e.method}">${e.method}</span>
+                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: 0.75rem" title="${escapeHtml(e.path)}">${escapeHtml(e.path)}</span>
+                <span class="status-badge ${statusClass(e.statusCode)}">${e.statusCode}</span>
+                <span style="min-width: 60px; text-align: right; font-family: monospace; color: ${e.duration > 2000 ? '#e74c3c' : e.duration > 500 ? '#faa61a' : 'var(--text-secondary)'}">${e.duration}ms</span>
+                <span style="min-width: 50px; text-align: right; color: var(--text-tertiary); font-size: 0.7rem">${e.username || '-'}</span>
+                <span style="min-width: 130px; text-align: right; color: var(--text-tertiary); font-size: 0.7rem">${formatTime(e.timestamp)}</span>
+              </div>
+            `).join("");
+          } catch {
+            document.getElementById("entryList").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">Failed to load request log</p>';
+          }
+        }
+
+        document.getElementById("filterBtn").addEventListener("click", () => {
+          currentPage = 1;
+          loadEntries();
+        });
+
+        document.getElementById("searchInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { currentPage = 1; loadEntries(); }
+        });
+
+        document.getElementById("prevBtn").addEventListener("click", () => {
+          if (currentPage > 1) { currentPage--; loadEntries(); }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          if (currentPage < totalPages) { currentPage++; loadEntries(); }
+        });
+
+        document.getElementById("refreshBtn").addEventListener("click", () => {
+          loadStats();
+          loadEntries();
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", async () => {
+          if (!confirm("Clear all request logs?")) return;
+          try {
+            await axios.delete("/api/admin/request-log");
+            Toasts.success("Request log cleared");
+            loadStats();
+            loadEntries();
+          } catch {
+            Toasts.error("Failed to clear request log");
+          }
+        });
+
+        loadStats();
+        loadEntries();
+      });
+    </script>
+  </body>
+</html>
+

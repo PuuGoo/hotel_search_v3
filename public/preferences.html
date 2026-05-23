@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>User Preferences</title>
+    <meta name="description" content="Cài đặt tùy chọn người dùng" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Preferences</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-sliders"></i> User Preferences
+      </h1>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Cài đặt mặc định cho tìm kiếm và giao diện.
+      </p>
+
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-md); font-size: 1rem"><i class="fa-solid fa-magnifying-glass"></i> Search Defaults</h3>
+        <div class="stack-md">
+          <div>
+            <label style="font-size: 0.82rem">Default Engine</label>
+            <select id="defaultEngine" style="width: 100%">
+              <option value="tavily">Tavily</option>
+              <option value="google">Google</option>
+              <option value="ddg">DuckDuckGo</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Results Per Page</label>
+            <input id="resultsPerPage" type="number" min="5" max="100" step="5" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Sort By</label>
+            <select id="sortBy" style="width: 100%">
+              <option value="relevance">Relevance</option>
+              <option value="title">Title</option>
+              <option value="url">URL</option>
+            </select>
+          </div>
+          <label style="cursor: pointer; font-size: 0.82rem">
+            <input type="checkbox" id="autoSearch" /> Auto-search on page load
+          </label>
+          <label style="cursor: pointer; font-size: 0.82rem">
+            <input type="checkbox" id="showSnippets" checked /> Show result snippets
+          </label>
+          <label style="cursor: pointer; font-size: 0.82rem">
+            <input type="checkbox" id="safeSearch" /> Safe search
+          </label>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="margin: 0 0 var(--spacing-md); font-size: 1rem"><i class="fa-solid fa-palette"></i> Appearance</h3>
+        <div class="stack-md">
+          <div>
+            <label style="font-size: 0.82rem">Theme</label>
+            <select id="theme" style="width: 100%">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Language</label>
+            <select id="language" style="width: 100%">
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-md wrap">
+        <button id="saveBtn" class="btn btn-primary btn-modern">
+          <i class="fa-solid fa-check"></i><span>Lưu cài đặt</span>
+        </button>
+        <button id="resetBtn" class="btn btn-outline" style="--btn-accent: #ff4d4f">
+          <i class="fa-solid fa-rotate-left"></i><span>Đặt lại mặc định</span>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        async function loadPreferences() {
+          try {
+            const res = await axios.get("/api/preferences");
+            const prefs = res.data;
+            document.getElementById("defaultEngine").value = prefs.defaultEngine;
+            document.getElementById("resultsPerPage").value = prefs.resultsPerPage;
+            document.getElementById("sortBy").value = prefs.sortBy;
+            document.getElementById("autoSearch").checked = prefs.autoSearch;
+            document.getElementById("showSnippets").checked = prefs.showSnippets;
+            document.getElementById("safeSearch").checked = prefs.safeSearch;
+            document.getElementById("theme").value = prefs.theme;
+            document.getElementById("language").value = prefs.language;
+          } catch (err) {
+            Toasts.error("Không thể tải cài đặt");
+          }
+        }
+
+        document.getElementById("saveBtn").addEventListener("click", async () => {
+          const prefs = {
+            defaultEngine: document.getElementById("defaultEngine").value,
+            resultsPerPage: parseInt(document.getElementById("resultsPerPage").value) || 20,
+            sortBy: document.getElementById("sortBy").value,
+            autoSearch: document.getElementById("autoSearch").checked,
+            showSnippets: document.getElementById("showSnippets").checked,
+            safeSearch: document.getElementById("safeSearch").checked,
+            theme: document.getElementById("theme").value,
+            language: document.getElementById("language").value,
+          };
+
+          try {
+            await axios.put("/api/preferences", prefs);
+            Toasts.success("Đã lưu cài đặt");
+
+            // Apply theme immediately
+            if (prefs.theme === "system") {
+              const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+              document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+              localStorage.removeItem("theme");
+            } else {
+              document.documentElement.setAttribute("data-theme", prefs.theme);
+              localStorage.setItem("theme", prefs.theme);
+            }
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Lỗi lưu cài đặt");
+          }
+        });
+
+        document.getElementById("resetBtn").addEventListener("click", async () => {
+          if (!confirm("Đặt lại tất cả cài đặt về mặc định?")) return;
+          try {
+            await axios.delete("/api/preferences");
+            Toasts.success("Đã đặt lại cài đặt");
+            loadPreferences();
+          } catch (err) {
+            Toasts.error("Lỗi đặt lại");
+          }
+        });
+
+        loadPreferences();
+      });
+    </script>
+  </body>
+</html>
+

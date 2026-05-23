@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Performance Dashboard — Hotel Search</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .metric-card h3 { font-size: 0.85rem; color: #666; margin: 0 0 8px; }
+    .metric-card .value { font-size: 1.8rem; font-weight: 700; }
+    .metric-card .unit { font-size: 0.9rem; color: #666; }
+    .chart-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .chart-container h3 { margin: 0 0 16px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+    .bar { flex: 1; background: #1976d2; border-radius: 3px 3px 0 0; min-width: 8px; transition: height 0.3s; position: relative; }
+    .bar:hover { background: #1565c0; }
+    .bar .tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap; }
+    .bar:hover .tooltip { display: block; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } }
+    .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+    .status-healthy { background: #4caf50; }
+    .status-warning { background: #ff9800; }
+    .status-critical { background: #f44336; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/searchTavily" class="nav-brand">Hotel Search</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/admin">Admin</a>
+      <a href="/performance-dashboard" class="active">Performance</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h1>Performance Dashboard</h1>
+      <div>
+        <span class="status-indicator status-healthy" id="statusDot"></span>
+        <span id="statusText">Healthy</span>
+      </div>
+    </div>
+
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <div class="charts-row">
+      <div class="chart-container">
+        <h3>Requests (last 30s)</h3>
+        <div class="bar-chart" id="requestChart"></div>
+      </div>
+      <div class="chart-container">
+        <h3>Response Time (ms)</h3>
+        <div class="bar-chart" id="latencyChart"></div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-container">
+        <h3>Memory Usage (MB)</h3>
+        <div class="bar-chart" id="memoryChart"></div>
+      </div>
+      <div class="chart-container">
+        <h3>Errors (last 30s)</h3>
+        <div class="bar-chart" id="errorChart"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/performance/dashboard');
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        renderMetrics(data);
+        renderCharts(data.timeSeries);
+        updateStatus(data);
+      } catch (err) {
+        document.getElementById('statusDot').className = 'status-indicator status-critical';
+        document.getElementById('statusText').textContent = 'Error loading data';
+      }
+    }
+
+    function renderMetrics(data) {
+      const grid = document.getElementById('metricsGrid');
+      const mem = data.memory;
+      const cpu = data.cpu;
+      const memPercent = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+
+      grid.innerHTML = `
+        <div class="metric-card"><h3>Uptime</h3><div class="value">${formatUptime(data.server.uptime)}</div></div>
+        <div class="metric-card"><h3>Heap Memory</h3><div class="value">${mem.heapUsed}<span class="unit">MB</span></div></div>
+        <div class="metric-card"><h3>Memory Usage</h3><div class="value">${memPercent}<span class="unit">%</span></div></div>
+        <div class="metric-card"><h3>RSS</h3><div class="value">${mem.rss}<span class="unit">MB</span></div></div>
+        <div class="metric-card"><h3>CPU Cores</h3><div class="value">${cpu.cores}</div></div>
+        <div class="metric-card"><h3>Load Average</h3><div class="value">${cpu.loadAvg[0]}</div></div>
+        <div class="metric-card"><h3>System Free</h3><div class="value">${mem.systemFree}<span class="unit">MB</span></div></div>
+        <div class="metric-card"><h3>Node.js</h3><div class="value" style="font-size:1rem">${data.server.nodeVersion}</div></div>
+      `;
+    }
+
+    function renderCharts(timeSeries) {
+      if (!timeSeries || timeSeries.length === 0) return;
+
+      const maxReqs = Math.max(1, ...timeSeries.map(d => d.requests));
+      const maxLatency = Math.max(1, ...timeSeries.map(d => d.avgResponseTime));
+      const maxMem = Math.max(1, ...timeSeries.map(d => d.heapUsed));
+      const maxErrors = Math.max(1, ...timeSeries.map(d => d.errors));
+
+      renderBarChart('requestChart', timeSeries, d => d.requests, maxReqs, d => `${d.requests} req`);
+      renderBarChart('latencyChart', timeSeries, d => d.avgResponseTime, maxLatency, d => `${d.avgResponseTime}ms`);
+      renderBarChart('memoryChart', timeSeries, d => d.heapUsed, maxMem, d => `${d.heapUsed}MB`);
+      renderBarChart('errorChart', timeSeries, d => d.errors, maxErrors, d => `${d.errors} errors`);
+    }
+
+    function renderBarChart(containerId, data, valueFn, maxVal, tooltipFn) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = data.map(d => {
+        const height = Math.max(2, (valueFn(d) / maxVal) * 100);
+        const color = containerId === 'errorChart' && d.errors > 0 ? '#f44336' :
+                      containerId === 'latencyChart' && d.avgResponseTime > 1000 ? '#ff9800' : '#1976d2';
+        return `<div class="bar" style="height:${height}%;background:${color}"><div class="tooltip">${tooltipFn(d)}</div></div>`;
+      }).join('');
+    }
+
+    function updateStatus(data) {
+      const mem = data.memory;
+      const memPercent = (mem.heapUsed / mem.heapTotal) * 100;
+      const load = data.cpu.loadAvg[0];
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+
+      if (memPercent > 90 || load > data.cpu.cores * 2) {
+        dot.className = 'status-indicator status-critical';
+        text.textContent = 'Critical';
+      } else if (memPercent > 70 || load > data.cpu.cores) {
+        dot.className = 'status-indicator status-warning';
+        text.textContent = 'Warning';
+      } else {
+        dot.className = 'status-indicator status-healthy';
+        text.textContent = 'Healthy';
+      }
+    }
+
+    function formatUptime(seconds) {
+      if (seconds < 60) return seconds + 's';
+      if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+      return Math.floor(seconds / 86400) + 'd ' + Math.floor((seconds % 86400) / 3600) + 'h';
+    }
+
+    loadDashboard();
+    setInterval(loadDashboard, 2000); // Refresh every 2s
+  </script>
+</body>
+</html>

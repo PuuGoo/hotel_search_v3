@@ -4,7 +4,7 @@ import { escapeHtml, safeUrl } from "/utils.js";
 // THEME MANAGER -----------------------------------------------------------
 const Theme = (() => {
   const KEY = "theme";
-  let current = localStorage.getItem(KEY) || "dark";
+  let current = localStorage.getItem(KEY) || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
   const apply = () =>
     document.documentElement.setAttribute("data-theme", current);
   const toggle = () => {
@@ -254,13 +254,173 @@ function focusTrap(container) {
   return () => container.removeEventListener("keydown", key);
 }
 
+// NOTIFICATION BELL -------------------------------------------------------
+function initNotifications() {
+  const header = document.querySelector(".app-header-inner");
+  if (!header) return;
+
+  // Don't inject if already exists
+  if (document.getElementById("notifBell")) return;
+
+  // Create bell button
+  const bell = document.createElement("div");
+  bell.id = "notifBell";
+  bell.style.cssText = "position:relative;cursor:pointer;margin-left:4px";
+  bell.innerHTML = `
+    <button class="btn btn-outline btn-small" title="Thông báo" style="position:relative">
+      <i class="fa-solid fa-bell"></i>
+      <span id="notifBadge" class="hidden" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#ff4d4f;color:#fff;font-size:.55rem;display:flex;align-items:center;justify-content:center;font-weight:700">0</span>
+    </button>
+  `;
+
+  // Create dropdown
+  const dropdown = document.createElement("div");
+  dropdown.id = "notifDropdown";
+  dropdown.className = "hidden";
+  dropdown.style.cssText = `
+    position:absolute;right:0;top:100%;z-index:200;min-width:340px;max-width:420px;
+    background:var(--surface-elevated,rgba(30,30,40,.98));
+    border:1px solid var(--border-subtle,rgba(255,255,255,.1));
+    border-radius:var(--radius-md);box-shadow:var(--shadow-lg);
+    backdrop-filter:blur(12px);max-height:420px;overflow:hidden;display:flex;flex-direction:column;
+  `;
+
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "position:relative;margin-left:4px";
+  wrapper.appendChild(bell);
+  wrapper.appendChild(dropdown);
+
+  // Insert into the nav container (last flex div in header)
+  const navContainer = header.querySelector('.flex.gap-sm') || header.lastElementChild;
+  if (navContainer) {
+    navContainer.appendChild(wrapper);
+  } else {
+    header.appendChild(wrapper);
+  }
+
+  let notifOpen = false;
+
+  function renderNotifications(data) {
+    const { notifications, unread } = data;
+    const badge = document.getElementById("notifBadge");
+    if (badge) {
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? "9+" : unread;
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    const typeIcons = { info: "fa-circle-info", success: "fa-circle-check", warning: "fa-triangle-exclamation", error: "fa-circle-xmark" };
+    const typeColors = { info: "#667eea", success: "#3ba55d", warning: "#faa61a", error: "#ff4d4f" };
+
+    dropdown.innerHTML = `
+      <div style="padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06)">
+        <strong style="font-size:.82rem;flex:1">Thông báo ${unread > 0 ? `(${unread})` : ""}</strong>
+        ${unread > 0 ? '<button class="btn btn-outline btn-small" id="notifMarkAll" style="font-size:.6rem;padding:2px 6px">Đọc tất cả</button>' : ""}
+        <button class="btn btn-outline btn-small" id="notifClearRead" style="font-size:.6rem;padding:2px 6px" title="Xóa đã đọc"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      <div style="overflow-y:auto;max-height:360px">
+        ${notifications.length === 0 ? '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:.75rem">Không có thông báo</div>' :
+          notifications.slice(0, 30).map(n => `
+            <div class="notif-item" data-id="${n.id}" style="padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background .15s;${n.read ? 'opacity:.6' : ''}"
+              onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+              <div style="display:flex;align-items:flex-start;gap:8px">
+                <i class="fa-solid ${typeIcons[n.type] || 'fa-circle-info'}" style="color:${typeColors[n.type] || '#667eea'};margin-top:2px;font-size:.7rem"></i>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:.75rem;font-weight:${n.read ? '400' : '600'}">${escapeHtml(n.title)}</div>
+                  <div style="font-size:.68rem;color:var(--text-secondary);margin-top:2px;white-space:pre-wrap">${escapeHtml(n.message)}</div>
+                  <div style="font-size:.55rem;color:var(--text-tertiary);margin-top:3px">${new Date(n.createdAt).toLocaleString("vi")}</div>
+                </div>
+                ${!n.read ? '<div style="width:6px;height:6px;border-radius:50%;background:#667eea;flex-shrink:0;margin-top:6px"></div>' : ""}
+              </div>
+            </div>
+          `).join("")}
+      </div>
+    `;
+
+    // Event handlers
+    dropdown.querySelectorAll(".notif-item").forEach(el => {
+      el.addEventListener("click", async () => {
+        const id = el.dataset.id;
+        if (!el.style.opacity || el.style.opacity === "1") {
+          await fetch(`/api/notifications/${id}/read`, { method: "PUT" }).catch(() => {});
+          loadNotifs();
+        }
+        // Navigate to link if present
+      });
+    });
+
+    const markAll = document.getElementById("notifMarkAll");
+    if (markAll) {
+      markAll.addEventListener("click", async () => {
+        await fetch("/api/notifications/read-all", { method: "PUT" }).catch(() => {});
+        loadNotifs();
+      });
+    }
+
+    const clearRead = document.getElementById("notifClearRead");
+    if (clearRead) {
+      clearRead.addEventListener("click", async () => {
+        await fetch("/api/notifications/clear-read", { method: "DELETE" }).catch(() => {});
+        loadNotifs();
+      });
+    }
+  }
+
+  async function loadNotifs() {
+    try {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) return;
+      const data = await res.json();
+      renderNotifications(data);
+    } catch {}
+  }
+
+  bell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    notifOpen = !notifOpen;
+    dropdown.classList.toggle("hidden", !notifOpen);
+    if (notifOpen) loadNotifs();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (notifOpen && !wrapper.contains(e.target)) {
+      notifOpen = false;
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  // Load unread count on init
+  loadNotifs();
+  // Poll every 60s
+  setInterval(async () => {
+    try {
+      const res = await fetch("/api/notifications/unread-count");
+      if (!res.ok) return;
+      const { count } = await res.json();
+      const badge = document.getElementById("notifBadge");
+      if (badge) {
+        if (count > 0) {
+          badge.textContent = count > 9 ? "9+" : count;
+          badge.classList.remove("hidden");
+        } else {
+          badge.classList.add("hidden");
+        }
+      }
+    } catch {}
+  }, 60000);
+}
+
 // INIT --------------------------------------------------------------------
 function initUI() {
   Theme.init();
   enableRipples();
   initClock();
   initTabs();
-  initDragDrop(); // sample keyboard shortcuts
+  initDragDrop();
+  initNotifications();
   document.addEventListener("keydown", (e) => {
     if (e.altKey && (e.key === "t" || e.key === "T")) {
       Toasts.show("Shortcut Alt+T triggered", { title: "Shortcut" });

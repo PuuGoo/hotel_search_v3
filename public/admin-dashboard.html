@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Dashboard | Hotel Search</title>
+    <meta name="description" content="Tổng quan hệ thống Hotel Search" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--spacing-sm); }
+      .stat-card { text-align: center; padding: var(--spacing-md); background: var(--surface-glass); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+      .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+      .stat-label { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+      .chart-container { position: relative; height: 220px; }
+      .activity-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.82rem; }
+      .activity-item:last-child { border-bottom: none; }
+      .activity-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; flex-shrink: 0; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Admin Dashboard</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/admin" class="btn btn-outline btn-small"><i class="fa-solid fa-users-gear"></i> Admin Panel</a>
+          <a href="/api-keys" class="btn btn-outline btn-small"><i class="fa-solid fa-key"></i> API Keys</a>
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> My Dashboard</a>
+          <a href="/profile" class="btn btn-outline btn-small"><i class="fa-solid fa-user"></i> Profile</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 1100px">
+      <h1 class="gradient-text" style="font-size: 1.5rem; margin-bottom: var(--spacing-lg)">
+        <i class="fa-solid fa-chart-line"></i> Tổng quan hệ thống
+      </h1>
+
+      <!-- System Stats -->
+      <div class="stat-grid animate-fade-in" style="margin-bottom: var(--spacing-lg)">
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="totalSearches">--</div>
+          <div class="stat-label">Tổng tìm kiếm</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="searchesToday">--</div>
+          <div class="stat-label">Tìm kiếm hôm nay</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="searchesWeek">--</div>
+          <div class="stat-label">Tìm kiếm tuần</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--warning-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="totalBookmarks">--</div>
+          <div class="stat-label">Tổng bookmarks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--secondary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="activeSearchUsers">--</div>
+          <div class="stat-label">User tìm kiếm</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="background: var(--danger-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent" id="activeBookmarkUsers">--</div>
+          <div class="stat-label">User bookmark</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="form-row" style="margin-bottom: var(--spacing-lg)">
+        <div class="form-col glass-card" style="padding: var(--spacing-md)">
+          <div class="card-header" style="margin-bottom: var(--spacing-sm)"><i class="fa-solid fa-chart-pie"></i> Tìm kiếm theo engine</div>
+          <div class="chart-container"><canvas id="engineChart"></canvas></div>
+        </div>
+        <div class="form-col glass-card" style="padding: var(--spacing-md)">
+          <div class="card-header" style="margin-bottom: var(--spacing-sm)"><i class="fa-solid fa-chart-bar"></i> So sánh tuần / hôm nay</div>
+          <div class="chart-container"><canvas id="comparisonChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="glass-card animate-fade-in">
+        <div class="card-header"><i class="fa-solid fa-clock-rotate-left"></i> Hoạt động gần đây</div>
+        <div id="activityList" style="max-height: 400px; overflow: auto"></div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { escapeHtml } from "/ui.js";
+
+      const actionIcons = {
+        user_login: { icon: "fa-right-to-bracket", color: "#3ba55d", bg: "rgba(59,165,93,.15)" },
+        user_logout: { icon: "fa-right-from-bracket", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
+        login_failed: { icon: "fa-triangle-exclamation", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
+        user_created: { icon: "fa-user-plus", color: "#667eea", bg: "rgba(102,126,234,.15)" },
+        user_deleted: { icon: "fa-user-minus", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
+        password_changed: { icon: "fa-key", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
+        bookmark_added: { icon: "fa-bookmark", color: "#21d4fd", bg: "rgba(33,212,253,.15)" },
+        bookmarks_cleared: { icon: "fa-trash", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
+        bookmarks_imported: { icon: "fa-file-import", color: "#667eea", bg: "rgba(102,126,234,.15)" },
+        audit_log_cleared: { icon: "fa-broom", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
+      };
+
+      const defaultAction = { icon: "fa-circle-dot", color: "#667eea", bg: "rgba(102,126,234,.15)" };
+
+      let engineChart, comparisonChart;
+
+      async function loadDashboard() {
+        try {
+          const res = await fetch("/api/admin/dashboard/overview");
+          if (!res.ok) throw new Error("Unauthorized");
+          const data = await res.json();
+          const { system, recentActions } = data;
+
+          // Update stat cards
+          document.getElementById("totalSearches").textContent = system.totalSearches.toLocaleString();
+          document.getElementById("searchesToday").textContent = system.searchesToday.toLocaleString();
+          document.getElementById("searchesWeek").textContent = system.searchesThisWeek.toLocaleString();
+          document.getElementById("totalBookmarks").textContent = system.totalBookmarks.toLocaleString();
+          document.getElementById("activeSearchUsers").textContent = system.activeSearchUsers;
+          document.getElementById("activeBookmarkUsers").textContent = system.activeBookmarkUsers;
+
+          // Engine donut chart
+          const engineCtx = document.getElementById("engineChart").getContext("2d");
+          if (engineChart) engineChart.destroy();
+          engineChart = new Chart(engineCtx, {
+            type: "doughnut",
+            data: {
+              labels: ["Tavily", "Google", "DuckDuckGo"],
+              datasets: [{
+                data: [system.byEngine.tavily, system.byEngine.google, system.byEngine.ddg],
+                backgroundColor: ["#667eea", "#4285f4", "#de5833"],
+                borderWidth: 0,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: "bottom", labels: { color: "#fff", padding: 12, font: { size: 11 } } },
+              },
+            },
+          });
+
+          // Comparison bar chart
+          const compCtx = document.getElementById("comparisonChart").getContext("2d");
+          if (comparisonChart) comparisonChart.destroy();
+          comparisonChart = new Chart(compCtx, {
+            type: "bar",
+            data: {
+              labels: ["Tổng", "Hôm nay", "Tuần này"],
+              datasets: [{
+                label: "Tìm kiếm",
+                data: [system.totalSearches, system.searchesToday, system.searchesThisWeek],
+                backgroundColor: ["#667eea", "#3ba55d", "#21d4fd"],
+                borderRadius: 6,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { color: "rgba(255,255,255,.5)", font: { size: 10 } }, grid: { color: "rgba(255,255,255,.06)" } },
+                x: { ticks: { color: "rgba(255,255,255,.5)", font: { size: 10 } }, grid: { display: false } },
+              },
+            },
+          });
+
+          // Activity timeline
+          const actList = document.getElementById("activityList");
+          if (recentActions.length === 0) {
+            actList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary)">Chưa có hoạt động</div>';
+          } else {
+            actList.innerHTML = recentActions.map(a => {
+              const ai = actionIcons[a.action] || defaultAction;
+              const time = new Date(a.timestamp).toLocaleString("vi-VN");
+              const target = a.target ? ` — ${escapeHtml(a.target)}` : "";
+              return `<div class="activity-item">
+                <div class="activity-icon" style="background:${ai.bg};color:${ai.color}"><i class="fa-solid ${ai.icon}"></i></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:500">${escapeHtml(a.action)}${target}</div>
+                  <div style="font-size:0.68rem;color:var(--text-tertiary)">${a.username ? escapeHtml(a.username) + " · " : ""}${time}</div>
+                </div>
+              </div>`;
+            }).join("");
+          }
+        } catch (e) {
+          console.error("Dashboard error:", e);
+          document.getElementById("activityList").innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)">Lỗi tải dữ liệu</div>';
+        }
+      }
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      loadDashboard();
+    </script>
+    <script type="module" src="/ui.js?v=2"></script>
+  </body>
+</html>
+

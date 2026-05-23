@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Price Alerts</title>
+    <meta name="description" content="Quản lý cảnh báo giá khách sạn" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Price Alerts</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <a href="/bookmarks" class="btn btn-outline btn-small" title="Bookmarks"><i class="fa-solid fa-bookmark"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-bell"></i> Price Alerts
+        </h1>
+        <button id="createBtn" class="btn btn-primary btn-modern">
+          <i class="fa-solid fa-plus"></i><span>Tạo alert mới</span>
+        </button>
+      </div>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Theo dõi giá khách sạn và nhận thông báo khi giá thay đổi.
+      </p>
+
+      <!-- Stats -->
+      <div id="statsBar" class="flex gap-md wrap" style="margin-bottom: var(--spacing-md)"></div>
+
+      <!-- Alerts List -->
+      <section id="alertsList" class="stack-sm"></section>
+      <div id="emptyState" class="glass-card text-center hidden" style="padding: var(--spacing-xl)">
+        <i class="fa-solid fa-bell-slash" style="font-size: 2rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm)"></i>
+        <p class="text-tertiary">Chưa có price alert nào. Nhấn "Tạo alert mới" để bắt đầu.</p>
+      </div>
+    </main>
+
+    <!-- Create/Edit Modal -->
+    <div id="alertModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 500px">
+        <h2 id="modalTitle" class="modal-header">Tạo Price Alert</h2>
+        <div class="stack-sm">
+          <div>
+            <label style="font-size: 0.82rem">Tên khách sạn *</label>
+            <input id="inputHotelName" type="text" placeholder="Hotel name" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">URL khách sạn</label>
+            <input id="inputHotelUrl" type="url" placeholder="https://..." style="width: 100%" />
+          </div>
+          <div class="flex gap-sm">
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Giá mục tiêu *</label>
+              <input id="inputTargetPrice" type="number" min="1" step="0.01" placeholder="100" style="width: 100%" />
+            </div>
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Hướng</label>
+              <select id="inputDirection" style="width: 100%">
+                <option value="below">Dưới giá mục tiêu</option>
+                <option value="above">Trên giá mục tiêu</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Engine</label>
+            <select id="inputEngine" style="width: 100%">
+              <option value="any">Bất kỳ</option>
+              <option value="tavily">Tavily</option>
+              <option value="google">Google</option>
+              <option value="ddg">DuckDuckGo</option>
+            </select>
+          </div>
+        </div>
+        <div id="modalError" class="hidden" style="color: #ff8a8a; font-size: 0.75rem; margin-top: var(--spacing-sm)"></div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="modalCancel" type="button" class="btn btn-outline">Hủy</button>
+          <button id="modalSave" type="button" class="btn btn-primary btn-modern">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price History Modal -->
+    <div id="historyModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 600px">
+        <h2 class="modal-header">Lịch sử giá</h2>
+        <div id="historyContent" style="max-height: 400px; overflow-y: auto; font-size: 0.78rem"></div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="historyClose" type="button" class="btn btn-outline">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer text-tertiary">
+      © <span id="year"></span> PuuGoo
+    </footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const statsBar = document.getElementById("statsBar");
+        const alertsList = document.getElementById("alertsList");
+        const emptyState = document.getElementById("emptyState");
+        const modal = document.getElementById("alertModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalError = document.getElementById("modalError");
+        const historyModal = document.getElementById("historyModal");
+        const historyContent = document.getElementById("historyContent");
+
+        let editingId = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatPrice(p) {
+          return p != null ? `$${parseFloat(p).toFixed(2)}` : "-";
+        }
+
+        function formatDate(iso) {
+          if (!iso) return "-";
+          return new Date(iso).toLocaleString("vi-VN");
+        }
+
+        async function loadAlerts() {
+          try {
+            const [alertsRes, statsRes] = await Promise.all([
+              axios.get("/api/price-alerts"),
+              axios.get("/api/price-alerts/stats"),
+            ]);
+            const alerts = alertsRes.data;
+            const stats = statsRes.data;
+
+            // Stats
+            statsBar.innerHTML = `
+              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+                <i class="fa-solid fa-bell"></i> ${stats.total} alerts
+              </div>
+              <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
+                <i class="fa-solid fa-circle-play"></i> ${stats.active} đang theo dõi
+              </div>
+              <div class="badge" style="background: rgba(250,166,26,.2); color: #faa61a">
+                <i class="fa-solid fa-bell"></i> ${stats.triggered} đã kích hoạt
+              </div>
+              <div class="badge" style="background: rgba(255,255,255,.1); color: var(--text-tertiary)">
+                <i class="fa-solid fa-pause"></i> ${stats.paused} tạm dừng
+              </div>
+            `;
+
+            // Alerts list
+            if (alerts.length === 0) {
+              alertsList.innerHTML = "";
+              emptyState.classList.remove("hidden");
+              return;
+            }
+            emptyState.classList.add("hidden");
+
+            const statusColors = { active: "#3ba55d", triggered: "#faa61a", paused: "#666" };
+            const statusLabels = { active: "Đang theo dõi", triggered: "Đã kích hoạt", paused: "Tạm dừng" };
+            const directionLabels = { below: "Dưới", above: "Trên" };
+
+            alertsList.innerHTML = alerts.map(a => `
+              <div class="glass-card" style="border-left: 3px solid ${statusColors[a.status] || '#666'}">
+                <div class="flex gap-md wrap" style="align-items: flex-start">
+                  <div style="flex: 1; min-width: 200px">
+                    <div style="font-weight: 600; font-size: 0.9rem">
+                      ${escapeHtml(a.hotelName)}
+                      <span class="badge" style="margin-left: 8px; background: ${statusColors[a.status]}22; color: ${statusColors[a.status]}; font-size: 0.6rem">${statusLabels[a.status] || a.status}</span>
+                    </div>
+                    ${a.hotelUrl ? `<div style="font-size: 0.68rem; margin-top: 2px"><a href="${escapeHtml(a.hotelUrl)}" target="_blank" rel="noopener" style="color: #21d4fd">${escapeHtml(a.hotelUrl.slice(0, 60))}</a></div>` : ""}
+                    <div class="flex gap-sm wrap" style="margin-top: 6px; font-size: 0.72rem">
+                      <span class="text-secondary"><i class="fa-solid fa-bullseye"></i> ${directionLabels[a.direction]} ${formatPrice(a.targetPrice)}</span>
+                      <span class="text-tertiary"><i class="fa-solid fa-magnifying-glass"></i> ${a.engine === "any" ? "Mọi engine" : a.engine}</span>
+                      ${a.lastCheckedPrice ? `<span class="text-secondary"><i class="fa-solid fa-tag"></i> Giá cuối: ${formatPrice(a.lastCheckedPrice)}</span>` : ""}
+                    </div>
+                    <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
+                      Tạo: ${formatDate(a.createdAt)}
+                      ${a.lastCheckedAt ? ` • Kiểm tra: ${formatDate(a.lastCheckedAt)}` : ""}
+                      ${a.triggeredAt ? ` • Kích hoạt: ${formatDate(a.triggeredAt)}` : ""}
+                    </div>
+                  </div>
+                  <div class="flex gap-xs wrap" style="flex-shrink: 0">
+                    <button class="btn btn-outline btn-small" data-action="check" data-id="${a.id}" title="Kiểm tra giá">
+                      <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="history" data-id="${a.id}" title="Lịch sử giá">
+                      <i class="fa-solid fa-clock-rotate-left"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="toggle" data-id="${a.id}" data-status="${a.status}" title="${a.status === 'paused' ? 'Tiếp tục' : 'Tạm dừng'}">
+                      <i class="fa-solid fa-${a.status === 'paused' ? 'play' : 'pause'}"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="edit" data-id="${a.id}" title="Sửa">
+                      <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="delete" data-id="${a.id}" title="Xóa" style="--btn-accent: #ff4d4f">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                ${a.priceHistory && a.priceHistory.length > 0 ? `
+                  <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.06)">
+                    <div style="font-size: 0.6rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px">Biến động giá gần đây</div>
+                    <div class="flex gap-xs" style="flex-wrap: wrap">
+                      ${a.priceHistory.slice(-5).map(h => `
+                        <span style="font-size: 0.65rem; padding: 2px 6px; background: rgba(255,255,255,.06); border-radius: 4px">
+                          ${formatPrice(h.price)} <span class="text-tertiary" style="font-size: 0.55rem">${new Date(h.checkedAt).toLocaleDateString("vi")}</span>
+                        </span>
+                      `).join("")}
+                    </div>
+                  </div>
+                ` : ""}
+              </div>
+            `).join("");
+
+          } catch (err) {
+            console.error("Load alerts error:", err);
+            Toasts.error("Không thể tải alerts");
+          }
+        }
+
+        // Event delegation for alert actions
+        alertsList.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+
+          if (action === "check") {
+            const price = prompt("Nhập giá hiện tại:");
+            if (!price) return;
+            try {
+              const res = await axios.post(`/api/price-alerts/${id}/check`, { currentPrice: parseFloat(price) });
+              if (res.data.triggered) {
+                Toasts.success(res.data.message);
+              } else {
+                Toasts.info(res.data.message);
+              }
+              loadAlerts();
+            } catch (err) {
+              Toasts.error(err.response?.data?.error || "Lỗi kiểm tra giá");
+            }
+          }
+
+          if (action === "history") {
+            try {
+              const res = await axios.get(`/api/price-alerts/${id}/history`);
+              const data = res.data;
+              if (!data.history || data.history.length === 0) {
+                historyContent.innerHTML = '<div class="text-tertiary" style="text-align: center; padding: var(--spacing-md)">Chưa có lịch sử giá</div>';
+              } else {
+                historyContent.innerHTML = `
+                  <div style="font-weight: 600; margin-bottom: var(--spacing-sm)">${escapeHtml(data.hotelName)}</div>
+                  <table style="width: 100%; font-size: 0.72rem">
+                    <thead><tr><th style="text-align:left">Giá</th><th style="text-align:left">Thời gian</th></tr></thead>
+                    <tbody>
+                      ${data.history.map(h => `<tr><td>${formatPrice(h.price)}</td><td>${formatDate(h.checkedAt)}</td></tr>`).join("")}
+                    </tbody>
+                  </table>
+                `;
+              }
+              historyModal.classList.remove("hidden");
+            } catch (err) {
+              Toasts.error("Không thể tải lịch sử");
+            }
+          }
+
+          if (action === "toggle") {
+            const currentStatus = btn.dataset.status;
+            const newStatus = currentStatus === "paused" ? "active" : "paused";
+            try {
+              await axios.put(`/api/price-alerts/${id}`, { status: newStatus });
+              Toasts.success(newStatus === "paused" ? "Đã tạm dừng" : "Đã tiếp tục");
+              loadAlerts();
+            } catch (err) {
+              Toasts.error("Lỗi cập nhật");
+            }
+          }
+
+          if (action === "edit") {
+            try {
+              const res = await axios.get("/api/price-alerts");
+              const alert = res.data.find(a => a.id === id);
+              if (!alert) return;
+              editingId = id;
+              modalTitle.textContent = "Sửa Price Alert";
+              document.getElementById("inputHotelName").value = alert.hotelName;
+              document.getElementById("inputHotelUrl").value = alert.hotelUrl || "";
+              document.getElementById("inputTargetPrice").value = alert.targetPrice;
+              document.getElementById("inputDirection").value = alert.direction;
+              document.getElementById("inputEngine").value = alert.engine;
+              modal.classList.remove("hidden");
+            } catch (err) {
+              Toasts.error("Lỗi tải alert");
+            }
+          }
+
+          if (action === "delete") {
+            if (!confirm("Xóa alert này?")) return;
+            try {
+              await axios.delete(`/api/price-alerts/${id}`);
+              Toasts.success("Đã xóa alert");
+              loadAlerts();
+            } catch (err) {
+              Toasts.error("Lỗi xóa");
+            }
+          }
+        });
+
+        // Create button
+        document.getElementById("createBtn").addEventListener("click", () => {
+          editingId = null;
+          modalTitle.textContent = "Tạo Price Alert";
+          document.getElementById("inputHotelName").value = "";
+          document.getElementById("inputHotelUrl").value = "";
+          document.getElementById("inputTargetPrice").value = "";
+          document.getElementById("inputDirection").value = "below";
+          document.getElementById("inputEngine").value = "any";
+          modalError.classList.add("hidden");
+          modal.classList.remove("hidden");
+        });
+
+        // Modal save
+        document.getElementById("modalSave").addEventListener("click", async () => {
+          const hotelName = document.getElementById("inputHotelName").value.trim();
+          const hotelUrl = document.getElementById("inputHotelUrl").value.trim();
+          const targetPrice = document.getElementById("inputTargetPrice").value;
+          const direction = document.getElementById("inputDirection").value;
+          const engine = document.getElementById("inputEngine").value;
+
+          if (!hotelName || !targetPrice) {
+            modalError.textContent = "Vui lòng nhập tên khách sạn và giá mục tiêu";
+            modalError.classList.remove("hidden");
+            return;
+          }
+
+          try {
+            if (editingId) {
+              await axios.put(`/api/price-alerts/${editingId}`, { hotelName, hotelUrl, targetPrice, direction, engine });
+              Toasts.success("Đã cập nhật alert");
+            } else {
+              await axios.post("/api/price-alerts", { hotelName, hotelUrl, targetPrice, direction, engine });
+              Toasts.success("Đã tạo alert mới");
+            }
+            modal.classList.add("hidden");
+            loadAlerts();
+          } catch (err) {
+            modalError.textContent = err.response?.data?.error || "Lỗi lưu alert";
+            modalError.classList.remove("hidden");
+          }
+        });
+
+        // Modal cancel
+        document.getElementById("modalCancel").addEventListener("click", () => {
+          modal.classList.add("hidden");
+        });
+        modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+        // History modal close
+        document.getElementById("historyClose").addEventListener("click", () => {
+          historyModal.classList.add("hidden");
+        });
+        historyModal.addEventListener("click", (e) => { if (e.target === historyModal) historyModal.classList.add("hidden"); });
+
+        loadAlerts();
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Dashboard — Hotel Search</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .audit-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .audit-filters input, .audit-filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th, .audit-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .audit-table th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
+    .audit-table tr:hover { background: #f0f7ff; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+    .badge-info { background: #e3f2fd; color: #1565c0; }
+    .badge-warn { background: #fff3e0; color: #e65100; }
+    .badge-error { background: #ffebee; color: #c62828; }
+    .badge-success { background: #e8f5e9; color: #2e7d32; }
+    .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
+    .pagination button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+    .pagination button.active { background: #1976d2; color: white; border-color: #1976d2; }
+    .stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .stat-card h3 { font-size: 0.85rem; color: #666; margin: 0 0 8px; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; }
+    .detail-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .detail-modal.active { display: flex; align-items: center; justify-content: center; }
+    .detail-content { background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    pre { background: #f5f5f5; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/searchTavily" class="nav-brand">Hotel Search</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/admin">Admin</a>
+      <a href="/audit-dashboard" class="active">Audit</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+    <h1>Audit Dashboard</h1>
+
+    <div class="stats-cards" id="statsCards"></div>
+
+    <div class="audit-filters">
+      <input type="text" id="searchInput" placeholder="Search events..." />
+      <select id="actionFilter">
+        <option value="">All Actions</option>
+      </select>
+      <input type="date" id="dateFrom" />
+      <input type="date" id="dateTo" />
+      <button onclick="loadAudit()" class="btn btn-primary">Filter</button>
+      <button onclick="exportAudit()" class="btn btn-secondary">Export CSV</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>IP</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="auditBody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </main>
+
+  <div class="detail-modal" id="detailModal">
+    <div class="detail-content">
+      <h2 id="detailTitle">Event Details</h2>
+      <pre id="detailBody"></pre>
+      <button onclick="closeDetail()" class="btn" style="margin-top: 12px;">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPage = 1;
+    const limit = 25;
+
+    async function loadAudit() {
+      const params = new URLSearchParams({ page: currentPage, limit });
+      const action = document.getElementById('actionFilter').value;
+      const search = document.getElementById('searchInput').value;
+      const dateFrom = document.getElementById('dateFrom').value;
+      const dateTo = document.getElementById('dateTo').value;
+
+      if (action) params.set('action', action);
+      if (search) params.set('search', search);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+
+      try {
+        const res = await fetch(`/api/audit?${params}`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        renderTable(data.entries || []);
+        renderPagination(data.total || 0);
+        renderStats(data);
+        populateActions(data.entries || []);
+      } catch (err) {
+        document.getElementById('auditBody').innerHTML = `<tr><td colspan="5">Error loading audit log: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderTable(entries) {
+      const body = document.getElementById('auditBody');
+      if (entries.length === 0) {
+        body.innerHTML = '<tr><td colspan="5">No audit entries found</td></tr>';
+        return;
+      }
+      body.innerHTML = entries.map(e => {
+        const badge = getBadge(e.action);
+        const time = new Date(e.timestamp).toLocaleString();
+        const details = e.details ? JSON.stringify(e.details).substring(0, 80) : '';
+        return `<tr onclick="showDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})" style="cursor:pointer">
+          <td>${time}</td>
+          <td><span class="badge ${badge}">${e.action}</span></td>
+          <td>${e.username || e.userId || '-'}</td>
+          <td>${e.ip || '-'}</td>
+          <td>${details}${details.length >= 80 ? '...' : ''}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function getBadge(action) {
+      if (!action) return 'badge-info';
+      if (action.includes('fail') || action.includes('error')) return 'badge-error';
+      if (action.includes('login') || action.includes('logout')) return 'badge-info';
+      if (action.includes('delete') || action.includes('remove')) return 'badge-warn';
+      if (action.includes('create') || action.includes('success')) return 'badge-success';
+      return 'badge-info';
+    }
+
+    function renderPagination(total) {
+      const pages = Math.ceil(total / limit);
+      const div = document.getElementById('pagination');
+      let html = '';
+      for (let i = 1; i <= Math.min(pages, 10); i++) {
+        html += `<button class="${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+      }
+      div.innerHTML = html;
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      loadAudit();
+    }
+
+    function renderStats(data) {
+      const cards = document.getElementById('statsCards');
+      const total = data.total || 0;
+      const entries = data.entries || [];
+      const actions = {};
+      entries.forEach(e => { actions[e.action] = (actions[e.action] || 0) + 1; });
+      const topAction = Object.entries(actions).sort((a, b) => b[1] - a[1])[0];
+
+      cards.innerHTML = `
+        <div class="stat-card"><h3>Total Events</h3><div class="value">${total}</div></div>
+        <div class="stat-card"><h3>Showing</h3><div class="value">${entries.length}</div></div>
+        <div class="stat-card"><h3>Top Action</h3><div class="value">${topAction ? topAction[0] : '-'}</div></div>
+        <div class="stat-card"><h3>Unique Actions</h3><div class="value">${Object.keys(actions).length}</div></div>
+      `;
+    }
+
+    function populateActions(entries) {
+      const select = document.getElementById('actionFilter');
+      const current = select.value;
+      const actions = new Set();
+      entries.forEach(e => actions.add(e.action));
+      const existing = new Set([...select.options].map(o => o.value));
+      actions.forEach(a => {
+        if (!existing.has(a)) {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = a;
+          select.appendChild(opt);
+        }
+      });
+      select.value = current;
+    }
+
+    function showDetail(entry) {
+      document.getElementById('detailTitle').textContent = entry.action;
+      document.getElementById('detailBody').textContent = JSON.stringify(entry, null, 2);
+      document.getElementById('detailModal').classList.add('active');
+    }
+
+    function closeDetail() {
+      document.getElementById('detailModal').classList.remove('active');
+    }
+
+    async function exportAudit() {
+      try {
+        const res = await fetch('/api/audit/export');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'audit_log.csv';
+        a.click();
+      } catch (err) {
+        alert('Export failed: ' + err.message);
+      }
+    }
+
+    document.getElementById('detailModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeDetail();
+    });
+
+    loadAudit();
+  </script>
+</body>
+</html>

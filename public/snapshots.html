@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search Snapshots | Hotel Search</title>
+    <meta name="description" content="Lưu và so sánh kết quả tìm kiếm theo thời gian" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <style>
+      .snapshot-card {
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-xs);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .snapshot-card:hover { border-color: var(--accent); }
+      .snapshot-card.selected { border-left: 3px solid var(--accent); }
+      .diff-added { color: #22c55e; }
+      .diff-removed { color: #ef4444; }
+      .diff-kept { color: var(--text-tertiary); }
+      .compare-bar {
+        position: sticky; bottom: 0; z-index: 100;
+        background: var(--bg-secondary); border-top: 1px solid var(--border);
+        padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+      }
+      .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 1000;
+        display: none; align-items: center; justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" style="max-width: 1000px; padding-top: var(--spacing-lg)">
+      <div class="card" style="margin-bottom: var(--spacing-md)">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
+          <div>
+            <h1 style="font-size: 1.4rem; margin: 0">
+              <i class="fa-solid fa-camera" style="color: var(--accent)"></i> Search Snapshots
+            </h1>
+            <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
+              Lưu và so sánh kết quả tìm kiếm qua các thời điểm
+            </p>
+          </div>
+          <div style="display: flex; gap: 6px">
+            <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Snapshot List -->
+      <div id="snapshotList">
+        <div class="empty-state" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+          <i class="fa-solid fa-spinner fa-spin"></i> Đang tải...
+        </div>
+      </div>
+
+      <!-- Compare Bar (shown when 2 selected) -->
+      <div id="compareBar" class="compare-bar" style="display:none">
+        <span style="font-size:0.85rem"><strong id="selectedCount">0</strong> selected</span>
+        <button id="compareBtn" class="btn btn-primary btn-small" disabled>
+          <i class="fa-solid fa-code-compare"></i> Compare
+        </button>
+        <button id="clearSelectionBtn" class="btn btn-outline btn-small">Clear</button>
+      </div>
+    </div>
+
+    <!-- Compare Modal -->
+    <div id="compareModal" class="modal-overlay">
+      <div style="background:var(--bg-secondary);border-radius:12px;padding:24px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2 style="margin:0;font-size:1.1rem"><i class="fa-solid fa-code-compare"></i> Comparison</h2>
+          <button id="closeCompareModal" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.4rem">&times;</button>
+        </div>
+        <div id="compareContent"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+      import { initSessionTimeout } from "/sessionTimeout.js";
+      initSessionTimeout();
+
+      let snapshots = [];
+      let selectedIds = new Set();
+
+      async function loadSnapshots() {
+        try {
+          const res = await fetch("/api/snapshots");
+          if (!res.ok) throw new Error("Failed to load");
+          const data = await res.json();
+          snapshots = data.snapshots;
+          renderSnapshots();
+        } catch {
+          Toasts.error("Không thể tải snapshots");
+        }
+      }
+
+      function renderSnapshots() {
+        const container = document.getElementById("snapshotList");
+
+        if (snapshots.length === 0) {
+          container.innerHTML = `
+            <div class="card" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+              <i class="fa-solid fa-camera" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.3"></i>
+              <div style="font-size:0.9rem">Chưa có snapshot nào</div>
+              <div style="font-size:0.75rem;margin-top:6px">Sử dụng nút <i class="fa-solid fa-camera"></i> trên trang kết quả tìm kiếm để lưu</div>
+            </div>`;
+          return;
+        }
+
+        const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+        const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+
+        container.innerHTML = snapshots.map(s => {
+          const time = new Date(s.timestamp).toLocaleString("vi-VN");
+          const icon = engineIcons[s.engine] || "fa-search";
+          const color = engineColors[s.engine] || "#667eea";
+          const isSelected = selectedIds.has(s.id);
+
+          return `<div class="card snapshot-card ${isSelected ? "selected" : ""}" data-id="${s.id}">
+            <div style="display:flex;align-items:center;gap:12px">
+              <input type="checkbox" class="snapshot-checkbox" data-id="${s.id}" ${isSelected ? "checked" : ""} style="width:16px;height:16px;cursor:pointer" />
+              <i class="fa-solid ${icon}" style="color:${color};font-size:1.1rem;min-width:20px;text-align:center"></i>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.name)}</div>
+                <div style="font-size:0.75rem;color:var(--text-tertiary);margin-top:2px">
+                  ${escapeHtml(s.query)} &middot; ${s.resultCount} results &middot; ${time}
+                </div>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-outline btn-small btn-view" data-id="${s.id}" title="Xem chi tiết" style="padding:4px 8px">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+                <button class="btn btn-outline btn-small btn-delete" data-id="${s.id}" title="Xóa" style="padding:4px 8px;color:#ff4d4f">
+                  <i class="fa-solid fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>`;
+        }).join("");
+
+        // Bind events
+        container.querySelectorAll(".snapshot-checkbox").forEach(cb => {
+          cb.addEventListener("change", () => {
+            const id = Number(cb.dataset.id);
+            if (cb.checked) {
+              if (selectedIds.size >= 2) {
+                cb.checked = false;
+                Toasts.warning("Chỉ chọn tối đa 2 snapshots để so sánh");
+                return;
+              }
+              selectedIds.add(id);
+            } else {
+              selectedIds.delete(id);
+            }
+            updateSelection();
+          });
+        });
+
+        container.querySelectorAll(".btn-view").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.dataset.id);
+            try {
+              const res = await fetch(`/api/snapshots/${id}`);
+              const data = await res.json();
+              showSnapshotDetail(data.snapshot);
+            } catch {
+              Toasts.error("Không thể tải snapshot");
+            }
+          });
+        });
+
+        container.querySelectorAll(".btn-delete").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.dataset.id);
+            if (!confirm("Xóa snapshot này?")) return;
+            try {
+              const res = await fetch(`/api/snapshots/${id}`, { method: "DELETE" });
+              if (res.ok) {
+                Toasts.success("Đã xóa snapshot");
+                selectedIds.delete(id);
+                loadSnapshots();
+              }
+            } catch {
+              Toasts.error("Lỗi xóa");
+            }
+          });
+        });
+      }
+
+      function updateSelection() {
+        const bar = document.getElementById("compareBar");
+        const count = selectedIds.size;
+        document.getElementById("selectedCount").textContent = count;
+        bar.style.display = count > 0 ? "flex" : "none";
+        document.getElementById("compareBtn").disabled = count !== 2;
+
+        // Update visual selection
+        document.querySelectorAll(".snapshot-card").forEach(card => {
+          const id = Number(card.dataset.id);
+          card.classList.toggle("selected", selectedIds.has(id));
+        });
+      }
+
+      function showSnapshotDetail(snapshot) {
+        const modal = document.getElementById("compareModal");
+        const content = document.getElementById("compareContent");
+        const time = new Date(snapshot.timestamp).toLocaleString("vi-VN");
+
+        content.innerHTML = `
+          <div style="margin-bottom:16px">
+            <h3 style="margin:0 0 4px;font-size:1rem">${escapeHtml(snapshot.name)}</h3>
+            <div style="font-size:0.82rem;color:var(--text-tertiary)">
+              Query: ${escapeHtml(snapshot.query)} &middot; Engine: ${snapshot.engine} &middot; ${time}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${snapshot.results.map((r, i) => `
+              <div style="padding:10px;background:var(--bg-tertiary,#222);border-radius:8px;border:1px solid var(--border,#333)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:0.7rem;color:var(--text-tertiary);min-width:20px">#${i + 1}</span>
+                  <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-weight:600;font-size:0.85rem;color:var(--accent)">${escapeHtml(r.title)}</a>
+                </div>
+                ${r.snippet ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;margin-left:28px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.snippet)}</div>` : ""}
+                ${r.price ? `<span style="font-size:0.7rem;color:#22c55e;margin-left:28px">${escapeHtml(String(r.price))}</span>` : ""}
+                ${r.rating ? `<span style="font-size:0.7rem;color:#f59e0b;margin-left:8px"><i class="fa-solid fa-star"></i> ${r.rating}</span>` : ""}
+              </div>
+            `).join("")}
+          </div>`;
+
+        modal.style.display = "flex";
+      }
+
+      async function compareSnapshots() {
+        const [id1, id2] = [...selectedIds];
+        try {
+          const res = await fetch("/api/snapshots/compare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ snapshotId1: id1, snapshotId2: id2 }),
+          });
+          const data = await res.json();
+          showComparison(data);
+        } catch {
+          Toasts.error("Lỗi so sánh");
+        }
+      }
+
+      function showComparison(data) {
+        const modal = document.getElementById("compareModal");
+        const content = document.getElementById("compareContent");
+        const time1 = new Date(data.snapshot1.timestamp).toLocaleString("vi-VN");
+        const time2 = new Date(data.snapshot2.timestamp).toLocaleString("vi-VN");
+
+        content.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+            <div style="padding:12px;background:var(--bg-tertiary,#222);border-radius:8px;border:1px solid var(--border,#333)">
+              <div style="font-weight:600;font-size:0.85rem">${escapeHtml(data.snapshot1.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-tertiary)">${time1}</div>
+            </div>
+            <div style="padding:12px;background:var(--bg-tertiary,#222);border-radius:8px;border:1px solid var(--border,#333)">
+              <div style="font-weight:600;font-size:0.85rem">${escapeHtml(data.snapshot2.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-tertiary)">${time2}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="padding:8px 16px;background:rgba(34,197,94,0.1);border-radius:8px;border:1px solid rgba(34,197,94,0.3)">
+              <span class="diff-added"><i class="fa-solid fa-plus"></i> ${data.diff.addedCount} added</span>
+            </div>
+            <div style="padding:8px 16px;background:rgba(239,68,68,0.1);border-radius:8px;border:1px solid rgba(239,68,68,0.3)">
+              <span class="diff-removed"><i class="fa-solid fa-minus"></i> ${data.diff.removedCount} removed</span>
+            </div>
+            <div style="padding:8px 16px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid var(--border)">
+              <span class="diff-kept"><i class="fa-solid fa-equals"></i> ${data.diff.keptCount} kept</span>
+            </div>
+          </div>
+
+          ${data.diff.added.length > 0 ? `
+            <h4 style="margin:16px 0 8px;font-size:0.9rem" class="diff-added"><i class="fa-solid fa-plus-circle"></i> Added in newer snapshot</h4>
+            ${data.diff.added.map(r => `
+              <div style="padding:8px 12px;margin-bottom:4px;background:rgba(34,197,94,0.05);border-radius:6px;border-left:3px solid #22c55e">
+                <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--text-primary)">${escapeHtml(r.title)}</a>
+              </div>
+            `).join("")}
+          ` : ""}
+
+          ${data.diff.removed.length > 0 ? `
+            <h4 style="margin:16px 0 8px;font-size:0.9rem" class="diff-removed"><i class="fa-solid fa-minus-circle"></i> Removed from newer snapshot</h4>
+            ${data.diff.removed.map(r => `
+              <div style="padding:8px 12px;margin-bottom:4px;background:rgba(239,68,68,0.05);border-radius:6px;border-left:3px solid #ef4444">
+                <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--text-primary)">${escapeHtml(r.title)}</a>
+              </div>
+            `).join("")}
+          ` : ""}
+
+          ${data.diff.kept.length > 0 ? `
+            <h4 style="margin:16px 0 8px;font-size:0.9rem" class="diff-kept"><i class="fa-solid fa-equals"></i> Present in both</h4>
+            ${data.diff.kept.map(r => `
+              <div style="padding:8px 12px;margin-bottom:4px;background:rgba(255,255,255,0.02);border-radius:6px;border-left:3px solid var(--border)">
+                <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--text-primary)">${escapeHtml(r.title)}</a>
+              </div>
+            `).join("")}
+          ` : ""}`;
+
+        modal.style.display = "flex";
+      }
+
+      // Event listeners
+      document.getElementById("compareBtn").addEventListener("click", compareSnapshots);
+      document.getElementById("clearSelectionBtn").addEventListener("click", () => {
+        selectedIds.clear();
+        updateSelection();
+        document.querySelectorAll(".snapshot-checkbox").forEach(cb => cb.checked = false);
+      });
+      document.getElementById("closeCompareModal").addEventListener("click", () => {
+        document.getElementById("compareModal").style.display = "none";
+      });
+      document.getElementById("compareModal").addEventListener("click", (e) => {
+        if (e.target.id === "compareModal") e.target.style.display = "none";
+      });
+
+      loadSnapshots();
+    </script>
+  </body>
+</html>
+

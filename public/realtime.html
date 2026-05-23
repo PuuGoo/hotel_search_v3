@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Events — Hotel Search</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .event-stream { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fafafa; }
+    .event-item { padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 0.9rem; animation: slideIn 0.3s ease; }
+    .event-item.notification { background: #e3f2fd; border-left: 4px solid #1976d2; }
+    .event-item.heartbeat { background: #f5f5f5; border-left: 4px solid #9e9e9e; font-size: 0.8rem; color: #666; }
+    .event-item.error { background: #ffebee; border-left: 4px solid #c62828; }
+    .event-item.connected { background: #e8f5e9; border-left: 4px solid #2e7d32; }
+    .status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .status-dot.connected { background: #4caf50; }
+    .status-dot.disconnected { background: #f44336; }
+    .status-dot.connecting { background: #ff9800; animation: pulse 1s infinite; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .send-form { display: flex; gap: 8px; margin-top: 20px; }
+    .send-form input, .send-form select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/searchTavily" class="nav-brand">Hotel Search</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/realtime" class="active">Real-Time</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 800px; margin: 20px auto; padding: 0 20px;">
+    <h1>Real-Time Events</h1>
+
+    <div class="status-bar">
+      <div class="status-dot disconnected" id="statusDot"></div>
+      <span id="statusText">Disconnected</span>
+      <span id="eventCount" style="margin-left: auto; color: #666;">0 events</span>
+    </div>
+
+    <div class="controls">
+      <button onclick="connect()" class="btn btn-primary" id="connectBtn">Connect</button>
+      <button onclick="disconnect()" class="btn btn-secondary" id="disconnectBtn" disabled>Disconnect</button>
+      <button onclick="clearEvents()" class="btn">Clear</button>
+      <label style="display: flex; align-items: center; gap: 6px;">
+        <input type="checkbox" id="showHeartbeat" onchange="toggleHeartbeat()"> Show heartbeats
+      </label>
+    </div>
+
+    <div class="event-stream" id="eventStream">
+      <div style="color: #999; text-align: center; padding: 40px;">Click "Connect" to start receiving events</div>
+    </div>
+
+    <h3 style="margin-top: 24px;">Send Test Event</h3>
+    <div class="send-form">
+      <select id="eventType">
+        <option value="notification">Notification</option>
+        <option value="search-progress">Search Progress</option>
+        <option value="price-alert">Price Alert</option>
+      </select>
+      <input type="text" id="eventMessage" placeholder="Message..." style="flex: 1;" />
+      <button onclick="sendTestEvent()" class="btn btn-primary">Send</button>
+    </div>
+  </main>
+
+  <script>
+    let eventSource = null;
+    let eventCount = 0;
+    let showHeartbeat = false;
+
+    function setStatus(state) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = 'status-dot ' + state;
+      text.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+      document.getElementById('connectBtn').disabled = state === 'connected';
+      document.getElementById('disconnectBtn').disabled = state !== 'connected';
+    }
+
+    function addEvent(type, data) {
+      if (type === 'heartbeat' && !showHeartbeat) return;
+
+      const stream = document.getElementById('eventStream');
+      if (stream.querySelector('div[style]')) stream.innerHTML = '';
+
+      const item = document.createElement('div');
+      item.className = 'event-item ' + type;
+      const time = new Date().toLocaleTimeString();
+      const content = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+      item.innerHTML = `<strong>[${time}] ${type}</strong><pre style="margin:4px 0 0;white-space:pre-wrap;">${content}</pre>`;
+      stream.prepend(item);
+
+      eventCount++;
+      document.getElementById('eventCount').textContent = eventCount + ' events';
+
+      // Keep max 100 events
+      while (stream.children.length > 100) stream.removeChild(stream.lastChild);
+    }
+
+    function connect() {
+      if (eventSource) disconnect();
+      setStatus('connecting');
+
+      eventSource = new EventSource('/api/sse');
+
+      eventSource.onopen = () => {
+        setStatus('connected');
+        addEvent('connected', 'SSE connection established');
+      };
+
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addEvent(data.type || 'message', data);
+        } catch {
+          addEvent('message', e.data);
+        }
+      };
+
+      eventSource.onerror = () => {
+        setStatus('disconnected');
+        addEvent('error', 'Connection lost. Will retry...');
+      };
+    }
+
+    function disconnect() {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      setStatus('disconnected');
+    }
+
+    function clearEvents() {
+      document.getElementById('eventStream').innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">Events cleared</div>';
+      eventCount = 0;
+      document.getElementById('eventCount').textContent = '0 events';
+    }
+
+    function toggleHeartbeat() {
+      showHeartbeat = document.getElementById('showHeartbeat').checked;
+    }
+
+    async function sendTestEvent() {
+      const type = document.getElementById('eventType').value;
+      const message = document.getElementById('eventMessage').value || 'Test event';
+      try {
+        const res = await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: type, message, type: 'info' })
+        });
+        if (!res.ok) throw new Error('Failed');
+        document.getElementById('eventMessage').value = '';
+      } catch (err) {
+        alert('Failed to send: ' + err.message);
+      }
+    }
+
+    // Auto-connect on page load
+    connect();
+  </script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bulk Import/Export</title>
+    <meta name="description" content="Nhập xuất dữ liệu hàng loạt" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Bulk Data</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-file-import"></i> Bulk Import / Export
+      </h1>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Xuất hoặc nhập dữ liệu templates, alerts, webhooks, và scheduled searches dưới dạng JSON.
+      </p>
+
+      <div id="statsBar" class="flex gap-md wrap" style="margin-bottom: var(--spacing-md)"></div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <div class="glass-card">
+          <h3 style="margin: 0 0 var(--spacing-md); font-size: 1rem"><i class="fa-solid fa-file-export"></i> Export</h3>
+          <div class="stack-sm">
+            <div>
+              <label style="font-size: 0.82rem">Chọn loại dữ liệu</label>
+              <div class="flex gap-sm wrap" style="margin-top: 4px">
+                <label style="cursor: pointer; font-size: 0.78rem"><input type="checkbox" class="export-type" value="templates" checked /> Templates</label>
+                <label style="cursor: pointer; font-size: 0.78rem"><input type="checkbox" class="export-type" value="alerts" checked /> Price Alerts</label>
+                <label style="cursor: pointer; font-size: 0.78rem"><input type="checkbox" class="export-type" value="webhooks" checked /> Webhooks</label>
+                <label style="cursor: pointer; font-size: 0.78rem"><input type="checkbox" class="export-type" value="scheduled" checked /> Scheduled</label>
+              </div>
+            </div>
+            <button id="exportBtn" class="btn btn-primary btn-modern" style="width: 100%">
+              <i class="fa-solid fa-download"></i><span>Xuất dữ liệu</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="margin: 0 0 var(--spacing-md); font-size: 1rem"><i class="fa-solid fa-file-import"></i> Import</h3>
+          <div class="stack-sm">
+            <div>
+              <label style="font-size: 0.82rem">Chọn file JSON</label>
+              <input id="importFile" type="file" accept=".json" style="width: 100%; font-size: 0.78rem" />
+            </div>
+            <label style="cursor: pointer; font-size: 0.78rem">
+              <input type="checkbox" id="overwriteCheck" /> Ghi đè dữ liệu hiện có
+            </label>
+            <button id="importBtn" class="btn btn-primary btn-modern" style="width: 100%" disabled>
+              <i class="fa-solid fa-upload"></i><span>Nhập dữ liệu</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="importResult" class="hidden glass-card" style="padding: var(--spacing-md)">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem"><i class="fa-solid fa-check-circle"></i> Kết quả Import</h3>
+        <div id="importResultContent" class="stack-xs"></div>
+      </div>
+
+      <div class="glass-card" style="border-left: 3px solid #ff4d4f">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem; color: #ff8a8a"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</h3>
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 var(--spacing-sm)">
+          Xóa toàn bộ dữ liệu theo loại. Thao tác này không thể hoàn tác.
+        </p>
+        <div class="flex gap-sm wrap">
+          <select id="clearType" style="font-size: 0.78rem">
+            <option value="templates">Templates</option>
+            <option value="alerts">Price Alerts</option>
+            <option value="webhooks">Webhooks</option>
+            <option value="scheduled">Scheduled Searches</option>
+          </select>
+          <button id="clearBtn" class="btn btn-outline" style="--btn-accent: #ff4d4f">
+            <i class="fa-solid fa-trash"></i><span>Xóa tất cả</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const statsBar = document.getElementById("statsBar");
+        const importFile = document.getElementById("importFile");
+        const importBtn = document.getElementById("importBtn");
+        const importResult = document.getElementById("importResult");
+        const importResultContent = document.getElementById("importResultContent");
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        async function loadStats() {
+          try {
+            const res = await axios.get("/api/bulk/stats");
+            const stats = res.data;
+            statsBar.innerHTML = `
+              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+                <i class="fa-solid fa-clipboard-list"></i> ${stats.templates} templates
+              </div>
+              <div class="badge" style="background: rgba(250,166,26,.2); color: #faa61a">
+                <i class="fa-solid fa-bell"></i> ${stats.alerts} alerts
+              </div>
+              <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
+                <i class="fa-solid fa-link"></i> ${stats.webhooks} webhooks
+              </div>
+              <div class="badge" style="background: rgba(255,77,79,.2); color: #ff4d4f">
+                <i class="fa-solid fa-clock"></i> ${stats.scheduled} scheduled
+              </div>
+            `;
+          } catch (err) {
+            console.error("Load stats error:", err);
+          }
+        }
+
+        // Export
+        document.getElementById("exportBtn").addEventListener("click", async () => {
+          const types = Array.from(document.querySelectorAll(".export-type:checked")).map(c => c.value);
+          if (types.length === 0) {
+            Toasts.warning("Chọn ít nhất một loại dữ liệu");
+            return;
+          }
+
+          try {
+            const res = await axios.get(`/api/bulk/export?types=${types.join(",")}`, { responseType: "blob" });
+            const url = URL.createObjectURL(res.data);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `hotel-search-export-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            Toasts.success("Đã xuất dữ liệu");
+          } catch (err) {
+            Toasts.error("Lỗi xuất dữ liệu");
+          }
+        });
+
+        // Import
+        importFile.addEventListener("change", () => {
+          importBtn.disabled = !importFile.files.length;
+        });
+
+        importBtn.addEventListener("click", async () => {
+          const file = importFile.files[0];
+          if (!file) return;
+
+          try {
+            const text = await file.text();
+            const importData = JSON.parse(text);
+            const overwrite = document.getElementById("overwriteCheck").checked;
+
+            const res = await axios.post("/api/bulk/import", { data: importData.data, overwrite });
+            const data = res.data;
+
+            importResultContent.innerHTML = Object.entries(data.imported).map(([type, count]) => `
+              <div class="flex gap-sm" style="align-items: center; font-size: 0.78rem">
+                <span style="flex: 1; text-transform: capitalize">${escapeHtml(type)}</span>
+                <span class="badge" style="font-size: 0.55rem; background: rgba(59,165,93,.15); color: #3ba55d">${count} imported</span>
+              </div>
+            `).join("");
+            importResult.classList.remove("hidden");
+            Toasts.success("Đã nhập dữ liệu thành công");
+            loadStats();
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Lỗi nhập dữ liệu");
+          }
+        });
+
+        // Clear
+        document.getElementById("clearBtn").addEventListener("click", async () => {
+          const type = document.getElementById("clearType").value;
+          if (!confirm(`Xóa tất cả ${type}? Thao tác này không thể hoàn tác.`)) return;
+
+          try {
+            const res = await axios.delete(`/api/bulk/${type}`);
+            Toasts.success(`Đã xóa ${res.data.deleted} mục`);
+            loadStats();
+          } catch (err) {
+            Toasts.error("Lỗi xóa dữ liệu");
+          }
+        });
+
+        loadStats();
+      });
+    </script>
+  </body>
+</html>
+

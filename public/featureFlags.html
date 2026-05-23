@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feature Flags</title>
+    <meta name="description" content="Feature flag management" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .flag-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .flag-row { padding: 14px 16px; background: rgba(0,0,0,.1); border-radius: var(--radius-md); margin-bottom: 8px; display: flex; align-items: center; gap: var(--spacing-md); transition: all 0.2s; border: 1px solid transparent; }
+      .flag-row:hover { border-color: var(--glass-border); }
+      .flag-name { font-weight: 600; font-size: 0.9rem; font-family: monospace; }
+      .flag-desc { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
+      .flag-meta { font-size: 0.7rem; color: var(--text-tertiary); }
+      .toggle-switch { position: relative; width: 48px; height: 26px; flex-shrink: 0; }
+      .toggle-switch input { opacity: 0; width: 0; height: 0; }
+      .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #747f8d; border-radius: 13px; transition: 0.3s; }
+      .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+      .toggle-switch input:checked + .toggle-slider { background: #3ba55d; }
+      .toggle-switch input:checked + .toggle-slider:before { transform: translateX(22px); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #faa61a, #e67e22); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Feature Flags</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-flag"></i> Feature Flags
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="addBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-plus"></i> New Flag
+          </button>
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="flag-card" style="text-align: center">
+          <div class="stat-value" id="totalFlags">0</div>
+          <div class="stat-label">Total Flags</div>
+        </div>
+        <div class="flag-card" style="text-align: center">
+          <div class="stat-value" id="enabledFlags">0</div>
+          <div class="stat-label">Enabled</div>
+        </div>
+        <div class="flag-card" style="text-align: center">
+          <div class="stat-value" id="disabledFlags">0</div>
+          <div class="stat-label">Disabled</div>
+        </div>
+      </div>
+
+      <!-- Add Flag Modal -->
+      <div id="addModal" class="flag-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-plus"></i> Create Feature Flag
+        </h3>
+        <div class="stack-sm">
+          <div>
+            <label style="font-size: 0.78rem; color: var(--text-secondary)">Name</label>
+            <input id="flagName" type="text" placeholder="my-feature-flag" style="width: 100%; font-family: monospace" />
+          </div>
+          <div>
+            <label style="font-size: 0.78rem; color: var(--text-secondary)">Description</label>
+            <input id="flagDesc" type="text" placeholder="What does this flag control?" style="width: 100%" />
+          </div>
+          <div class="flex gap-sm">
+            <button id="saveBtn" class="btn btn-primary btn-small">
+              <i class="fa-solid fa-check"></i> Create
+            </button>
+            <button id="cancelBtn" class="btn btn-outline btn-small">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flag List -->
+      <div class="flag-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-list"></i> Flags
+        </h3>
+        <div id="flagList"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        async function loadFlags() {
+          try {
+            const { data } = await axios.get("/api/admin/flags");
+            const flags = data.flags;
+
+            document.getElementById("totalFlags").textContent = flags.length;
+            document.getElementById("enabledFlags").textContent = flags.filter(f => f.enabled).length;
+            document.getElementById("disabledFlags").textContent = flags.filter(f => !f.enabled).length;
+
+            const container = document.getElementById("flagList");
+            if (flags.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No feature flags. Create one to get started.</p>';
+              return;
+            }
+
+            container.innerHTML = flags.map(f => `
+              <div class="flag-row">
+                <label class="toggle-switch">
+                  <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFlag('${f.name}', this.checked)" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <div style="flex: 1; min-width: 0">
+                  <div class="flag-name">${escapeHtml(f.name)}</div>
+                  ${f.description ? `<div class="flag-desc">${escapeHtml(f.description)}</div>` : ''}
+                  <div class="flag-meta">
+                    Updated: ${formatTime(f.updatedAt)}
+                    ${f.enabled ? '<span style="color: #3ba55d; margin-left: 8px">ON</span>' : '<span style="color: #747f8d; margin-left: 8px">OFF</span>'}
+                  </div>
+                </div>
+                <button class="btn btn-outline btn-small" onclick="deleteFlag('${f.name}')" style="color: #e74c3c" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            `).join("");
+          } catch {
+            document.getElementById("flagList").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">Failed to load flags</p>';
+          }
+        }
+
+        window.toggleFlag = async function(name, enabled) {
+          try {
+            await axios.put(`/api/admin/flags/${name}`, { enabled });
+            Toasts.success(`Flag "${name}" ${enabled ? "enabled" : "disabled"}`);
+            loadFlags();
+          } catch {
+            Toasts.error("Failed to update flag");
+          }
+        };
+
+        window.deleteFlag = async function(name) {
+          if (!confirm(`Delete flag "${name}"?`)) return;
+          try {
+            await axios.delete(`/api/admin/flags/${name}`);
+            Toasts.success(`Flag "${name}" deleted`);
+            loadFlags();
+          } catch {
+            Toasts.error("Failed to delete flag");
+          }
+        };
+
+        document.getElementById("addBtn").addEventListener("click", () => {
+          document.getElementById("addModal").style.display = "block";
+          document.getElementById("flagName").value = "";
+          document.getElementById("flagDesc").value = "";
+          document.getElementById("flagName").focus();
+        });
+
+        document.getElementById("cancelBtn").addEventListener("click", () => {
+          document.getElementById("addModal").style.display = "none";
+        });
+
+        document.getElementById("saveBtn").addEventListener("click", async () => {
+          const name = document.getElementById("flagName").value.trim();
+          const description = document.getElementById("flagDesc").value.trim();
+
+          if (!name) {
+            Toasts.warning("Flag name is required");
+            return;
+          }
+
+          try {
+            await axios.post("/api/admin/flags", { name, description });
+            Toasts.success(`Flag "${name}" created`);
+            document.getElementById("addModal").style.display = "none";
+            loadFlags();
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Failed to create flag");
+          }
+        });
+
+        document.getElementById("refreshBtn").addEventListener("click", loadFlags);
+
+        loadFlags();
+      });
+    </script>
+  </body>
+</html>
+

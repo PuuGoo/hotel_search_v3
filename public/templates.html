@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search Templates</title>
+    <meta name="description" content="Quản lý mẫu tìm kiếm" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Search Templates</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-book-bookmark"></i> Search Templates
+        </h1>
+        <button id="createBtn" class="btn btn-primary btn-modern">
+          <i class="fa-solid fa-plus"></i><span>Tạo template</span>
+        </button>
+      </div>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Lưu các mẫu tìm kiếm thường dùng để tiết kiệm thời gian.
+      </p>
+
+      <!-- Quick Use Section -->
+      <section id="quickUse" class="glass-card hidden" style="margin-bottom: var(--spacing-md)">
+        <div class="card-header">
+          <i class="fa-solid fa-bolt"></i> Template phổ biến
+        </div>
+        <div id="popularList" class="flex gap-sm wrap"></div>
+      </section>
+
+      <!-- Templates List -->
+      <section id="templatesList" class="stack-sm"></section>
+      <div id="emptyState" class="glass-card text-center hidden" style="padding: var(--spacing-xl)">
+        <i class="fa-solid fa-book-bookmark" style="font-size: 2rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm)"></i>
+        <p class="text-tertiary">Chưa có template nào. Nhấn "Tạo template" để bắt đầu.</p>
+      </div>
+    </main>
+
+    <!-- Create/Edit Modal -->
+    <div id="templateModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 500px">
+        <h2 id="modalTitle" class="modal-header">Tạo Template</h2>
+        <div class="stack-sm">
+          <div>
+            <label style="font-size: 0.82rem">Tên template *</label>
+            <input id="inputName" type="text" placeholder="VD: Tìm khách sạn 5 sao" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Query tìm kiếm *</label>
+            <input id="inputQuery" type="text" placeholder="VD: luxury 5 star hotel {city}" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Mô tả</label>
+            <input id="inputDescription" type="text" placeholder="Mô tả ngắn về template" style="width: 100%" />
+          </div>
+          <div class="flex gap-sm">
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Engine</label>
+              <select id="inputEngine" style="width: 100%">
+                <option value="tavily">Tavily</option>
+                <option value="google">Google</option>
+                <option value="ddg">DuckDuckGo</option>
+              </select>
+            </div>
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Tags (phân cách bằng dấu phẩy)</label>
+              <input id="inputTags" type="text" placeholder="luxury, 5star" style="width: 100%" />
+            </div>
+          </div>
+        </div>
+        <div id="modalError" class="hidden" style="color: #ff8a8a; font-size: 0.75rem; margin-top: var(--spacing-sm)"></div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="modalCancel" type="button" class="btn btn-outline">Hủy</button>
+          <button id="modalSave" type="button" class="btn btn-primary btn-modern">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer text-tertiary">
+      © <span id="year"></span> PuuGoo
+    </footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const templatesList = document.getElementById("templatesList");
+        const emptyState = document.getElementById("emptyState");
+        const quickUse = document.getElementById("quickUse");
+        const popularList = document.getElementById("popularList");
+        const modal = document.getElementById("templateModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalError = document.getElementById("modalError");
+
+        let editingId = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        const engineUrls = {
+          tavily: "/searchTavily",
+          google: "/searchGo",
+          ddg: "/searchXNG",
+        };
+
+        async function loadTemplates() {
+          try {
+            const [templatesRes, popularRes] = await Promise.all([
+              axios.get("/api/search-templates"),
+              axios.get("/api/search-templates/popular"),
+            ]);
+            const { user, global: globalT } = templatesRes.data;
+            const popular = popularRes.data;
+            const all = [...user, ...globalT];
+
+            // Popular templates
+            if (popular.length > 0) {
+              quickUse.classList.remove("hidden");
+              popularList.innerHTML = popular.map(t => `
+                <button class="btn btn-outline btn-small" data-action="use-popular" data-id="${t.id}" data-query="${escapeHtml(t.query)}" data-engine="${t.engine}" title="${escapeHtml(t.description || t.query)}">
+                  <i class="fa-solid fa-bolt"></i>
+                  <span>${escapeHtml(t.name)}</span>
+                  <span class="badge" style="margin-left: 4px; font-size: 0.55rem; background: rgba(255,255,255,.1)">${t.useCount || 0}x</span>
+                </button>
+              `).join("");
+            } else {
+              quickUse.classList.add("hidden");
+            }
+
+            // All templates
+            if (all.length === 0) {
+              templatesList.innerHTML = "";
+              emptyState.classList.remove("hidden");
+              return;
+            }
+            emptyState.classList.add("hidden");
+
+            const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+            templatesList.innerHTML = all.map(t => `
+              <div class="glass-card">
+                <div class="flex gap-md wrap" style="align-items: flex-start">
+                  <div style="flex: 1; min-width: 200px">
+                    <div style="font-weight: 600; font-size: 0.9rem">
+                      ${escapeHtml(t.name)}
+                      <span class="badge" style="margin-left: 8px; font-size: 0.6rem; background: rgba(102,126,234,.2); color: #667eea">${engineLabels[t.engine] || t.engine}</span>
+                      ${t.userId === null ? '<span class="badge" style="margin-left: 4px; font-size: 0.6rem; background: rgba(59,165,93,.2); color: #3ba55d">Global</span>' : ""}
+                    </div>
+                    <div style="font-size: 0.75rem; margin-top: 4px; color: var(--text-secondary); font-family: monospace; padding: 4px 8px; background: rgba(255,255,255,.04); border-radius: 4px">
+                      ${escapeHtml(t.query)}
+                    </div>
+                    ${t.description ? `<div class="text-tertiary" style="font-size: 0.7rem; margin-top: 4px">${escapeHtml(t.description)}</div>` : ""}
+                    <div class="flex gap-xs wrap" style="margin-top: 6px">
+                      ${(t.tags || []).map(tag => `<span class="badge" style="font-size: 0.55rem; background: rgba(255,255,255,.08)">${escapeHtml(tag)}</span>`).join("")}
+                    </div>
+                    <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
+                      Sử dụng: ${t.useCount || 0} lần
+                      ${t.lastUsedAt ? ` • Lần cuối: ${new Date(t.lastUsedAt).toLocaleString("vi")}` : ""}
+                    </div>
+                  </div>
+                  <div class="flex gap-xs wrap" style="flex-shrink: 0">
+                    ${t.userId !== null ? `
+                      <button class="btn btn-accent btn-small" data-action="use" data-id="${t.id}" data-query="${escapeHtml(t.query)}" data-engine="${t.engine}" title="Dùng template này">
+                        <i class="fa-solid fa-play"></i><span>Dùng</span>
+                      </button>
+                      <button class="btn btn-outline btn-small" data-action="edit" data-id="${t.id}" title="Sửa">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button class="btn btn-outline btn-small" data-action="delete" data-id="${t.id}" title="Xóa" style="--btn-accent: #ff4d4f">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    ` : `
+                      <button class="btn btn-accent btn-small" data-action="use" data-id="${t.id}" data-query="${escapeHtml(t.query)}" data-engine="${t.engine}" title="Dùng template này">
+                        <i class="fa-solid fa-play"></i><span>Dùng</span>
+                      </button>
+                    `}
+                  </div>
+                </div>
+              </div>
+            `).join("");
+
+          } catch (err) {
+            console.error("Load templates error:", err);
+            Toasts.error("Không thể tải templates");
+          }
+        }
+
+        // Event delegation
+        document.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+
+          if (action === "use" || action === "use-popular") {
+            const query = btn.dataset.query;
+            const engine = btn.dataset.engine;
+            try {
+              await axios.post(`/api/search-templates/${id}/use`);
+            } catch {}
+            const url = engineUrls[engine] || "/searchTavily";
+            window.location.href = `${url}?q=${encodeURIComponent(query)}`;
+          }
+
+          if (action === "edit") {
+            try {
+              const res = await axios.get("/api/search-templates");
+              const template = [...res.data.user, ...res.data.global].find(t => t.id === id);
+              if (!template) return;
+              editingId = id;
+              modalTitle.textContent = "Sửa Template";
+              document.getElementById("inputName").value = template.name;
+              document.getElementById("inputQuery").value = template.query;
+              document.getElementById("inputDescription").value = template.description || "";
+              document.getElementById("inputEngine").value = template.engine;
+              document.getElementById("inputTags").value = (template.tags || []).join(", ");
+              modalError.classList.add("hidden");
+              modal.classList.remove("hidden");
+            } catch {
+              Toasts.error("Lỗi tải template");
+            }
+          }
+
+          if (action === "delete") {
+            if (!confirm("Xóa template này?")) return;
+            try {
+              await axios.delete(`/api/search-templates/${id}`);
+              Toasts.success("Đã xóa template");
+              loadTemplates();
+            } catch {
+              Toasts.error("Lỗi xóa");
+            }
+          }
+        });
+
+        // Create button
+        document.getElementById("createBtn").addEventListener("click", () => {
+          editingId = null;
+          modalTitle.textContent = "Tạo Template";
+          document.getElementById("inputName").value = "";
+          document.getElementById("inputQuery").value = "";
+          document.getElementById("inputDescription").value = "";
+          document.getElementById("inputEngine").value = "tavily";
+          document.getElementById("inputTags").value = "";
+          modalError.classList.add("hidden");
+          modal.classList.remove("hidden");
+        });
+
+        // Save
+        document.getElementById("modalSave").addEventListener("click", async () => {
+          const name = document.getElementById("inputName").value.trim();
+          const query = document.getElementById("inputQuery").value.trim();
+          const description = document.getElementById("inputDescription").value.trim();
+          const engine = document.getElementById("inputEngine").value;
+          const tagsStr = document.getElementById("inputTags").value;
+          const tags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
+
+          if (!name || !query) {
+            modalError.textContent = "Vui lòng nhập tên và query";
+            modalError.classList.remove("hidden");
+            return;
+          }
+
+          try {
+            if (editingId) {
+              await axios.put(`/api/search-templates/${editingId}`, { name, query, description, engine, tags });
+              Toasts.success("Đã cập nhật template");
+            } else {
+              await axios.post("/api/search-templates", { name, query, description, engine, tags });
+              Toasts.success("Đã tạo template");
+            }
+            modal.classList.add("hidden");
+            loadTemplates();
+          } catch (err) {
+            modalError.textContent = err.response?.data?.error || "Lỗi lưu";
+            modalError.classList.remove("hidden");
+          }
+        });
+
+        document.getElementById("modalCancel").addEventListener("click", () => modal.classList.add("hidden"));
+        modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+        loadTemplates();
+      });
+    </script>
+  </body>
+</html>
+

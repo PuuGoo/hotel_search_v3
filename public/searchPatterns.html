@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search Statistics | Hotel Search</title>
+    <meta name="description" content="Biểu đồ thống kê mẫu hình tìm kiếm theo thời gian" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <style>
+      .stat-card {
+        text-align: center;
+        padding: var(--spacing-md);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+      }
+      .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .stat-label {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .chart-container {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+      }
+      .chart-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: var(--spacing-sm);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      canvas { width: 100% !important; height: auto !important; }
+      .period-btn {
+        padding: 6px 14px;
+        font-size: 0.78rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .period-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .period-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .hour-bar, .dow-bar {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 120px;
+        padding-top: 8px;
+      }
+      .hour-bar .bar, .dow-bar .bar {
+        flex: 1;
+        background: var(--accent);
+        border-radius: 3px 3px 0 0;
+        min-height: 2px;
+        transition: height 0.3s;
+        position: relative;
+      }
+      .hour-bar .bar:hover, .dow-bar .bar:hover { opacity: 0.8; }
+      .hour-labels, .dow-labels {
+        display: flex;
+        gap: 2px;
+        margin-top: 4px;
+      }
+      .hour-labels span, .dow-labels span {
+        flex: 1;
+        text-align: center;
+        font-size: 0.6rem;
+        color: var(--text-tertiary);
+      }
+      .engine-legend {
+        display: flex;
+        gap: 16px;
+        margin-top: 8px;
+        justify-content: center;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" style="max-width: 1100px; padding-top: var(--spacing-lg)">
+      <div class="card" style="margin-bottom: var(--spacing-md)">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
+          <div>
+            <h1 style="font-size: 1.4rem; margin: 0">
+              <i class="fa-solid fa-chart-line" style="color: var(--accent)"></i> Search Statistics
+            </h1>
+            <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
+              Phân tích mẫu hình tìm kiếm theo thời gian
+            </p>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center">
+            <button class="period-btn" data-days="7">7 days</button>
+            <button class="period-btn active" data-days="30">30 days</button>
+            <button class="period-btn" data-days="90">90 days</button>
+            <a href="/dashboard" class="btn btn-outline btn-small" style="margin-left: 8px"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="grid grid-4" style="margin-bottom: var(--spacing-md)" id="summaryStats">
+        <div class="card stat-card"><div class="stat-value" id="totalSearches">-</div><div class="stat-label">Total Searches</div></div>
+        <div class="card stat-card"><div class="stat-value" id="searchStreak" style="color: #f59e0b">-</div><div class="stat-label">Day Streak</div></div>
+        <div class="card stat-card"><div class="stat-value" id="avgQueryLen" style="color: #22c55e">-</div><div class="stat-label">Avg Query Length</div></div>
+        <div class="card stat-card"><div class="stat-value" id="topEngine" style="color: #8b5cf6">-</div><div class="stat-label">Top Engine</div></div>
+      </div>
+
+      <!-- Daily Search Chart -->
+      <div class="chart-container">
+        <div class="chart-title"><i class="fa-solid fa-calendar-days" style="color: var(--accent)"></i> Searches per Day</div>
+        <canvas id="dailyChart" height="200"></canvas>
+        <div class="engine-legend">
+          <div class="legend-item"><div class="legend-dot" style="background: #3b82f6"></div> Tavily</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #22c55e"></div> Google</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #f59e0b"></div> DDG</div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+        <!-- Hour Distribution -->
+        <div class="chart-container">
+          <div class="chart-title"><i class="fa-solid fa-clock" style="color: #f59e0b"></i> Searches by Hour</div>
+          <div class="hour-bar" id="hourChart"></div>
+          <div class="hour-labels" id="hourLabels"></div>
+        </div>
+
+        <!-- Day of Week Distribution -->
+        <div class="chart-container">
+          <div class="chart-title"><i class="fa-solid fa-calendar-week" style="color: #8b5cf6"></i> Searches by Day of Week</div>
+          <div class="dow-bar" id="dowChart"></div>
+          <div class="dow-labels" id="dowLabels"></div>
+        </div>
+      </div>
+
+      <!-- Engine Breakdown -->
+      <div class="chart-container">
+        <div class="chart-title"><i class="fa-solid fa-magnifying-glass" style="color: #22c55e"></i> Engine Breakdown</div>
+        <canvas id="engineChart" height="160"></canvas>
+      </div>
+    </div>
+
+    <script type="module">
+      let currentDays = 30;
+
+      async function loadStats(days) {
+        try {
+          const res = await fetch(`/api/dashboard/search-statistics?days=${days}`);
+          if (!res.ok) throw new Error("Failed to load");
+          return await res.json();
+        } catch (e) {
+          console.error("Error loading stats:", e);
+          return null;
+        }
+      }
+
+      function renderSummary(data) {
+        document.getElementById("totalSearches").textContent = data.summary.total;
+        document.getElementById("searchStreak").textContent = data.summary.streak;
+        document.getElementById("avgQueryLen").textContent = data.summary.avgQueryLength;
+
+        const engines = data.summary.byEngine;
+        const topEngine = Object.entries(engines).sort((a, b) => b[1] - a[1])[0];
+        document.getElementById("topEngine").textContent = topEngine[1] > 0 ? topEngine[0] : "-";
+      }
+
+      function renderDailyChart(data) {
+        const canvas = document.getElementById("dailyChart");
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width - 32;
+        const h = 200;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, w, h);
+
+        const days = data.dailySearches;
+        const byEngine = data.dailyByEngine;
+        if (!days.length) return;
+
+        const maxVal = Math.max(...days.map((d) => d.total), 1);
+        const padding = { top: 20, bottom: 30, left: 40, right: 10 };
+        const chartW = w - padding.left - padding.right;
+        const chartH = h - padding.top - padding.bottom;
+        const barW = Math.max(2, (chartW / days.length) - 2);
+
+        // Grid lines
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const y = padding.top + (chartH / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(w - padding.right, y);
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "10px Inter, sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(Math.round(maxVal - (maxVal / 4) * i), padding.left - 6, y + 4);
+        }
+
+        // Stacked bars by engine
+        const engineColors = { tavily: "#3b82f6", google: "#22c55e", ddg: "#f59e0b" };
+        const engines = ["tavily", "google", "ddg"];
+
+        days.forEach((day, i) => {
+          const x = padding.left + (chartW / days.length) * i + 1;
+          const engData = byEngine[day.date] || {};
+          let yOffset = padding.top + chartH;
+
+          for (const eng of engines) {
+            const count = engData[eng] || 0;
+            if (count === 0) continue;
+            const barH = (count / maxVal) * chartH;
+            ctx.fillStyle = engineColors[eng];
+            ctx.fillRect(x, yOffset - barH, barW, barH);
+            yOffset -= barH;
+          }
+
+          // Date label (show every Nth)
+          const labelEvery = days.length > 60 ? 10 : days.length > 30 ? 5 : days.length > 14 ? 3 : 1;
+          if (i % labelEvery === 0) {
+            ctx.fillStyle = "rgba(255,255,255,0.35)";
+            ctx.font = "9px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(day.date.slice(5), x + barW / 2, h - 6);
+          }
+        });
+      }
+
+      function renderHourChart(data) {
+        const container = document.getElementById("hourChart");
+        const labels = document.getElementById("hourLabels");
+        const hours = data.hourDistribution;
+        const maxVal = Math.max(...hours, 1);
+
+        container.innerHTML = "";
+        labels.innerHTML = "";
+
+        hours.forEach((count, h) => {
+          const bar = document.createElement("div");
+          bar.className = "bar";
+          bar.style.height = Math.max(2, (count / maxVal) * 100) + "%";
+          bar.title = `${h}:00 - ${count} searches`;
+          if (count === maxVal && count > 0) bar.style.background = "#f59e0b";
+          container.appendChild(bar);
+
+          const label = document.createElement("span");
+          label.textContent = h % 3 === 0 ? `${h}h` : "";
+          labels.appendChild(label);
+        });
+      }
+
+      function renderDowChart(data) {
+        const container = document.getElementById("dowChart");
+        const labels = document.getElementById("dowLabels");
+        const dowNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dows = data.dayOfWeekDistribution;
+        const maxVal = Math.max(...dows, 1);
+
+        container.innerHTML = "";
+        labels.innerHTML = "";
+
+        dows.forEach((count, d) => {
+          const bar = document.createElement("div");
+          bar.className = "bar";
+          bar.style.height = Math.max(2, (count / maxVal) * 100) + "%";
+          bar.style.background = d === 0 || d === 6 ? "#f59e0b" : "var(--accent)";
+          bar.title = `${dowNames[d]} - ${count} searches`;
+          container.appendChild(bar);
+
+          const label = document.createElement("span");
+          label.textContent = dowNames[d];
+          labels.appendChild(label);
+        });
+      }
+
+      function renderEngineChart(data) {
+        const canvas = document.getElementById("engineChart");
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width - 32;
+        const h = 160;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, w, h);
+
+        const engines = data.summary.byEngine;
+        const entries = Object.entries(engines).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((s, e) => s + e[1], 0) || 1;
+        const colors = { tavily: "#3b82f6", google: "#22c55e", ddg: "#f59e0b" };
+
+        const barH = 28;
+        const gap = 12;
+        const startY = 20;
+        const maxBarW = w - 140;
+
+        entries.forEach(([engine, count], i) => {
+          const y = startY + i * (barH + gap);
+          const barW = (count / total) * maxBarW;
+
+          // Label
+          ctx.fillStyle = "rgba(255,255,255,0.7)";
+          ctx.font = "12px Inter, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(engine.charAt(0).toUpperCase() + engine.slice(1), 0, y + barH / 2 + 4);
+
+          // Bar background
+          ctx.fillStyle = "rgba(255,255,255,0.04)";
+          ctx.fillRect(80, y, maxBarW, barH);
+
+          // Bar fill
+          ctx.fillStyle = colors[engine] || "#666";
+          ctx.fillRect(80, y, Math.max(2, barW), barH);
+
+          // Count
+          ctx.fillStyle = "rgba(255,255,255,0.8)";
+          ctx.font = "bold 13px Inter, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(`${count} (${Math.round((count / total) * 100)}%)`, 80 + barW + 10, y + barH / 2 + 5);
+        });
+      }
+
+      async function refresh() {
+        const data = await loadStats(currentDays);
+        if (!data) {
+          document.getElementById("totalSearches").textContent = "Error";
+          return;
+        }
+        renderSummary(data);
+        renderDailyChart(data);
+        renderHourChart(data);
+        renderDowChart(data);
+        renderEngineChart(data);
+      }
+
+      // Period buttons
+      document.querySelectorAll(".period-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".period-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentDays = parseInt(btn.dataset.days, 10);
+          refresh();
+        });
+      });
+
+      refresh();
+
+      // Redraw on resize
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(refresh, 200);
+      });
+    </script>
+  </body>
+</html>
+

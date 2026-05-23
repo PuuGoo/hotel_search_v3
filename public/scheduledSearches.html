@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scheduled Searches</title>
+    <meta name="description" content="Quản lý tìm kiếm định kỳ" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Scheduled Searches</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-clock-rotate-left"></i> Scheduled Searches
+        </h1>
+        <button id="createBtn" class="btn btn-primary btn-modern">
+          <i class="fa-solid fa-plus"></i><span>Tạo lịch tìm kiếm</span>
+        </button>
+      </div>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Tự động chạy tìm kiếm theo lịch và lưu kết quả.
+      </p>
+
+      <div id="statsBar" class="flex gap-md wrap" style="margin-bottom: var(--spacing-md)"></div>
+
+      <section id="searchesList" class="stack-sm"></section>
+      <div id="emptyState" class="glass-card text-center hidden" style="padding: var(--spacing-xl)">
+        <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm)"></i>
+        <p class="text-tertiary">Chưa có lịch tìm kiếm nào. Nhấn "Tạo lịch tìm kiếm" để bắt đầu.</p>
+      </div>
+    </main>
+
+    <div id="searchModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 500px">
+        <h2 id="modalTitle" class="modal-header">Tạo Lịch Tìm Kiếm</h2>
+        <div class="stack-sm">
+          <div>
+            <label style="font-size: 0.82rem">Tên *</label>
+            <input id="inputName" type="text" placeholder="VD: Tìm khách sạn Đà Nẵng" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Truy vấn *</label>
+            <input id="inputQuery" type="text" placeholder="hotel Đà Nẵng giá rẻ" style="width: 100%" />
+          </div>
+          <div>
+            <label style="font-size: 0.82rem">Engine</label>
+            <select id="inputEngine" style="width: 100%">
+              <option value="tavily">Tavily</option>
+              <option value="google">Google</option>
+              <option value="ddg">DuckDuckGo</option>
+            </select>
+          </div>
+          <div class="flex gap-md">
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Tần suất</label>
+              <select id="inputFrequency" style="width: 100%">
+                <option value="daily">Hàng ngày</option>
+                <option value="weekly">Hàng tuần</option>
+                <option value="monthly">Hàng tháng</option>
+              </select>
+            </div>
+            <div style="flex: 1">
+              <label style="font-size: 0.82rem">Thời gian</label>
+              <input id="inputTime" type="time" value="09:00" style="width: 100%" />
+            </div>
+          </div>
+          <label style="cursor: pointer; font-size: 0.82rem">
+            <input type="checkbox" id="inputEnabled" checked /> Kích hoạt
+          </label>
+        </div>
+        <div id="modalError" class="hidden" style="color: #ff8a8a; font-size: 0.75rem; margin-top: var(--spacing-sm)"></div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="modalCancel" type="button" class="btn btn-outline">Hủy</button>
+          <button id="modalSave" type="button" class="btn btn-primary btn-modern">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultsModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 600px; max-height: 80vh; overflow-y: auto">
+        <h2 class="modal-header">Kết quả lần chạy gần nhất</h2>
+        <div id="resultsContent" class="stack-sm"></div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="resultsClose" type="button" class="btn btn-outline">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const statsBar = document.getElementById("statsBar");
+        const searchesList = document.getElementById("searchesList");
+        const emptyState = document.getElementById("emptyState");
+        const modal = document.getElementById("searchModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalError = document.getElementById("modalError");
+        const resultsModal = document.getElementById("resultsModal");
+        const resultsContent = document.getElementById("resultsContent");
+        let editingId = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function formatFrequency(freq) {
+          const map = { daily: "Hàng ngày", weekly: "Hàng tuần", monthly: "Hàng tháng" };
+          return map[freq] || freq;
+        }
+
+        async function loadSearches() {
+          try {
+            const [searchesRes, statsRes] = await Promise.all([
+              axios.get("/api/scheduled-searches"),
+              axios.get("/api/scheduled-searches/stats"),
+            ]);
+            const searches = searchesRes.data;
+            const stats = statsRes.data;
+
+            statsBar.innerHTML = `
+              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+                <i class="fa-solid fa-clock"></i> ${stats.total} lịch
+              </div>
+              <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
+                <i class="fa-solid fa-circle-check"></i> ${stats.enabled} kích hoạt
+              </div>
+              <div class="badge" style="background: rgba(250,166,26,.2); color: #faa61a">
+                <i class="fa-solid fa-play"></i> ${stats.totalRuns} lần chạy
+              </div>
+            `;
+
+            if (searches.length === 0) {
+              searchesList.innerHTML = "";
+              emptyState.classList.remove("hidden");
+              return;
+            }
+            emptyState.classList.add("hidden");
+
+            searchesList.innerHTML = searches.map(s => `
+              <div class="glass-card" style="border-left: 3px solid ${s.enabled ? '#3ba55d' : '#666'}">
+                <div class="flex gap-md wrap" style="align-items: flex-start">
+                  <div style="flex: 1; min-width: 200px">
+                    <div style="font-weight: 600; font-size: 0.9rem">
+                      ${escapeHtml(s.name)}
+                      <span class="badge" style="margin-left: 8px; font-size: 0.6rem; background: ${s.enabled ? 'rgba(59,165,93,.2); color: #3ba55d' : 'rgba(255,255,255,.1); color: var(--text-tertiary)'}">
+                        ${s.enabled ? 'Active' : 'Paused'}
+                      </span>
+                    </div>
+                    <div style="font-size: 0.75rem; margin-top: 4px; color: var(--text-secondary)">
+                      <i class="fa-solid fa-magnifying-glass" style="margin-right: 4px"></i>${escapeHtml(s.query)}
+                    </div>
+                    <div class="flex gap-sm wrap" style="margin-top: 6px">
+                      <span class="badge" style="font-size: 0.55rem; background: rgba(102,126,234,.15); color: #667eea">${escapeHtml(s.engine)}</span>
+                      <span class="badge" style="font-size: 0.55rem; background: rgba(250,166,26,.15); color: #faa61a">${formatFrequency(s.frequency)} ${s.time}</span>
+                    </div>
+                    <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
+                      Lần chạy: ${s.runCount || 0}
+                      ${s.lastRunAt ? ` • Lần cuối: ${new Date(s.lastRunAt).toLocaleString("vi")}` : ""}
+                      ${s.lastError ? ` • Lỗi: ${escapeHtml(s.lastError)}` : ""}
+                    </div>
+                  </div>
+                  <div class="flex gap-xs wrap" style="flex-shrink: 0">
+                    <button class="btn btn-outline btn-small" data-action="run" data-id="${s.id}" title="Chạy ngay">
+                      <i class="fa-solid fa-play"></i>
+                    </button>
+                    ${s.lastResults ? `<button class="btn btn-outline btn-small" data-action="results" data-id="${s.id}" title="Xem kết quả"><i class="fa-solid fa-list"></i></button>` : ''}
+                    <button class="btn btn-outline btn-small" data-action="toggle" data-id="${s.id}" data-enabled="${s.enabled}" title="${s.enabled ? 'Tạm dừng' : 'Kích hoạt'}">
+                      <i class="fa-solid fa-${s.enabled ? 'pause' : 'play'}"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="edit" data-id="${s.id}" title="Sửa">
+                      <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="delete" data-id="${s.id}" title="Xóa" style="--btn-accent: #ff4d4f">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `).join("");
+          } catch (err) {
+            console.error("Load scheduled searches error:", err);
+            Toasts.error("Không thể tải lịch tìm kiếm");
+          }
+        }
+
+        searchesList.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          const { action, id } = btn.dataset;
+
+          if (action === "run") {
+            btn.disabled = true;
+            try {
+              const res = await axios.post(`/api/scheduled-searches/${id}/run`);
+              if (res.data.success) {
+                Toasts.success(`Đã chạy xong (${res.data.results?.length || 0} kết quả)`);
+              } else {
+                Toasts.warning(`Lỗi: ${res.data.error}`);
+              }
+              loadSearches();
+            } catch (err) {
+              Toasts.error("Lỗi chạy tìm kiếm");
+            } finally {
+              btn.disabled = false;
+            }
+          }
+
+          if (action === "results") {
+            try {
+              const res = await axios.get("/api/scheduled-searches");
+              const search = res.data.find(s => s.id === id);
+              if (!search || !search.lastResults) return;
+              resultsContent.innerHTML = search.lastResults.length === 0
+                ? '<p class="text-tertiary">Không có kết quả</p>'
+                : search.lastResults.map(r => `
+                    <div class="glass-card" style="padding: var(--spacing-sm)">
+                      <div style="font-weight: 600; font-size: 0.82rem">${escapeHtml(r.title || r.name || "Untitled")}</div>
+                      ${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: var(--accent-primary)">${escapeHtml(r.url)}</a>` : ''}
+                      ${r.snippet || r.description ? `<div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px">${escapeHtml(r.snippet || r.description)}</div>` : ''}
+                    </div>
+                  `).join("");
+              resultsModal.classList.remove("hidden");
+            } catch { Toasts.error("Lỗi tải kết quả"); }
+          }
+
+          if (action === "toggle") {
+            const isEnabled = btn.dataset.enabled === "true";
+            try {
+              await axios.put(`/api/scheduled-searches/${id}`, { enabled: !isEnabled });
+              Toasts.success(isEnabled ? "Đã tạm dừng" : "Đã kích hoạt");
+              loadSearches();
+            } catch { Toasts.error("Lỗi cập nhật"); }
+          }
+
+          if (action === "edit") {
+            try {
+              const res = await axios.get("/api/scheduled-searches");
+              const search = res.data.find(s => s.id === id);
+              if (!search) return;
+              editingId = id;
+              modalTitle.textContent = "Sửa Lịch Tìm Kiếm";
+              document.getElementById("inputName").value = search.name;
+              document.getElementById("inputQuery").value = search.query;
+              document.getElementById("inputEngine").value = search.engine || "tavily";
+              document.getElementById("inputFrequency").value = search.frequency || "daily";
+              document.getElementById("inputTime").value = search.time || "09:00";
+              document.getElementById("inputEnabled").checked = search.enabled;
+              modalError.classList.add("hidden");
+              modal.classList.remove("hidden");
+            } catch { Toasts.error("Lỗi tải lịch tìm kiếm"); }
+          }
+
+          if (action === "delete") {
+            if (!confirm("Xóa lịch tìm kiếm này?")) return;
+            try {
+              await axios.delete(`/api/scheduled-searches/${id}`);
+              Toasts.success("Đã xóa lịch tìm kiếm");
+              loadSearches();
+            } catch { Toasts.error("Lỗi xóa"); }
+          }
+        });
+
+        document.getElementById("createBtn").addEventListener("click", () => {
+          editingId = null;
+          modalTitle.textContent = "Tạo Lịch Tìm Kiếm";
+          document.getElementById("inputName").value = "";
+          document.getElementById("inputQuery").value = "";
+          document.getElementById("inputEngine").value = "tavily";
+          document.getElementById("inputFrequency").value = "daily";
+          document.getElementById("inputTime").value = "09:00";
+          document.getElementById("inputEnabled").checked = true;
+          modalError.classList.add("hidden");
+          modal.classList.remove("hidden");
+        });
+
+        document.getElementById("modalSave").addEventListener("click", async () => {
+          const name = document.getElementById("inputName").value.trim();
+          const query = document.getElementById("inputQuery").value.trim();
+          const engine = document.getElementById("inputEngine").value;
+          const frequency = document.getElementById("inputFrequency").value;
+          const time = document.getElementById("inputTime").value;
+          const enabled = document.getElementById("inputEnabled").checked;
+
+          if (!name || !query) {
+            modalError.textContent = "Vui lòng nhập tên và truy vấn";
+            modalError.classList.remove("hidden");
+            return;
+          }
+
+          try {
+            if (editingId) {
+              await axios.put(`/api/scheduled-searches/${editingId}`, { name, query, engine, frequency, time, enabled });
+              Toasts.success("Đã cập nhật lịch tìm kiếm");
+            } else {
+              await axios.post("/api/scheduled-searches", { name, query, engine, frequency, time, enabled });
+              Toasts.success("Đã tạo lịch tìm kiếm");
+            }
+            modal.classList.add("hidden");
+            loadSearches();
+          } catch (err) {
+            modalError.textContent = err.response?.data?.error || "Lỗi lưu";
+            modalError.classList.remove("hidden");
+          }
+        });
+
+        document.getElementById("modalCancel").addEventListener("click", () => modal.classList.add("hidden"));
+        modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+        document.getElementById("resultsClose").addEventListener("click", () => resultsModal.classList.add("hidden"));
+        resultsModal.addEventListener("click", (e) => { if (e.target === resultsModal) resultsModal.classList.add("hidden"); });
+
+        loadSearches();
+      });
+    </script>
+  </body>
+</html>
+

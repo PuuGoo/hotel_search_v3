@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profile | Hotel Search</title>
+    <meta name="description" content="Quản lý tài khoản cá nhân" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/bookmarks" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Bookmarks</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 800px">
+      <!-- Profile Info -->
+      <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="flex" style="align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md)">
+          <div style="width: 64px; height: 64px; border-radius: 18px; background: var(--primary-gradient); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: #fff; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4)">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div>
+            <h1 id="profileDisplayName" class="gradient-text" style="font-size: 1.4rem; margin: 0"></h1>
+            <div class="text-secondary" style="font-size: 0.82rem" id="profileUsername"></div>
+          </div>
+          <span id="profileRole" class="badge" style="margin-left: auto"></span>
+        </div>
+        <div class="form-row" style="font-size: 0.82rem">
+          <div class="form-col">
+            <div class="text-tertiary" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px">Ngày tạo</div>
+            <div id="profileCreatedAt">-</div>
+          </div>
+          <div class="form-col">
+            <div class="text-tertiary" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px">Chức năng</div>
+            <div id="profileFeatures">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Profile -->
+      <div class="glass-card" style="margin-bottom: var(--spacing-md)">
+        <div class="card-header"><i class="fa-solid fa-user-pen"></i> Chỉnh sửa hồ sơ</div>
+        <form id="profileForm" class="stack-sm">
+          <div class="form-col">
+            <label for="editDisplayName">Tên hiển thị</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-signature"></i></span>
+              <input id="editDisplayName" type="text" class="has-icon" maxlength="50" required placeholder="Nhập tên hiển thị" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-modern" style="margin-top: var(--spacing-xs)">
+            <i class="fa-solid fa-floppy-disk"></i><span>Lưu thay đổi</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Activity Stats -->
+      <div class="glass-card animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="card-header"><i class="fa-solid fa-chart-line"></i> Hoạt động</div>
+        <div class="form-row" style="margin-bottom: 0">
+          <div class="form-col" style="text-align: center">
+            <div id="statSearchCount" style="font-size: 1.6rem; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent">--</div>
+            <div class="text-tertiary" style="font-size: 0.72rem">Tổng tìm kiếm</div>
+          </div>
+          <div class="form-col" style="text-align: center">
+            <div id="statRecentSearches" style="font-size: 1.6rem; font-weight: 700; background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent">--</div>
+            <div class="text-tertiary" style="font-size: 0.72rem">Tìm kiếm (24h)</div>
+          </div>
+          <div class="form-col" style="text-align: center">
+            <div id="statBookmarks" style="font-size: 1.6rem; font-weight: 700; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent">--</div>
+            <div class="text-tertiary" style="font-size: 0.72rem">Bookmarks</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Change Password -->
+      <div class="glass-card" style="margin-bottom: var(--spacing-md)">
+        <div class="card-header"><i class="fa-solid fa-key"></i> Đổi mật khẩu</div>
+        <form id="passwordForm" class="stack-sm">
+          <div class="form-col">
+            <label for="oldPassword">Mật khẩu hiện tại</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+              <input id="oldPassword" type="password" class="has-icon" autocomplete="current-password" required placeholder="Nhập mật khẩu hiện tại" />
+            </div>
+          </div>
+          <div class="form-col">
+            <label for="newPassword">Mật khẩu mới</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+              <input id="newPassword" type="password" class="has-icon" autocomplete="new-password" required placeholder="Tối thiểu 8 ký tự" />
+            </div>
+          </div>
+          <div class="form-col">
+            <label for="confirmPassword">Xác nhận mật khẩu mới</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-shield-halved"></i></span>
+              <input id="confirmPassword" type="password" class="has-icon" autocomplete="new-password" required placeholder="Nhập lại mật khẩu mới" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-modern" style="margin-top: var(--spacing-xs)">
+            <i class="fa-solid fa-check"></i><span>Đổi mật khẩu</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Search History -->
+      <div class="glass-card">
+        <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm)">
+          <div class="card-header" style="margin: 0"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử tìm kiếm</div>
+          <div class="flex gap-xs">
+            <select id="historyEngineFilter" style="font-size: 0.72rem; padding: 4px 8px; width: auto">
+              <option value="">Tất cả</option>
+              <option value="tavily">Tavily</option>
+              <option value="google">Google</option>
+              <option value="ddg">DuckDuckGo</option>
+            </select>
+            <button id="clearHistoryBtn" class="btn btn-outline btn-small" title="Xóa lịch sử">
+              <i class="fa-solid fa-trash"></i><span>Xóa tất cả</span>
+            </button>
+          </div>
+        </div>
+        <div id="historyList" style="max-height: 400px; overflow: auto"></div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+      import { createPasswordStrengthIndicator } from "/passwordStrength.js";
+      import { initSessionTimeout } from "/sessionTimeout.js";
+      initSessionTimeout();
+
+      const featureLabels = { tavily: "Tavily", ddg: "DuckDuckGo", case12: "Case12" };
+      const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+      const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+
+      // Load profile
+      async function loadProfile() {
+        try {
+          const res = await fetch("/api/me");
+          if (!res.ok) throw new Error("Not authenticated");
+          const user = await res.json();
+
+          document.getElementById("profileDisplayName").textContent = user.displayName || user.username;
+          document.getElementById("profileUsername").textContent = "@" + user.username;
+          document.getElementById("profileRole").textContent = user.role === "admin" ? "Admin" : "User";
+          document.getElementById("profileRole").style.background = user.role === "admin" ? "var(--primary-gradient)" : "rgba(255,255,255,0.15)";
+
+          if (user.role === "admin") {
+            document.getElementById("adminLink").style.display = "";
+          }
+
+          const features = user.features || [];
+          if (features.length > 0) {
+            document.getElementById("profileFeatures").innerHTML = features.map(f =>
+              `<span class="badge" style="background:rgba(102,126,234,.3);margin-right:4px">${escapeHtml(featureLabels[f] || f)}</span>`
+            ).join("");
+          } else {
+            document.getElementById("profileFeatures").textContent = "Không có";
+          }
+
+          if (user.createdAt) {
+            document.getElementById("profileCreatedAt").textContent = new Date(user.createdAt).toLocaleString("vi-VN");
+          }
+          document.getElementById("editDisplayName").value = user.displayName || user.username;
+        } catch {
+          window.location.href = "/";
+        }
+      }
+
+      // Profile edit form
+      document.getElementById("profileForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const displayName = document.getElementById("editDisplayName").value.trim();
+        if (!displayName) {
+          Toasts.error("Tên hiển thị không được để trống");
+          return;
+        }
+        try {
+          const res = await fetch("/api/me", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ displayName }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success("Cập nhật hồ sơ thành công");
+            document.getElementById("profileDisplayName").textContent = data.displayName;
+          } else {
+            Toasts.error(data.error || "Lỗi cập nhật");
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+
+      // Password form
+      document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const oldPassword = document.getElementById("oldPassword").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        if (newPassword !== confirmPassword) {
+          Toasts.error("Mật khẩu mới không khớp");
+          return;
+        }
+        if (newPassword.length < 8) {
+          Toasts.error("Mật khẩu mới phải >= 8 ký tự");
+          return;
+        }
+        // Check password strength requirements
+        if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(newPassword)) {
+          Toasts.error("Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/change-password", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ oldPassword, newPassword }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success("Đổi mật khẩu thành công");
+            document.getElementById("oldPassword").value = "";
+            document.getElementById("newPassword").value = "";
+            document.getElementById("confirmPassword").value = "";
+          } else {
+            Toasts.error(data.error || "Lỗi đổi mật khẩu");
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+
+      // Search history
+      async function loadHistory() {
+        const engine = document.getElementById("historyEngineFilter").value;
+        const url = engine ? `/api/search-history?engine=${engine}` : "/api/search-history";
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          const list = document.getElementById("historyList");
+          const items = data.history || [];
+
+          if (items.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:0.82rem"><i class="fa-solid fa-clock-rotate-left" style="font-size:1.4rem;display:block;margin-bottom:8px;opacity:0.4"></i>Chưa có lịch sử tìm kiếm</div>';
+            return;
+          }
+
+          list.innerHTML = items.map(h => {
+            const time = new Date(h.timestamp).toLocaleString("vi-VN");
+            const icon = engineIcons[h.engine] || "fa-search";
+            const color = engineColors[h.engine] || "#667eea";
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">
+              <i class="fa-solid ${icon}" style="color:${color};font-size:.8rem;width:20px;text-align:center"></i>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.82rem" title="${escapeHtml(h.query)}">${escapeHtml(h.query)}</span>
+              <span class="badge" style="font-size:.6rem;background:rgba(255,255,255,.1)">${escapeHtml(engineLabels[h.engine] || h.engine)}</span>
+              <span style="font-size:.65rem;color:var(--text-tertiary)">${h.resultCount || 0} kết quả</span>
+              <span style="font-size:.65rem;color:var(--text-tertiary);min-width:90px;text-align:right">${time}</span>
+              <button class="btn btn-outline btn-small btn-delete-history" data-id="${h.id}" style="padding:2px 6px;font-size:.6rem" title="Xóa">
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>`;
+          }).join("");
+
+          list.querySelectorAll(".btn-delete-history").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              try {
+                const res = await fetch(`/api/search-history/${btn.dataset.id}`, { method: "DELETE" });
+                if (res.ok) {
+                  Toasts.success("Đã xóa");
+                  loadHistory();
+                }
+              } catch {
+                Toasts.error("Lỗi xóa");
+              }
+            });
+          });
+        } catch {
+          document.getElementById("historyList").innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)">Lỗi tải lịch sử</div>';
+        }
+      }
+
+      document.getElementById("historyEngineFilter").addEventListener("change", loadHistory);
+
+      document.getElementById("clearHistoryBtn").addEventListener("click", async () => {
+        if (!confirm("Xóa toàn bộ lịch sử tìm kiếm?")) return;
+        try {
+          const res = await fetch("/api/search-history", { method: "DELETE" });
+          if (res.ok) {
+            Toasts.success("Đã xóa lịch sử");
+            loadHistory();
+          }
+        } catch {
+          Toasts.error("Lỗi xóa lịch sử");
+        }
+      });
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      // Password strength indicator
+      createPasswordStrengthIndicator(document.getElementById("newPassword"));
+
+      loadProfile();
+      loadHistory();
+
+      // Load stats
+      async function loadStats() {
+        try {
+          const res = await fetch("/api/me/stats");
+          const stats = await res.json();
+          document.getElementById("statSearchCount").textContent = stats.searchCount;
+          document.getElementById("statRecentSearches").textContent = stats.recentSearches;
+          document.getElementById("statBookmarks").textContent = stats.bookmarkCount;
+        } catch {}
+      }
+      loadStats();
+    </script>
+    <script type="module" src="/ui.js"></script>
+  </body>
+</html>
+

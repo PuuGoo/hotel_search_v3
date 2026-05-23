@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Activity</title>
+    <meta name="description" content="Your activity timeline" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .activity-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .stat-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #3ba55d, #2d7d46); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+      .timeline-item { display: flex; gap: var(--spacing-md); padding: 12px 0; border-bottom: 1px solid var(--glass-border); }
+      .timeline-item:last-child { border-bottom: none; }
+      .timeline-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.75rem; }
+      .dot-search { background: #5865f222; color: #5865f2; }
+      .dot-bookmark { background: #faa61a22; color: #faa61a; }
+      .dot-login { background: #3ba55d22; color: #3ba55d; }
+      .dot-settings { background: #e74c3c22; color: #e74c3c; }
+      .dot-default { background: #747f8d22; color: #747f8d; }
+      .timeline-content { flex: 1; min-width: 0; }
+      .timeline-action { font-weight: 600; font-size: 0.85rem; }
+      .timeline-details { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
+      .timeline-time { font-size: 0.7rem; color: var(--text-tertiary); }
+      .pagination { display: flex; align-items: center; gap: var(--spacing-sm); justify-content: center; }
+      .freq-bar { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
+      .freq-bar:last-child { border-bottom: none; }
+      .freq-count { min-width: 30px; text-align: right; font-weight: 600; }
+      .freq-fill { height: 6px; background: #5865f2; border-radius: 3px; transition: width 0.3s; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>My Activity</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-clock-rotate-left"></i> My Activity
+        </h1>
+        <div class="flex gap-sm" style="margin-left: auto">
+          <button id="refreshBtn" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+          <button id="clearBtn" class="btn btn-outline btn-small" style="color: #e74c3c">
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md)">
+        <div class="activity-card" style="text-align: center">
+          <div class="stat-value" id="totalActivities">0</div>
+          <div class="stat-label">Total Activities</div>
+        </div>
+        <div class="activity-card" style="text-align: center">
+          <div class="stat-value" id="todayActivities">0</div>
+          <div class="stat-label">Today</div>
+        </div>
+        <div class="activity-card" style="text-align: center">
+          <div class="stat-value" id="weekActivities">0</div>
+          <div class="stat-label">This Week</div>
+        </div>
+      </div>
+
+      <!-- By Action -->
+      <div class="activity-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-chart-bar"></i> Activity by Type
+        </h3>
+        <div id="byAction"></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="activity-card">
+        <div class="flex gap-sm wrap">
+          <select id="actionFilter" style="flex: 1; min-width: 150px">
+            <option value="">All Activities</option>
+          </select>
+          <button id="filterBtn" class="btn btn-primary btn-small">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="activity-card">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-timeline"></i> Timeline
+          <span id="activityCount" class="badge" style="font-size: 0.6rem; margin-left: 8px">0</span>
+        </h3>
+        <div id="activityTimeline"></div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <span id="pageInfo" style="font-size: 0.82rem">Page 1 of 1</span>
+        <button id="nextBtn" class="btn btn-outline btn-small" disabled>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        const ACTION_ICONS = {
+          search: "fa-magnifying-glass",
+          bookmark: "fa-bookmark",
+          login: "fa-right-to-bracket",
+          logout: "fa-right-from-bracket",
+          settings: "fa-gear",
+          export: "fa-download",
+          import: "fa-upload",
+          share: "fa-share-nodes",
+          delete: "fa-trash",
+          create: "fa-plus",
+          update: "fa-pen",
+        };
+
+        function dotClass(action) {
+          if (!action) return "dot-default";
+          if (action.includes("search")) return "dot-search";
+          if (action.includes("bookmark")) return "dot-bookmark";
+          if (action.includes("login") || action.includes("logout")) return "dot-login";
+          if (action.includes("setting") || action.includes("preference")) return "dot-settings";
+          return "dot-default";
+        }
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;');
+        }
+
+        function formatTime(ts) {
+          return new Date(ts).toLocaleString();
+        }
+
+        function timeAgo(ts) {
+          const diff = Date.now() - ts;
+          if (diff < 60000) return "just now";
+          if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+          if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+          return Math.floor(diff / 86400000) + "d ago";
+        }
+
+        async function loadStats() {
+          try {
+            const { data } = await axios.get("/api/activity/stats");
+            document.getElementById("totalActivities").textContent = data.total;
+            document.getElementById("todayActivities").textContent = data.recentCount;
+            document.getElementById("weekActivities").textContent = data.weekCount;
+
+            // By action
+            const container = document.getElementById("byAction");
+            const entries = Object.entries(data.byAction).sort(([, a], [, b]) => b - a);
+            if (entries.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem">No activity yet</p>';
+            } else {
+              const max = Math.max(...entries.map(([, v]) => v), 1);
+              container.innerHTML = entries.map(([action, count]) => `
+                <div class="freq-bar">
+                  <span style="min-width: 100px; font-weight: 500">${escapeHtml(action)}</span>
+                  <div style="flex: 1">
+                    <div class="freq-fill" style="width: ${(count / max) * 100}%"></div>
+                  </div>
+                  <span class="freq-count">${count}</span>
+                </div>
+              `).join("");
+            }
+
+            // Populate filter dropdown
+            const select = document.getElementById("actionFilter");
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">All Activities</option>' +
+              entries.map(([action]) => `<option value="${action}" ${action === currentVal ? 'selected' : ''}>${escapeHtml(action)}</option>`).join("");
+          } catch {}
+        }
+
+        async function loadActivities() {
+          const action = document.getElementById("actionFilter").value;
+
+          try {
+            const params = { page: currentPage, limit: 30 };
+            if (action) params.action = action;
+
+            const { data } = await axios.get("/api/activity", { params });
+
+            document.getElementById("activityCount").textContent = data.total;
+            totalPages = data.totalPages;
+            document.getElementById("pageInfo").textContent = `Page ${data.page} of ${totalPages || 1}`;
+            document.getElementById("prevBtn").disabled = data.page <= 1;
+            document.getElementById("nextBtn").disabled = !data.hasMore;
+
+            const container = document.getElementById("activityTimeline");
+            if (data.activities.length === 0) {
+              container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">No activities found</p>';
+              return;
+            }
+
+            container.innerHTML = data.activities.map(a => {
+              const icon = ACTION_ICONS[a.action] || "fa-circle-dot";
+              const details = a.details ? Object.entries(a.details).map(([k, v]) => `${k}: ${v}`).join(", ") : "";
+              return `
+                <div class="timeline-item">
+                  <div class="timeline-dot ${dotClass(a.action)}">
+                    <i class="fa-solid ${icon}"></i>
+                  </div>
+                  <div class="timeline-content">
+                    <div class="timeline-action">${escapeHtml(a.action)}</div>
+                    ${details ? `<div class="timeline-details">${escapeHtml(details)}</div>` : ''}
+                    <div class="timeline-time">${formatTime(a.timestamp)} (${timeAgo(a.timestamp)})</div>
+                  </div>
+                </div>
+              `;
+            }).join("");
+          } catch {
+            document.getElementById("activityTimeline").innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; padding: 16px">Failed to load activities</p>';
+          }
+        }
+
+        document.getElementById("filterBtn").addEventListener("click", () => {
+          currentPage = 1;
+          loadActivities();
+        });
+
+        document.getElementById("prevBtn").addEventListener("click", () => {
+          if (currentPage > 1) { currentPage--; loadActivities(); }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          if (currentPage < totalPages) { currentPage++; loadActivities(); }
+        });
+
+        document.getElementById("refreshBtn").addEventListener("click", () => {
+          loadStats();
+          loadActivities();
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", async () => {
+          if (!confirm("Clear all your activity history?")) return;
+          try {
+            await axios.delete("/api/activity");
+            Toasts.success("Activity cleared");
+            loadStats();
+            loadActivities();
+          } catch {
+            Toasts.error("Failed to clear activity");
+          }
+        });
+
+        loadStats();
+        loadActivities();
+      });
+    </script>
+  </body>
+</html>
+

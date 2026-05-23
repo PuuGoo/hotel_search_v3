@@ -68,3 +68,12 @@ export function validateCsrfToken(req, res, next) {
 
   next();
 }
+
+/**
+ * Rotate CSRF token — call after privilege escalation (login, password change, 2FA).
+ * Invalidates the old token and issues a new one.
+ */
+export function rotateCsrfToken(req, _res, next) {
+  req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  next();
+}

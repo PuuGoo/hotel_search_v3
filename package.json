@@ -22,6 +22,7 @@
     "@vercel/analytics": "^1.5.0",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -29,9 +30,10 @@
     "helmet": "^8.2.0",
     "http-proxy-middleware": "^3.0.5",
     "multer": "^1.4.5-lts.2",
-    "swagger-jsdoc": "^6.2.8",
+    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
-    "tldts": "^7.0.2"
+    "tldts": "^7.0.2",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

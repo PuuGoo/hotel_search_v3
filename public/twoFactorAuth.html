@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Two-Factor Authentication</title>
+    <meta name="description" content="2FA setup and management" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .tfa-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-lg); max-width: 500px; margin: 0 auto; }
+      .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+      .status-enabled { background: #3ba55d22; color: #3ba55d; }
+      .status-disabled { background: #747f8d22; color: #747f8d; }
+      .status-pending { background: #faa61a22; color: #faa61a; }
+      .qr-container { text-align: center; padding: var(--spacing-md); }
+      .qr-container canvas { border-radius: var(--radius-md); }
+      .secret-display { font-family: monospace; font-size: 0.9rem; padding: 12px; background: rgba(0,0,0,.2); border-radius: var(--radius-md); word-break: break-all; text-align: center; letter-spacing: 2px; }
+      .code-input { font-family: monospace; font-size: 1.5rem; text-align: center; letter-spacing: 8px; padding: 12px; width: 200px; }
+      .step { display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
+      .step-number { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; }
+      .step-content { flex: 1; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Two-Factor Auth</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/profile" class="btn btn-outline btn-small" title="Profile"><i class="fa-solid fa-user"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="text-align: center; font-size: 1.8rem">
+        <i class="fa-solid fa-shield-halved"></i> Two-Factor Authentication
+      </h1>
+
+      <!-- Status -->
+      <div class="tfa-card" style="text-align: center">
+        <p style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">Current Status</p>
+        <div id="statusBadge" class="status-badge status-disabled">
+          <i class="fa-solid fa-circle-xmark"></i> Disabled
+        </div>
+      </div>
+
+      <!-- Setup Section -->
+      <div id="setupSection" class="tfa-card" style="display: none">
+        <h2 style="margin: 0 0 var(--spacing-md); font-size: 1.1rem">
+          <i class="fa-solid fa-qrcode"></i> Setup 2FA
+        </h2>
+
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p style="font-size: 0.85rem; margin: 0 0 var(--spacing-sm)">Install an authenticator app (Google Authenticator, Authy, etc.)</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p style="font-size: 0.85rem; margin: 0 0 var(--spacing-sm)">Scan this QR code with your app:</p>
+            <div class="qr-container">
+              <canvas id="qrCanvas"></canvas>
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-tertiary); margin: var(--spacing-sm) 0">Or enter this secret manually:</p>
+            <div id="secretDisplay" class="secret-display"></div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p style="font-size: 0.85rem; margin: 0 0 var(--spacing-sm)">Enter the 6-digit code from your app:</p>
+            <div class="flex gap-sm center">
+              <input id="verifyCode" type="text" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="off" />
+              <button id="verifyBtn" class="btn btn-primary">
+                <i class="fa-solid fa-check"></i> Verify
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disable Section -->
+      <div id="disableSection" class="tfa-card" style="display: none">
+        <h2 style="margin: 0 0 var(--spacing-md); font-size: 1.1rem">
+          <i class="fa-solid fa-shield-halved"></i> Disable 2FA
+        </h2>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--spacing-md)">
+          Enter your current 2FA code to disable two-factor authentication.
+        </p>
+        <div class="flex gap-sm center">
+          <input id="disableCode" type="text" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="off" />
+          <button id="disableBtn" class="btn btn-outline" style="color: #e74c3c; border-color: #e74c3c">
+            <i class="fa-solid fa-xmark"></i> Disable
+          </button>
+        </div>
+      </div>
+
+      <!-- Setup Button -->
+      <div id="setupBtnSection" class="tfa-card" style="text-align: center; display: none">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--spacing-md)">
+          Protect your account with two-factor authentication using a TOTP authenticator app.
+        </p>
+        <button id="setupBtn" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i> Setup 2FA
+        </button>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        function updateUI(status) {
+          const badge = document.getElementById("statusBadge");
+          const setupSection = document.getElementById("setupSection");
+          const disableSection = document.getElementById("disableSection");
+          const setupBtnSection = document.getElementById("setupBtnSection");
+
+          if (status.enabled) {
+            badge.className = "status-badge status-enabled";
+            badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Enabled';
+            setupSection.style.display = "none";
+            disableSection.style.display = "block";
+            setupBtnSection.style.display = "none";
+          } else if (status.setupPending) {
+            badge.className = "status-badge status-pending";
+            badge.innerHTML = '<i class="fa-solid fa-clock"></i> Setup Pending';
+            setupSection.style.display = "block";
+            disableSection.style.display = "none";
+            setupBtnSection.style.display = "none";
+            loadSetupData();
+          } else {
+            badge.className = "status-badge status-disabled";
+            badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Disabled';
+            setupSection.style.display = "none";
+            disableSection.style.display = "none";
+            setupBtnSection.style.display = "block";
+          }
+        }
+
+        async function checkStatus() {
+          try {
+            const { data } = await axios.get("/api/2fa/status");
+            updateUI(data);
+          } catch {
+            Toasts.error("Failed to check 2FA status");
+          }
+        }
+
+        async function loadSetupData() {
+          // The secret was already generated during setup, we need to get it again
+          // For security, we regenerate on each page load during pending state
+          try {
+            const { data } = await axios.post("/api/2fa/setup");
+            const secretDisplay = document.getElementById("secretDisplay");
+            secretDisplay.textContent = data.secret;
+
+            if (window.QRCode) {
+              QRCode.toCanvas(document.getElementById("qrCanvas"), data.uri, {
+                width: 200,
+                margin: 2,
+                color: { dark: "#ffffff", light: "#000000" },
+              });
+            }
+          } catch {
+            Toasts.error("Failed to load 2FA setup data");
+          }
+        }
+
+        document.getElementById("setupBtn").addEventListener("click", async () => {
+          try {
+            await axios.post("/api/2fa/setup");
+            checkStatus();
+          } catch {
+            Toasts.error("Failed to start 2FA setup");
+          }
+        });
+
+        document.getElementById("verifyBtn").addEventListener("click", async () => {
+          const code = document.getElementById("verifyCode").value.trim();
+          if (code.length !== 6) {
+            Toasts.warning("Enter a 6-digit code");
+            return;
+          }
+
+          try {
+            await axios.post("/api/2fa/verify", { code });
+            Toasts.success("2FA enabled successfully!");
+            document.getElementById("verifyCode").value = "";
+            checkStatus();
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Invalid code");
+          }
+        });
+
+        document.getElementById("disableBtn").addEventListener("click", async () => {
+          const code = document.getElementById("disableCode").value.trim();
+          if (code.length !== 6) {
+            Toasts.warning("Enter a 6-digit code");
+            return;
+          }
+
+          if (!confirm("Disable two-factor authentication?")) return;
+
+          try {
+            await axios.post("/api/2fa/disable", { code });
+            Toasts.success("2FA disabled");
+            document.getElementById("disableCode").value = "";
+            checkStatus();
+          } catch (err) {
+            Toasts.error(err.response?.data?.error || "Invalid code");
+          }
+        });
+
+        // Auto-submit when 6 digits entered
+        document.getElementById("verifyCode").addEventListener("input", (e) => {
+          if (e.target.value.length === 6) {
+            document.getElementById("verifyBtn").click();
+          }
+        });
+
+        document.getElementById("disableCode").addEventListener("input", (e) => {
+          if (e.target.value.length === 6) {
+            document.getElementById("disableBtn").click();
+          }
+        });
+
+        checkStatus();
+      });
+    </script>
+  </body>
+</html>
+

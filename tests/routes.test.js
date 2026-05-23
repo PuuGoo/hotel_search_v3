@@ -62,7 +62,7 @@ describe("Route Integration Tests", () => {
       {
         id: 1,
         username: "admin",
-        password: await bcrypt.hash("admin123", 10),
+        password: await bcrypt.hash("Admin123!", 10),
         displayName: "Admin",
         role: "admin",
         features: ["tavily", "ddg", "case12"],
@@ -71,7 +71,7 @@ describe("Route Integration Tests", () => {
       {
         id: 2,
         username: "testuser",
-        password: await bcrypt.hash("testpass123", 10),
+        password: await bcrypt.hash("Testpass1!", 10),
         displayName: "Test User",
         role: "user",
         features: ["tavily"],
@@ -89,8 +89,8 @@ describe("Route Integration Tests", () => {
     });
 
     // Login once and reuse cookies to avoid rate limiting
-    adminCookie = await loginAs("admin", "admin123");
-    userCookie = await loginAs("testuser", "testpass123");
+    adminCookie = await loginAs("admin", "Admin123!");
+    userCookie = await loginAs("testuser", "Testpass1!");
   });
 
   afterAll((done) => {
@@ -163,7 +163,7 @@ describe("Route Integration Tests", () => {
 
     test("POST /logout should destroy session", async () => {
       // Login a fresh session to logout
-      const cookie = await loginAs("admin", "admin123");
+      const cookie = await loginAs("admin", "Admin123!");
       const res = await fetch(`${baseUrl}/logout`, {
         method: "POST",
         headers: { Cookie: cookie },
@@ -176,7 +176,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(200);
       const data = await res.json();
@@ -185,7 +185,7 @@ describe("Route Integration Tests", () => {
       // Reset password immediately
       const users = JSON.parse(fs.readFileSync(TEST_USERS_FILE, "utf8"));
       const user = users.find((u) => u.username === "testuser");
-      user.password = await bcrypt.hash("testpass123", 10);
+      user.password = await bcrypt.hash("Testpass1!", 10);
       fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2), "utf8");
     });
 
@@ -193,7 +193,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "wrong", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "wrong", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(400);
     });
@@ -225,7 +225,7 @@ describe("Route Integration Tests", () => {
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
         body: JSON.stringify({
           username: "newuser",
-          password: "newpass12345",
+          password: "Newpass123!",
           displayName: "New User",
           role: "user",
           features: ["ddg"],
@@ -246,7 +246,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
-        body: JSON.stringify({ username: "admin", password: "admin1234567" }),
+        body: JSON.stringify({ username: "admin", password: "Admin1234567!" }),
       });
       expect(res.status).toBe(400);
     });
@@ -273,7 +273,7 @@ describe("Route Integration Tests", () => {
 
   describe("CSRF Integration", () => {
     test("should block POST with mismatched origin", async () => {
-      const cookie = await loginAs("admin", "admin123");
+      const cookie = await loginAs("admin", "Admin123!");
       const res = await fetch(`${baseUrl}/api/chat/messages`, {
         method: "POST",
         headers: {
@@ -287,7 +287,7 @@ describe("Route Integration Tests", () => {
     });
 
     test("should allow POST with matching origin", async () => {
-      const cookie = await loginAs("admin", "admin123");
+      const cookie = await loginAs("admin", "Admin123!");
       const res = await fetch(`${baseUrl}/api/chat/messages`, {
         method: "POST",
         headers: {
@@ -302,13 +302,17 @@ describe("Route Integration Tests", () => {
   });
 
   describe("Chat Routes", () => {
-    test("GET /api/chat/messages should return array", async () => {
+    test("GET /api/chat/messages should return paginated response", async () => {
       const res = await fetch(`${baseUrl}/api/chat/messages`, {
         headers: { Cookie: adminCookie },
       });
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(Array.isArray(data)).toBe(true);
+      expect(data).toHaveProperty("messages");
+      expect(data).toHaveProperty("total");
+      expect(data).toHaveProperty("page");
+      expect(data).toHaveProperty("totalPages");
+      expect(Array.isArray(data.messages)).toBe(true);
     });
 
     test("GET /api/chat/messages should reject unauthenticated request", async () => {
@@ -412,14 +416,14 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
-        body: JSON.stringify({ password: "newpassword123" }),
+        body: JSON.stringify({ password: "Newpassword123!" }),
       });
       expect(res.status).toBe(200);
 
       // Reset password back
       const users = JSON.parse(fs.readFileSync(TEST_USERS_FILE, "utf8"));
       const user = users.find((u) => u.id === 2);
-      user.password = await bcrypt.hash("testpass123", 10);
+      user.password = await bcrypt.hash("Testpass1!", 10);
       fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2), "utf8");
     });
 
@@ -479,7 +483,7 @@ describe("Route Integration Tests", () => {
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
         body: JSON.stringify({
           username: "to_delete",
-          password: "deletepass123",
+          password: "Deletepass123!",
           displayName: "To Delete",
           role: "user",
           features: [],
@@ -537,7 +541,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
-        body: JSON.stringify({ newPassword: "newpass12345" }),
+        body: JSON.stringify({ newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(200);
       const data = await res.json();
@@ -546,7 +550,7 @@ describe("Route Integration Tests", () => {
       // Reset password back
       const users = JSON.parse(fs.readFileSync(TEST_USERS_FILE, "utf8"));
       const user = users.find((u) => u.id === 2);
-      user.password = await bcrypt.hash("testpass123", 10);
+      user.password = await bcrypt.hash("Testpass1!", 10);
       fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2), "utf8");
     });
 
@@ -554,14 +558,14 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(200);
 
       // Reset password back
       const users = JSON.parse(fs.readFileSync(TEST_USERS_FILE, "utf8"));
       const user = users.find((u) => u.id === 2);
-      user.password = await bcrypt.hash("testpass123", 10);
+      user.password = await bcrypt.hash("Testpass1!", 10);
       fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2), "utf8");
     });
 
@@ -569,7 +573,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/1/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(403);
     });
@@ -578,7 +582,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "wrongpassword", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "wrongpassword", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(400);
     });
@@ -587,7 +591,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "short" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "short" }),
       });
       expect(res.status).toBe(400);
     });
@@ -596,7 +600,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/2/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword: "newpass12345" }),
+        body: JSON.stringify({ newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(401);
     });
@@ -605,7 +609,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/users/99999/password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: adminCookie },
-        body: JSON.stringify({ newPassword: "newpass12345" }),
+        body: JSON.stringify({ newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(404);
     });
@@ -698,7 +702,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "newtestpass123" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "Newtestpass123!" }),
       });
       expect(res.status).toBe(200);
       const data = await res.json();
@@ -707,7 +711,7 @@ describe("Route Integration Tests", () => {
       // Reset password back
       const users = JSON.parse(fs.readFileSync(TEST_USERS_FILE, "utf8"));
       const user = users.find((u) => u.id === 2);
-      user.password = await bcrypt.hash("testpass123", 10);
+      user.password = await bcrypt.hash("Testpass1!", 10);
       fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2), "utf8");
     });
 
@@ -715,7 +719,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "wrongpassword", newPassword: "newtestpass123" }),
+        body: JSON.stringify({ oldPassword: "wrongpassword", newPassword: "Newtestpass123!" }),
       });
       expect(res.status).toBe(400);
       const data = await res.json();
@@ -726,7 +730,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "newtestpass123" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "Newtestpass123!" }),
       });
       expect(res.status).toBe(401);
     });
@@ -735,7 +739,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123", newPassword: "short" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!", newPassword: "short" }),
       });
       expect(res.status).toBe(400);
     });
@@ -744,7 +748,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: userCookie },
-        body: JSON.stringify({ oldPassword: "testpass123" }),
+        body: JSON.stringify({ oldPassword: "Testpass1!" }),
       });
       expect(res.status).toBe(400);
     });
@@ -761,7 +765,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "admin", password: "admin123" }),
+        body: JSON.stringify({ username: "admin", password: "Admin123!" }),
         redirect: "manual",
       });
       expect(res.status).toBe(302);
@@ -773,7 +777,7 @@ describe("Route Integration Tests", () => {
 
     test("PUT /api/change-password should return 404 when user not found in file", async () => {
       // Login to get a valid session
-      const cookie = await loginAs("admin", "admin123");
+      const cookie = await loginAs("admin", "Admin123!");
 
       // Now overwrite users.json to remove the admin user
       const usersFile = path.join(__dirname, "..", "users.json");
@@ -785,7 +789,7 @@ describe("Route Integration Tests", () => {
       const res = await fetch(`${baseUrl}/api/change-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: cookie },
-        body: JSON.stringify({ oldPassword: "admin123", newPassword: "newpass12345" }),
+        body: JSON.stringify({ oldPassword: "Admin123!", newPassword: "Newpass123!" }),
       });
       expect(res.status).toBe(404);
       const data = await res.json();

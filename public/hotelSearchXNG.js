@@ -59,8 +59,41 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!url || !/^https?:\/\//i.test(url)) return "";
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#21d4fd;word-break:break-all;font-size:0.72rem;display:block">${url.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</a>`;
     }).join("") || "-";
-    tr.innerHTML = `<td>${result.order}</td><td>${result.hotelNo || ""}</td><td>${(result.hotelName || "").replace(/</g,"&lt;")}</td><td style="font-size:0.78rem">${(result.hotelAddress || "").replace(/</g,"&lt;")}</td><td style="font-size:0.68rem">${linksHtml}</td>`;
+    const bestLink = (result.matchedLinks || []).find(u => u && /^https?:\/\//i.test(u)) || "";
+    const safeTitle = (result.hotelName || "").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    const safeSnippet = (result.hotelAddress || "").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    const safeUrl = bestLink.replace(/"/g, "&quot;");
+    tr.innerHTML = `<td>${result.order}</td><td>${result.hotelNo || ""}</td><td>${(result.hotelName || "").replace(/</g,"&lt;")}</td><td style="font-size:0.78rem">${(result.hotelAddress || "").replace(/</g,"&lt;")}</td><td style="font-size:0.68rem">${linksHtml}</td><td><button class="btn btn-sm btn-outline-custom btn-bookmark" data-url="${safeUrl}" data-title="${safeTitle}" data-snippet="${safeSnippet}" ${!bestLink ? "disabled" : ""} title="Lưu bookmark"><i class="fa-solid fa-bookmark"></i></button></td>`;
     resultsBody.appendChild(tr);
+
+    const bookmarkBtn = tr.querySelector(".btn-bookmark");
+    if (bookmarkBtn && bestLink) {
+      bookmarkBtn.addEventListener("click", async () => {
+        try {
+          const res = await fetch("/api/bookmarks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: bookmarkBtn.dataset.title || "Untitled",
+              url: bookmarkBtn.dataset.url,
+              snippet: bookmarkBtn.dataset.snippet || "",
+              engine: "ddg",
+              query: bookmarkBtn.dataset.title || "",
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            if (typeof Toasts !== "undefined") Toasts.success("Đã bookmark");
+            bookmarkBtn.disabled = true;
+            bookmarkBtn.style.opacity = "0.4";
+          } else {
+            if (typeof Toasts !== "undefined") Toasts.error(data.error || "Lỗi bookmark");
+          }
+        } catch {
+          if (typeof Toasts !== "undefined") Toasts.error("Lỗi kết nối");
+        }
+      });
+    }
     if (resultsCount) resultsCount.textContent = resultsBody.querySelectorAll("tr").length;
   }
 

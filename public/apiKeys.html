@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API Key Management</title>
+    <meta name="description" content="Manage API keys for search providers" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+    <style>
+      .provider-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+      .provider-header { display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
+      .provider-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+      .key-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 12px; background: rgba(0,0,0,.15); border-radius: var(--radius-md); margin-bottom: 8px; }
+      .key-row.active { border: 1px solid var(--accent-primary, #667eea); background: rgba(102,126,234,.1); }
+      .key-value { font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); flex: 1; }
+      .active-badge { font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; background: rgba(59,165,93,.2); color: #3ba55d; font-weight: 600; }
+      .add-key-form { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
+      .add-key-form input { flex: 1; font-family: monospace; font-size: 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to content</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>API Keys</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/admin-dashboard" class="btn btn-outline btn-small" title="Admin"><i class="fa-solid fa-shield-halved"></i></a>
+          <a href="/system-health" class="btn btn-outline btn-small" title="System"><i class="fa-solid fa-heartbeat"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Toggle theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-key"></i> API Key Management
+      </h1>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-lg)">
+        <div class="provider-card" id="tavilyCard">
+          <div class="provider-header">
+            <div class="provider-icon" style="background: #667eea22; color: #667eea">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 1rem">Tavily</h3>
+              <p class="text-tertiary" style="margin: 2px 0 0; font-size: 0.72rem">AI-powered web search</p>
+            </div>
+            <button class="btn btn-outline btn-small test-btn" data-provider="tavily" style="margin-left: auto">
+              <i class="fa-solid fa-vial"></i> Test
+            </button>
+          </div>
+          <div id="tavilyKeys" class="stack-xs"></div>
+          <div class="add-key-form">
+            <input type="text" id="tavilyInput" placeholder="tvly-..." autocomplete="off" />
+            <button class="btn btn-primary btn-small add-btn" data-provider="tavily">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="provider-card" id="googleCard">
+          <div class="provider-header">
+            <div class="provider-icon" style="background: #3ba55d22; color: #3ba55d">
+              <i class="fa-brands fa-google"></i>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 1rem">Google</h3>
+              <p class="text-tertiary" style="margin: 2px 0 0; font-size: 0.72rem">Google Custom Search API</p>
+            </div>
+            <button class="btn btn-outline btn-small test-btn" data-provider="google" style="margin-left: auto">
+              <i class="fa-solid fa-vial"></i> Test
+            </button>
+          </div>
+          <div id="googleKeys" class="stack-xs"></div>
+          <div class="add-key-form">
+            <input type="text" id="googleInput" placeholder="AIza..." autocomplete="off" />
+            <button class="btn btn-primary btn-small add-btn" data-provider="google">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="testResult" class="glass-card" style="display: none">
+        <h3 style="margin: 0 0 var(--spacing-sm); font-size: 0.9rem">
+          <i class="fa-solid fa-vial"></i> Test Result
+        </h3>
+        <div id="testContent"></div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js?v=2"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        async function loadKeys() {
+          try {
+            const { data } = await axios.get("/api/admin/api-keys");
+            for (const [provider, info] of Object.entries(data)) {
+              renderKeys(provider, info);
+            }
+          } catch (err) {
+            Toasts.error("Failed to load API keys");
+          }
+        }
+
+        function renderKeys(provider, info) {
+          const container = document.getElementById(`${provider}Keys`);
+          if (!container) return;
+
+          if (info.keys.length === 0) {
+            container.innerHTML = '<p class="text-tertiary" style="font-size: 0.78rem; margin: 0">No keys configured</p>';
+            return;
+          }
+
+          container.innerHTML = info.keys.map(k => `
+            <div class="key-row ${k.active ? 'active' : ''}">
+              <span class="key-value">${escapeHtml(k.masked)}</span>
+              ${k.active ? '<span class="active-badge">ACTIVE</span>' : ''}
+              ${!k.active ? `<button class="btn btn-outline btn-small activate-btn" data-provider="${provider}" data-index="${k.index}" title="Set as active">
+                <i class="fa-solid fa-check"></i>
+              </button>` : ''}
+              <button class="btn btn-outline btn-small delete-btn" data-provider="${provider}" data-index="${k.index}" title="Delete" style="color: #e74c3c">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          `).join("");
+
+          // Event listeners
+          container.querySelectorAll(".activate-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              try {
+                await axios.put(`/api/admin/api-keys/${btn.dataset.provider}/active`, { index: parseInt(btn.dataset.index) });
+                Toasts.success("Active key updated");
+                loadKeys();
+              } catch (err) {
+                Toasts.error("Failed to activate key");
+              }
+            });
+          });
+
+          container.querySelectorAll(".delete-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              if (!confirm("Delete this API key?")) return;
+              try {
+                await axios.delete(`/api/admin/api-keys/${btn.dataset.provider}/${btn.dataset.index}`);
+                Toasts.success("Key deleted");
+                loadKeys();
+              } catch (err) {
+                Toasts.error("Failed to delete key");
+              }
+            });
+          });
+        }
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Add key buttons
+        document.querySelectorAll(".add-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const provider = btn.dataset.provider;
+            const input = document.getElementById(`${provider}Input`);
+            const key = input.value.trim();
+            if (!key) return Toasts.warning("Enter an API key");
+
+            try {
+              await axios.post(`/api/admin/api-keys/${provider}`, { key });
+              Toasts.success("Key added");
+              input.value = "";
+              loadKeys();
+            } catch (err) {
+              if (err.response?.status === 409) {
+                Toasts.warning("Key already exists");
+              } else {
+                Toasts.error(err.response?.data?.error || "Failed to add key");
+              }
+            }
+          });
+        });
+
+        // Test buttons
+        document.querySelectorAll(".test-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const provider = btn.dataset.provider;
+            const input = document.getElementById(`${provider}Input`);
+            const inputKey = input ? input.value.trim() : "";
+            if (!inputKey) {
+              Toasts.warning("Nhập API key vào ô input trước khi test");
+              return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+            try {
+              const { data } = await axios.post(`/api/admin/api-keys/${provider}/test`, { key: inputKey });
+              const container = document.getElementById("testResult");
+              const content = document.getElementById("testContent");
+              container.style.display = "block";
+              let resultsHtml = "";
+              if (data.results && data.results.length > 0) {
+                resultsHtml = `
+                  <div style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,.15); border-radius: 8px; font-size: 0.78rem">
+                    <div style="margin-bottom: 4px; color: var(--text-tertiary)">Kết quả mẫu:</div>
+                    ${data.results.map((r, i) => `
+                      <div style="padding: 3px 0; ${i < data.results.length - 1 ? 'border-bottom: 1px solid rgba(255,255,255,.06)' : ''}">
+                        <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="color: var(--accent-primary)">${escapeHtml(r.title)}</a>
+                      </div>
+                    `).join("")}
+                  </div>
+                `;
+              }
+              content.innerHTML = `
+                <div class="flex gap-sm" style="align-items: center; font-size: 0.85rem">
+                  <i class="fa-solid fa-${data.valid ? 'check-circle' : 'exclamation-triangle'}" style="color: ${data.valid ? '#3ba55d' : '#faa61a'}"></i>
+                  <span><strong>${provider}</strong>: ${escapeHtml(data.message)}</span>
+                  <span class="text-tertiary" style="font-size: 0.7rem">Key: ${escapeHtml(data.masked)}</span>
+                </div>
+                ${resultsHtml}
+              `;
+              if (data.valid) {
+                Toasts.success("Key hoạt động! Bạn có thể lưu key này.");
+              }
+            } catch (err) {
+              Toasts.error(err.response?.data?.error || "Test failed");
+            } finally {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fa-solid fa-vial"></i> Test';
+            }
+          });
+        });
+
+        // Enter key to add
+        document.querySelectorAll(".add-key-form input").forEach(input => {
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              input.closest(".add-key-form").querySelector(".add-btn").click();
+            }
+          });
+        });
+
+        loadKeys();
+      });
+    </script>
+  </body>
+</html>
+

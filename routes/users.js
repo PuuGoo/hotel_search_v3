@@ -1,8 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { readUsers, writeUsers, checkRole, VALID_FEATURES } from "../middleware/auth.js";
-import { validateUserInput } from "../middleware/validation.js";
+import { validateUserInput, validatePasswordStrength, checkPasswordStrength } from "../middleware/validation.js";
 import { rateLimitSearch, rateLimitLogin } from "../middleware/rateLimit.js";
+import { logAudit } from "./audit.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -99,7 +100,7 @@ router.get("/api/users", checkRole("admin"), (_req, res) => {
  */
 
 // Create user (admin only, rate limited)
-router.post("/api/users", checkRole("admin"), rateLimitSearch, validateUserInput, async (req, res) => {
+router.post("/api/users", checkRole("admin"), rateLimitSearch, validateUserInput, validatePasswordStrength, async (req, res) => {
   const { username, password, displayName, role, features } = req.body;
   const users = readUsers();
   if (users.find((u) => u.username === username)) {
@@ -116,6 +117,7 @@ router.post("/api/users", checkRole("admin"), rateLimitSearch, validateUserInput
   };
   users.push(newUser);
   writeUsers(users);
+  logAudit("user_created", { userId: req.session.user?.id, username: req.session.user?.username, ip: req.ip, target: username });
   const { password: _, ...safe } = newUser;
   res.json({ success: true, user: safe });
 });
@@ -196,8 +198,9 @@ router.put("/api/users/:id", checkRole("admin"), async (req, res) => {
   }
   if (role !== undefined) user.role = role === "admin" ? "admin" : "user";
   if (password) {
-    if (typeof password !== "string" || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: "Password must be 8-128 characters" });
+    const { errors } = checkPasswordStrength(password);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: "Password does not meet strength requirements", requirements: errors });
     }
     user.password = await bcrypt.hash(password, 10);
   }
@@ -205,6 +208,7 @@ router.put("/api/users/:id", checkRole("admin"), async (req, res) => {
     user.features = features.filter((f) => VALID_FEATURES.includes(f));
   }
   writeUsers(users);
+  logAudit("user_updated", { userId: req.session.user?.id, username: req.session.user?.username, ip: req.ip, target: user.username, detail: `Updated user #${id}` });
   const { password: _, ...safe } = user;
   res.json({ success: true, user: safe });
 });
@@ -221,13 +225,15 @@ router.delete("/api/users/:id", checkRole("admin"), (req, res) => {
   if (users[idx].username === "admin") {
     return res.status(400).json({ error: "Cannot delete the default admin account" });
   }
+  const deletedUsername = users[idx].username;
   users.splice(idx, 1);
   writeUsers(users);
+  logAudit("user_deleted", { userId: req.session.user?.id, username: req.session.user?.username, ip: req.ip, target: deletedUsername });
   res.json({ success: true });
 });
 
 // Change user password (admin or self, rate limited)
-router.put("/api/users/:id/password", rateLimitLogin, async (req, res) => {
+router.put("/api/users/:id/password", rateLimitLogin, validatePasswordStrength, async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -252,6 +258,38 @@ router.put("/api/users/:id/password", rateLimitLogin, async (req, res) => {
   user.password = await bcrypt.hash(newPassword, 10);
   writeUsers(users);
   res.json({ success: true });
+});
+
+// Admin: get user's bookmarks
+router.get("/api/users/:id/bookmarks", checkRole("admin"), (req, res) => {
+  const userId = Number(req.params.id);
+  const bookmarksFile = path.join(__dirname, "..", "bookmarks.json");
+  try {
+    const allBookmarks = fs.existsSync(bookmarksFile)
+      ? JSON.parse(fs.readFileSync(bookmarksFile, "utf8"))
+      : {};
+    const userBookmarks = allBookmarks[userId] || [];
+    res.json({ bookmarks: userBookmarks, total: userBookmarks.length });
+  } catch (e) {
+    console.error("Error reading user bookmarks:", e.message);
+    res.json({ bookmarks: [], total: 0 });
+  }
+});
+
+// Admin: get user's search history
+router.get("/api/users/:id/history", checkRole("admin"), (req, res) => {
+  const userId = Number(req.params.id);
+  const historyFile = path.join(__dirname, "..", "search_history.json");
+  try {
+    const allHistory = fs.existsSync(historyFile)
+      ? JSON.parse(fs.readFileSync(historyFile, "utf8"))
+      : {};
+    const userHistory = allHistory[userId] || [];
+    res.json({ history: userHistory, total: userHistory.length });
+  } catch (e) {
+    console.error("Error reading user history:", e.message);
+    res.json({ history: [], total: 0 });
+  }
 });
 
 export default router;

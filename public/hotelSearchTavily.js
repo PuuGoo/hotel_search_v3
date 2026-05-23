@@ -1255,6 +1255,8 @@ document.addEventListener("DOMContentLoaded", function () {
           hide(downloadBtnEl);
           hide(jsonBtnEl);
           hide(xlsxBtnEl);
+          const printBtnHide = document.getElementById("printResultsButton");
+          if (printBtnHide) hide(printBtnHide);
           try {
             localStorage.removeItem("tavily_session");
             localStorage.removeItem("runCount");
@@ -1634,7 +1636,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  restoreImportedResultsFromSession();
+  try { restoreImportedResultsFromSession(); } catch (e) {
+    console.warn("Restore session failed:", e);
+    try { localStorage.removeItem("tavily_session"); } catch {}
+  }
 
   const searchBtnEl = document.getElementById("searchButton");
   if (searchBtnEl)
@@ -2251,6 +2256,8 @@ document.addEventListener("DOMContentLoaded", function () {
           if (jsonBtnEl) show(jsonBtnEl, "inline-flex");
           const xlsxBtnEl = document.getElementById("downloadXLSXButton");
           if (xlsxBtnEl) show(xlsxBtnEl, "inline-flex");
+          const printBtnEl = document.getElementById("printResultsButton");
+          if (printBtnEl) show(printBtnEl, "inline-flex");
           // prepare filename containing timestamp and current count
           const now = new Date();
           const ts = now.toISOString().replace(/[:.]/g, "-");
@@ -3205,6 +3212,8 @@ function appendResultRow(row, options = {}) {
     <td>${matchedLinksCount}</td>
     <td>
       <button class="btn btn-sm btn-outline-custom" data-action="open-all">Mở tất cả</button>
+      <button class="btn btn-sm btn-outline-custom" data-action="bookmark" title="Lưu bookmark"><i class="fa-solid fa-bookmark"></i></button>
+      <button class="btn btn-sm btn-outline-custom" data-action="share" title="Chia sẻ kết quả"><i class="fa-solid fa-share-nodes"></i></button>
     </td>
   `;
 
@@ -3232,6 +3241,81 @@ function appendResultRow(row, options = {}) {
       openUrlsWithDelay(uniqueUrls);
     });
   }
+
+  // Bookmark button handler
+  const bookmarkBtn = tr.querySelector('button[data-action="bookmark"]');
+  if (bookmarkBtn) {
+    const bestLink = uniqueUrls[0] || "";
+    bookmarkBtn.addEventListener("click", async () => {
+      if (!bestLink) {
+        Toasts.warning("Không có link để bookmark");
+        return;
+      }
+      try {
+        const res = await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: row.hotelName || "Untitled",
+            url: bestLink,
+            snippet: row.hotelAddress || "",
+            engine: "tavily",
+            query: row.hotelName || "",
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          Toasts.success("Đã bookmark");
+          bookmarkBtn.disabled = true;
+          bookmarkBtn.style.opacity = "0.4";
+        } else {
+          Toasts.error(data.error || "Lỗi bookmark");
+        }
+      } catch {
+        Toasts.error("Lỗi kết nối");
+      }
+    });
+  }
+
+  // Share button handler
+  const shareBtn = tr.querySelector('button[data-action="share"]');
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const shareResults = links
+        .filter((l) => l && (typeof l === "string" || l.url))
+        .map((l) => ({
+          title: typeof l === "string" ? row.hotelName : (l.title || row.hotelName),
+          url: typeof l === "string" ? l : l.url,
+          snippet: row.hotelAddress || "",
+        }));
+      if (shareResults.length === 0) {
+        Toasts.warning("Không có kết quả để chia sẻ");
+        return;
+      }
+      try {
+        const res = await fetch("/api/shares", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: row.hotelName || "Unknown",
+            engine: "ddg",
+            results: shareResults,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const fullUrl = `${window.location.origin}${data.url}`;
+          await navigator.clipboard.writeText(fullUrl);
+          Toasts.success("Đã sao chép link chia sẻ");
+        } else {
+          Toasts.error(data.error || "Lỗi chia sẻ");
+        }
+      } catch {
+        Toasts.error("Lỗi kết nối");
+      }
+    });
+  }
+
   // Note: per-row inline "Sao chép" has been removed; per-link copy is available in the ⋯ menu
 
   const insertBeforeNode = prepend ? body.firstChild : null;

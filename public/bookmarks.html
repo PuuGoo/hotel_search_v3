@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bookmarks | Hotel Search</title>
+    <meta name="description" content="Quản lý bookmark khách sạn" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <style>
+      .folder-tab { background: var(--surface-2); border: 1px solid var(--border-color); color: var(--text-secondary); transition: all 0.15s; }
+      .folder-tab:hover { background: rgba(102,126,234,.15); color: var(--text); }
+      .folder-tab.active { background: var(--primary-gradient); color: #fff; border-color: transparent; }
+    </style>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Hotel Search</span>
+        </div>
+        <nav class="flex gap-sm center" style="margin-left: auto">
+          <a href="/searchTavily" class="btn btn-outline btn-small"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+          <a href="/saved-searches" class="btn btn-outline btn-small"><i class="fa-solid fa-bookmark"></i> Saved</a>
+          <a href="/shares" class="btn btn-outline btn-small"><i class="fa-solid fa-share-nodes"></i> Shares</a>
+          <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+          <a id="adminLink" href="/admin" class="btn btn-outline btn-small" style="display: none"><i class="fa-solid fa-users-gear"></i> Admin</a>
+          <a href="/profile" class="btn btn-outline btn-small"><i class="fa-solid fa-user"></i></a>
+          <div class="clock" aria-label="Đồng hồ">--:--:--</div>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i></button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container" style="padding: var(--spacing-lg) var(--spacing-md); max-width: 960px">
+      <!-- Stats -->
+      <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
+        <div class="flex" style="align-items: center; gap: var(--spacing-md); flex-wrap: wrap">
+          <div class="flex center gap-sm" style="flex: 1; min-width: 200px">
+            <i class="fa-solid fa-bookmark" style="font-size: 1.8rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent"></i>
+            <div>
+              <h1 class="gradient-text" style="font-size: 1.4rem; margin: 0">Bookmarks</h1>
+              <div class="text-secondary" style="font-size: 0.82rem">Quản lý khách sạn đã lưu</div>
+            </div>
+          </div>
+          <div class="flex gap-sm wrap">
+            <div id="statsTotal" class="badge" style="font-size: 0.72rem">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Folder Tabs + Filters -->
+      <div class="glass-card" style="margin-bottom: var(--spacing-md)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--spacing-sm);flex-wrap:wrap">
+          <button class="btn btn-small folder-tab active" data-folder="">Tất cả</button>
+          <button class="btn btn-small folder-tab" data-folder="uncategorized"><i class="fa-solid fa-inbox"></i> Uncategorized</button>
+          <div id="folderTabs"></div>
+          <button id="addFolderBtn" class="btn btn-outline btn-small" title="Tạo thư mục mới">
+            <i class="fa-solid fa-folder-plus"></i>
+          </button>
+        </div>
+        <div class="flex gap-sm wrap" style="align-items: center">
+          <div class="input-group" style="flex: 1; min-width: 200px">
+            <span class="input-icon"><i class="fa-solid fa-search"></i></span>
+            <input id="searchInput" type="text" class="has-icon" placeholder="Tìm kiếm bookmark..." aria-label="Search bookmarks" />
+          </div>
+          <select id="engineFilter" style="font-size: 0.82rem; padding: 8px 12px; width: auto" aria-label="Filter by engine">
+            <option value="">Tất cả engine</option>
+            <option value="tavily">Tavily</option>
+            <option value="google">Google</option>
+            <option value="ddg">DuckDuckGo</option>
+          </select>
+          <select id="tagFilter" style="font-size: 0.82rem; padding: 8px 12px; width: auto" aria-label="Filter by tag">
+            <option value="">Tất cả tag</option>
+          </select>
+          <button id="exportBtn" class="btn btn-outline btn-small" title="Xuất CSV">
+            <i class="fa-solid fa-file-export"></i><span>CSV</span>
+          </button>
+          <button id="exportJsonBtn" class="btn btn-outline btn-small" title="Xuất JSON">
+            <i class="fa-solid fa-file-code"></i><span>JSON</span>
+          </button>
+          <button id="printBtn" class="btn btn-outline btn-small no-print" title="In bookmark">
+            <i class="fa-solid fa-print"></i><span>Print</span>
+          </button>
+          <button id="importBtn" class="btn btn-outline btn-small" title="Nhập CSV">
+            <i class="fa-solid fa-file-import"></i><span>Import</span>
+          </button>
+          <input type="file" id="importFile" accept=".csv" style="display: none" />
+          <button id="clearAllBtn" class="btn btn-outline btn-small" title="Xóa tất cả" style="color: var(--danger-gradient)">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+          <button id="deleteFilteredBtn" class="btn btn-outline btn-small" title="Xóa theo bộ lọc" style="color: #faa61a; display: none">
+            <i class="fa-solid fa-filter-circle-xmark"></i><span>Xóa lọc</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bulk Actions Bar -->
+      <div id="bulkActions" class="glass-card" style="display:none;margin-bottom:var(--spacing-sm);padding:var(--spacing-sm) var(--spacing-md)">
+        <div class="flex gap-sm wrap" style="align-items:center">
+          <span id="selectedCount" style="font-size:0.82rem;font-weight:600">0 selected</span>
+          <button id="bulkSelectAll" class="btn btn-outline btn-small"><i class="fa-solid fa-check-double"></i> Select all</button>
+          <button id="bulkDeselectAll" class="btn btn-outline btn-small"><i class="fa-solid fa-xmark"></i> Deselect</button>
+          <div style="flex:1"></div>
+          <button id="bulkMoveBtn" class="btn btn-outline btn-small"><i class="fa-solid fa-folder"></i> Move to folder</button>
+          <button id="bulkTagBtn" class="btn btn-outline btn-small"><i class="fa-solid fa-tags"></i> Add tag</button>
+          <button id="bulkDeleteBtn" class="btn btn-outline btn-small" style="color:#ff4d4f"><i class="fa-solid fa-trash"></i> Delete selected</button>
+        </div>
+      </div>
+
+      <!-- Bookmarks List -->
+      <div id="bookmarksList" aria-live="polite" aria-label="Bookmarks list"></div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="flex center gap-sm" style="margin-top: var(--spacing-md)"></div>
+    </main>
+
+    <!-- Edit Bookmark Modal -->
+    <div id="editTagsModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 440px; width: 90%">
+        <h2 class="modal-header gradient-text" style="font-size: 1.2rem">Chỉnh sửa Bookmark</h2>
+        <form id="editTagsForm">
+          <input type="hidden" id="editBookmarkId" />
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="editTitle">Tiêu đề</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-heading"></i></span>
+              <input id="editTitle" type="text" class="has-icon" placeholder="Tiêu đề bookmark" />
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="editFolder">Thư mục</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-folder"></i></span>
+              <select id="editFolder" class="has-icon" style="width:100%;background:transparent;border:none;color:inherit;padding:10px 10px 10px 40px">
+                <option value="">Uncategorized</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="editTags">Tags (phân cách bằng dấu phẩy)</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-tags"></i></span>
+              <input id="editTags" type="text" class="has-icon" placeholder="khách sạn, đà nẵng, ..." />
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Lưu
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Folder Modal -->
+    <div id="folderModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 400px; width: 90%">
+        <h2 id="folderModalTitle" class="modal-header gradient-text" style="font-size: 1.2rem">Tạo thư mục</h2>
+        <form id="folderForm">
+          <input type="hidden" id="editFolderId" />
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="folderName">Tên thư mục</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-folder"></i></span>
+              <input id="folderName" type="text" class="has-icon" required placeholder="Nhập tên thư mục" maxlength="100" />
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Lưu
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bulk Move Modal -->
+    <div id="bulkMoveModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 400px; width: 90%">
+        <h2 class="modal-header gradient-text" style="font-size: 1.2rem">Chuyển vào thư mục</h2>
+        <form id="bulkMoveForm">
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="bulkMoveFolder">Thư mục</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-folder"></i></span>
+              <select id="bulkMoveFolder" class="has-icon" style="width:100%;background:transparent;border:none;color:inherit;padding:10px 10px 10px 40px">
+                <option value="">Uncategorized</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Chuyển
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bulk Tag Modal -->
+    <div id="bulkTagModal" class="modal-overlay" style="display: none">
+      <div class="modal glass-card gradient" style="max-width: 400px; width: 90%">
+        <h2 class="modal-header gradient-text" style="font-size: 1.2rem">Thêm tag</h2>
+        <form id="bulkTagForm">
+          <div class="form-col" style="margin-bottom: 12px">
+            <label for="bulkTagName">Tag (phân cách bằng dấu phẩy)</label>
+            <div class="input-group">
+              <span class="input-icon"><i class="fa-solid fa-tags"></i></span>
+              <input id="bulkTagName" type="text" class="has-icon" required placeholder="hotel, đà nẵng, ..." />
+            </div>
+          </div>
+          <div class="modal-actions flex gap-sm">
+            <button type="submit" class="btn btn-primary" style="flex: 1">
+              <i class="fa-solid fa-check"></i> Thêm tag
+            </button>
+            <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+      import { initSessionTimeout } from "/sessionTimeout.js";
+      initSessionTimeout();
+
+      const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
+      const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
+      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+
+      let allBookmarks = [];
+      let filteredBookmarks = [];
+      let currentPage = 1;
+      const PAGE_SIZE = 20;
+      let currentFolder = "";
+      let allFolders = [];
+      let selectedIds = new Set();
+
+      // Load user info
+      async function loadUser() {
+        try {
+          const res = await fetch("/api/me");
+          if (!res.ok) throw new Error();
+          const user = await res.json();
+          if (user.role === "admin") {
+            document.getElementById("adminLink").style.display = "";
+          }
+        } catch {
+          window.location.href = "/";
+        }
+      }
+
+      // Load tags for filter
+      async function loadTags() {
+        try {
+          const res = await fetch("/api/bookmarks/tags");
+          const data = await res.json();
+          const select = document.getElementById("tagFilter");
+          const existing = select.querySelector("option[value='']");
+          select.innerHTML = "";
+          select.appendChild(existing || new Option("Tất cả tag", ""));
+          for (const tag of data.tags || []) {
+            const opt = new Option(tag, tag);
+            select.appendChild(opt);
+          }
+        } catch {}
+      }
+
+      // Load folders
+      async function loadFolders() {
+        try {
+          const res = await fetch("/api/bookmark-folders");
+          const data = await res.json();
+          allFolders = data.folders || [];
+
+          // Update folder tabs
+          const tabsContainer = document.getElementById("folderTabs");
+          tabsContainer.innerHTML = allFolders.map(f =>
+            `<button class="btn btn-small folder-tab" data-folder="${escapeHtml(f.name)}"><i class="fa-solid fa-folder"></i> ${escapeHtml(f.name)} <span style="opacity:0.6">(${f.bookmarkCount})</span></button>`
+          ).join("");
+
+          // Rebind tab clicks
+          document.querySelectorAll(".folder-tab").forEach(tab => {
+            tab.addEventListener("click", () => {
+              document.querySelectorAll(".folder-tab").forEach(t => t.classList.remove("active"));
+              tab.classList.add("active");
+              currentFolder = tab.dataset.folder;
+              loadBookmarks();
+            });
+          });
+
+          // Update edit folder dropdown
+          const editSelect = document.getElementById("editFolder");
+          editSelect.innerHTML = '<option value="">Uncategorized</option>' +
+            allFolders.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join("");
+        } catch {}
+      }
+
+      // Load bookmarks
+      async function loadBookmarks() {
+        try {
+          const engine = document.getElementById("engineFilter").value;
+          const tag = document.getElementById("tagFilter").value;
+          let url = "/api/bookmarks?limit=200";
+          if (engine) url += `&engine=${engine}`;
+          if (tag) url += `&tag=${encodeURIComponent(tag)}`;
+          if (currentFolder) url += `&folder=${encodeURIComponent(currentFolder)}`;
+
+          const res = await fetch(url);
+          const data = await res.json();
+          allBookmarks = data.bookmarks || [];
+          applyLocalFilter();
+          document.getElementById("statsTotal").textContent = `${data.total} bookmark${data.total !== 1 ? "s" : ""}`;
+          loadTags();
+          loadFolders();
+        } catch {
+          document.getElementById("bookmarksList").innerHTML =
+            '<div class="glass-card" style="text-align:center;padding:24px;color:var(--text-tertiary)">Lỗi tải bookmarks</div>';
+        }
+      }
+
+      function applyLocalFilter() {
+        const q = document.getElementById("searchInput").value.toLowerCase().trim();
+        if (!q) {
+          filteredBookmarks = [...allBookmarks];
+        } else {
+          filteredBookmarks = allBookmarks.filter(b =>
+            b.title.toLowerCase().includes(q) ||
+            (b.snippet || "").toLowerCase().includes(q) ||
+            (b.query || "").toLowerCase().includes(q) ||
+            (b.tags || []).some(t => t.toLowerCase().includes(q))
+          );
+        }
+        currentPage = 1;
+        renderBookmarks();
+      }
+
+      function renderBookmarks() {
+        const container = document.getElementById("bookmarksList");
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page = filteredBookmarks.slice(start, start + PAGE_SIZE);
+
+        if (filteredBookmarks.length === 0) {
+          container.innerHTML = `
+            <div class="glass-card" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+              <i class="fa-solid fa-bookmark" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.3"></i>
+              <div style="font-size:0.9rem">Chưa có bookmark nào</div>
+              <div style="font-size:0.75rem;margin-top:6px">Sử dụng nút <i class="fa-solid fa-bookmark"></i> trên trang kết quả tìm kiếm để lưu</div>
+            </div>`;
+          renderPagination();
+          return;
+        }
+
+        container.innerHTML = page.map(b => {
+          const time = new Date(b.timestamp).toLocaleString("vi-VN");
+          const icon = engineIcons[b.engine] || "fa-search";
+          const color = engineColors[b.engine] || "#667eea";
+          const tags = (b.tags || []).map(t =>
+            `<span class="badge" style="font-size:0.6rem;background:rgba(102,126,234,.2);margin-right:3px">${escapeHtml(t)}</span>`
+          ).join("");
+          const folderBadge = b.folder ? `<span class="badge" style="font-size:0.6rem;background:rgba(250,166,26,.2);color:#faa61a;margin-right:3px"><i class="fa-solid fa-folder"></i> ${escapeHtml(b.folder)}</span>` : "";
+
+          const isSelected = selectedIds.has(b.id);
+          return `<div class="glass-card" style="padding:var(--spacing-sm) var(--spacing-md);margin-bottom:var(--spacing-xs);${isSelected ? "border-left:3px solid var(--accent,#667eea)" : ""}">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="display:flex;align-items:center;padding-top:4px">
+                <input type="checkbox" class="bookmark-checkbox" data-id="${b.id}" ${isSelected ? "checked" : ""} style="width:16px;height:16px;cursor:pointer" />
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px;padding-top:2px">
+                <i class="fa-solid ${icon}" style="color:${color};font-size:1rem"></i>
+                <span style="font-size:0.6rem;color:var(--text-tertiary)">${escapeHtml(engineLabels[b.engine] || b.engine)}</span>
+              </div>
+              <div style="flex:1;min-width:0">
+                <a href="${escapeHtml(b.url)}" target="_blank" rel="noopener" style="font-weight:600;font-size:0.88rem;line-height:1.3;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</a>
+                ${b.snippet ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(b.snippet)}</div>` : ""}
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+                  ${folderBadge}
+                  ${tags}
+                  ${b.query ? `<span style="font-size:0.65rem;color:var(--text-tertiary)"><i class="fa-solid fa-magnifying-glass"></i> ${escapeHtml(b.query)}</span>` : ""}
+                  <span style="font-size:0.65rem;color:var(--text-tertiary);margin-left:auto">${time}</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <button class="btn btn-outline btn-small btn-edit-tags" data-id="${b.id}" data-title="${escapeHtml(b.title)}" data-tags="${escapeHtml((b.tags || []).join(", "))}" data-folder="${escapeHtml(b.folder || "")}" title="Chỉnh sửa" style="padding:4px 8px">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline btn-small btn-delete-bookmark" data-id="${b.id}" title="Xóa" style="padding:4px 8px;color:#ff4d4f">
+                  <i class="fa-solid fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>`;
+        }).join("");
+
+        // Bind events
+        container.querySelectorAll(".btn-edit-tags").forEach(btn => {
+          btn.addEventListener("click", () => {
+            document.getElementById("editBookmarkId").value = btn.dataset.id;
+            document.getElementById("editTitle").value = btn.dataset.title || "";
+            document.getElementById("editTags").value = btn.dataset.tags || "";
+            document.getElementById("editFolder").value = btn.dataset.folder || "";
+            document.getElementById("editTagsModal").style.display = "flex";
+          });
+        });
+
+        container.querySelectorAll(".btn-delete-bookmark").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            try {
+              const res = await fetch(`/api/bookmarks/${btn.dataset.id}`, { method: "DELETE" });
+              if (res.ok) {
+                Toasts.success("Đã xóa bookmark");
+                loadBookmarks();
+              }
+            } catch {
+              Toasts.error("Lỗi xóa");
+            }
+          });
+        });
+
+        renderPagination();
+      }
+
+      function renderPagination() {
+        const container = document.getElementById("pagination");
+        const totalPages = Math.ceil(filteredBookmarks.length / PAGE_SIZE);
+        if (totalPages <= 1) { container.innerHTML = ""; return; }
+
+        let html = "";
+        if (currentPage > 1) {
+          html += `<button class="btn btn-outline btn-small page-btn" data-page="${currentPage - 1}"><i class="fa-solid fa-chevron-left"></i></button>`;
+        }
+        for (let i = 1; i <= totalPages; i++) {
+          if (totalPages > 7 && i > 2 && i < totalPages - 1 && Math.abs(i - currentPage) > 1) {
+            if (i === 3 || i === totalPages - 2) html += `<span class="text-tertiary" style="padding:0 4px">...</span>`;
+            continue;
+          }
+          html += `<button class="btn ${i === currentPage ? 'btn-primary' : 'btn-outline'} btn-small page-btn" data-page="${i}">${i}</button>`;
+        }
+        if (currentPage < totalPages) {
+          html += `<button class="btn btn-outline btn-small page-btn" data-page="${currentPage + 1}"><i class="fa-solid fa-chevron-right"></i></button>`;
+        }
+        container.innerHTML = html;
+        container.querySelectorAll(".page-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            currentPage = parseInt(btn.dataset.page);
+            renderBookmarks();
+          });
+        });
+      }
+
+      // Keyboard navigation
+      let focusedIndex = -1;
+
+      function updateFocus() {
+        const container = document.getElementById("bookmarksList");
+        const cards = container.querySelectorAll(".glass-card");
+        cards.forEach((card, i) => {
+          if (i === focusedIndex) {
+            card.style.outline = "2px solid var(--accent, #667eea)";
+            card.style.outlineOffset = "-2px";
+            card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          } else {
+            card.style.outline = "";
+            card.style.outlineOffset = "";
+          }
+        });
+      }
+
+      document.addEventListener("keydown", (e) => {
+        // Don't handle if user is typing in an input/textarea
+        const tag = e.target.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        // Don't handle if a modal is open
+        const modals = document.querySelectorAll(".modal-overlay");
+        for (const m of modals) {
+          if (m.style.display === "flex") return;
+        }
+
+        const container = document.getElementById("bookmarksList");
+        const cards = container.querySelectorAll(".glass-card");
+        if (cards.length === 0) return;
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+
+        switch (e.key) {
+          case "j":
+          case "ArrowDown":
+            e.preventDefault();
+            focusedIndex = Math.min(focusedIndex + 1, cards.length - 1);
+            updateFocus();
+            break;
+          case "k":
+          case "ArrowUp":
+            e.preventDefault();
+            focusedIndex = Math.max(focusedIndex - 1, 0);
+            updateFocus();
+            break;
+          case "Enter":
+            if (focusedIndex >= 0 && focusedIndex < cards.length) {
+              e.preventDefault();
+              const link = cards[focusedIndex].querySelector("a[target]");
+              if (link) window.open(link.href, "_blank");
+            }
+            break;
+          case " ": // Space to toggle checkbox
+            if (focusedIndex >= 0 && focusedIndex < cards.length) {
+              e.preventDefault();
+              const cb = cards[focusedIndex].querySelector(".bookmark-checkbox");
+              if (cb) {
+                cb.checked = !cb.checked;
+                cb.dispatchEvent(new Event("change"));
+              }
+            }
+            break;
+          case "e":
+            if (focusedIndex >= 0 && focusedIndex < cards.length) {
+              e.preventDefault();
+              const editBtn = cards[focusedIndex].querySelector(".btn-edit-tags");
+              if (editBtn) editBtn.click();
+            }
+            break;
+          case "Delete":
+          case "Backspace":
+            if (focusedIndex >= 0 && focusedIndex < cards.length) {
+              e.preventDefault();
+              const delBtn = cards[focusedIndex].querySelector(".btn-delete-bookmark");
+              if (delBtn) delBtn.click();
+            }
+            break;
+          case "Escape":
+            focusedIndex = -1;
+            updateFocus();
+            break;
+          case "?":
+            e.preventDefault();
+            showKeyboardHelp();
+            break;
+        }
+      });
+
+      function showKeyboardHelp() {
+        const existing = document.getElementById("keyboardHelpModal");
+        if (existing) { existing.remove(); return; }
+
+        const modal = document.createElement("div");
+        modal.id = "keyboardHelpModal";
+        modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:center;justify-content:center";
+        modal.innerHTML = `
+          <div style="background:var(--bg-secondary,#1a1a2e);border-radius:12px;padding:24px;max-width:400px;width:90%;border:1px solid var(--border,#333)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="margin:0;font-size:1rem"><i class="fa-solid fa-keyboard"></i> Keyboard Shortcuts</h3>
+              <button onclick="this.closest('#keyboardHelpModal').remove()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem">&times;</button>
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:0.82rem">
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">j / Down</kbd><span>Next bookmark</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">k / Up</kbd><span>Previous bookmark</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">Enter</kbd><span>Open bookmark</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">Space</kbd><span>Toggle checkbox</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">e</kbd><span>Edit bookmark</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">Delete</kbd><span>Delete bookmark</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">Esc</kbd><span>Clear focus</span>
+              <kbd style="background:var(--bg-tertiary,#2a2a3e);padding:2px 8px;border-radius:4px;font-size:0.75rem">?</kbd><span>Show this help</span>
+            </div>
+          </div>`;
+        modal.addEventListener("click", (ev) => { if (ev.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+      }
+
+      // Search input with debounce
+      let searchTimer;
+      document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(applyLocalFilter, 300);
+      });
+
+      document.getElementById("engineFilter").addEventListener("change", loadBookmarks);
+      document.getElementById("tagFilter").addEventListener("change", loadBookmarks);
+
+      // Edit tags form
+      document.getElementById("editTagsForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("editBookmarkId").value;
+        const title = document.getElementById("editTitle").value.trim();
+        const tagsStr = document.getElementById("editTags").value;
+        const tags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
+        const folder = document.getElementById("editFolder").value;
+
+        try {
+          const res = await fetch(`/api/bookmarks/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, tags, folder }),
+          });
+          if (res.ok) {
+            Toasts.success("Đã cập nhật");
+            document.getElementById("editTagsModal").style.display = "none";
+            loadBookmarks();
+          } else {
+            const data = await res.json();
+            Toasts.error(data.error || "Lỗi cập nhật");
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+
+      // Close modal
+      document.querySelectorAll("[data-close]").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".modal-overlay").style.display = "none");
+      });
+
+      // Export CSV
+      document.getElementById("exportBtn").addEventListener("click", () => {
+        if (filteredBookmarks.length === 0) {
+          Toasts.warning("Không có bookmark để xuất");
+          return;
+        }
+        const header = "Title,URL,Engine,Query,Tags,Date\n";
+        const rows = filteredBookmarks.map(b => {
+          const title = `"${(b.title || "").replace(/"/g, '""')}"`;
+          const url = `"${(b.url || "").replace(/"/g, '""')}"`;
+          const engine = b.engine || "";
+          const query = `"${(b.query || "").replace(/"/g, '""')}"`;
+          const tags = `"${(b.tags || []).join(", ").replace(/"/g, '""')}"`;
+          const date = new Date(b.timestamp).toLocaleString("vi-VN");
+          return [title, url, engine, query, tags, date].join(",");
+        }).join("\n");
+
+        const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `bookmarks_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        Toasts.success("Đã xuất CSV");
+      });
+
+      // Print
+      document.getElementById("printBtn").addEventListener("click", () => {
+        document.body.setAttribute("data-page-title", "Bookmarks");
+        document.body.setAttribute("data-print-date", new Date().toLocaleString("vi-VN"));
+        window.print();
+      });
+
+      // Export JSON
+      document.getElementById("exportJsonBtn").addEventListener("click", () => {
+        if (filteredBookmarks.length === 0) {
+          Toasts.warning("Không có bookmark để xuất");
+          return;
+        }
+        const exportData = {
+          exportedAt: new Date().toISOString(),
+          totalBookmarks: filteredBookmarks.length,
+          bookmarks: filteredBookmarks.map(b => ({
+            title: b.title,
+            url: b.url,
+            snippet: b.snippet || "",
+            engine: b.engine,
+            query: b.query || "",
+            tags: b.tags || [],
+            folder: b.folder || "",
+            timestamp: b.timestamp,
+            date: new Date(b.timestamp).toISOString(),
+          })),
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `bookmarks_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        Toasts.success("Đã xuất JSON");
+      });
+
+      // Clear all
+      document.getElementById("clearAllBtn").addEventListener("click", async () => {
+        if (!confirm("Xóa toàn bộ bookmark?")) return;
+        try {
+          const res = await fetch("/api/bookmarks", { method: "DELETE" });
+          if (res.ok) {
+            Toasts.success("Đã xóa tất cả bookmark");
+            loadBookmarks();
+          }
+        } catch {
+          Toasts.error("Lỗi xóa");
+        }
+      });
+
+      // Delete filtered
+      document.getElementById("deleteFilteredBtn").addEventListener("click", async () => {
+        const engine = document.getElementById("engineFilter").value;
+        const tag = document.getElementById("tagFilter").value;
+        if (!engine && !tag) {
+          Toasts.warning("Chọn engine hoặc tag để xóa theo bộ lọc");
+          return;
+        }
+        const filterName = engine ? `engine "${engine}"` : `tag "${tag}"`;
+        if (!confirm(`Xóa tất cả bookmark có ${filterName}?`)) return;
+        try {
+          const params = new URLSearchParams();
+          if (engine) params.set("engine", engine);
+          if (tag) params.set("tag", tag);
+          const res = await fetch(`/api/bookmarks?${params}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success(`Đã xóa ${data.deleted} bookmark`);
+            loadBookmarks();
+          }
+        } catch {
+          Toasts.error("Lỗi xóa");
+        }
+      });
+
+      // Show/hide delete filtered button based on filter state
+      function updateDeleteFilteredBtn() {
+        const engine = document.getElementById("engineFilter").value;
+        const tag = document.getElementById("tagFilter").value;
+        document.getElementById("deleteFilteredBtn").style.display = (engine || tag) ? "" : "none";
+      }
+      document.getElementById("engineFilter").addEventListener("change", updateDeleteFilteredBtn);
+      document.getElementById("tagFilter").addEventListener("change", updateDeleteFilteredBtn);
+
+      // Folder management
+      document.getElementById("addFolderBtn").addEventListener("click", () => {
+        document.getElementById("folderModalTitle").textContent = "Tạo thư mục";
+        document.getElementById("editFolderId").value = "";
+        document.getElementById("folderName").value = "";
+        document.getElementById("folderModal").style.display = "flex";
+      });
+
+      document.getElementById("folderForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const folderId = document.getElementById("editFolderId").value;
+        const name = document.getElementById("folderName").value.trim();
+        if (!name) return;
+
+        try {
+          const url = folderId ? `/api/bookmark-folders/${folderId}` : "/api/bookmark-folders";
+          const method = folderId ? "PUT" : "POST";
+          const res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success(folderId ? "Đã đổi tên thư mục" : "Đã tạo thư mục");
+            document.getElementById("folderModal").style.display = "none";
+            loadFolders();
+          } else {
+            Toasts.error(data.error || "Lỗi");
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+
+      // Folder tab click handler for default tabs
+      document.querySelectorAll(".folder-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".folder-tab").forEach(t => t.classList.remove("active"));
+          tab.classList.add("active");
+          currentFolder = tab.dataset.folder;
+          loadBookmarks();
+        });
+      });
+
+      // Bulk selection
+      function updateBulkActions() {
+        const bar = document.getElementById("bulkActions");
+        const count = selectedIds.size;
+        if (count === 0) {
+          bar.style.display = "none";
+          return;
+        }
+        bar.style.display = "";
+        document.getElementById("selectedCount").textContent = `${count} selected`;
+      }
+
+      document.getElementById("bookmarksList").addEventListener("change", (e) => {
+        if (e.target.classList.contains("bookmark-checkbox")) {
+          const id = Number(e.target.dataset.id);
+          if (e.target.checked) {
+            selectedIds.add(id);
+          } else {
+            selectedIds.delete(id);
+          }
+          updateBulkActions();
+        }
+      });
+
+      document.getElementById("bulkSelectAll").addEventListener("click", () => {
+        filteredBookmarks.forEach(b => selectedIds.add(b.id));
+        renderBookmarks();
+        updateBulkActions();
+      });
+
+      document.getElementById("bulkDeselectAll").addEventListener("click", () => {
+        selectedIds.clear();
+        renderBookmarks();
+        updateBulkActions();
+      });
+
+      // Bulk delete
+      document.getElementById("bulkDeleteBtn").addEventListener("click", async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Xóa ${selectedIds.size} bookmark đã chọn?`)) return;
+
+        let deleted = 0;
+        for (const id of selectedIds) {
+          try {
+            const res = await fetch(`/api/bookmarks/${id}`, { method: "DELETE" });
+            if (res.ok) deleted++;
+          } catch {}
+        }
+        Toasts.success(`Đã xóa ${deleted} bookmark`);
+        selectedIds.clear();
+        updateBulkActions();
+        loadBookmarks();
+      });
+
+      // Bulk move
+      document.getElementById("bulkMoveBtn").addEventListener("click", () => {
+        if (selectedIds.size === 0) return;
+        const select = document.getElementById("bulkMoveFolder");
+        select.innerHTML = '<option value="">Uncategorized</option>' +
+          allFolders.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join("");
+        document.getElementById("bulkMoveModal").style.display = "flex";
+      });
+
+      document.getElementById("bulkMoveForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const folder = document.getElementById("bulkMoveFolder").value;
+        try {
+          const res = await fetch("/api/bookmarks/move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bookmarkIds: [...selectedIds], folder }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            Toasts.success(`Đã chuyển ${data.moved} bookmark`);
+            document.getElementById("bulkMoveModal").style.display = "none";
+            selectedIds.clear();
+            updateBulkActions();
+            loadBookmarks();
+          }
+        } catch {
+          Toasts.error("Lỗi kết nối");
+        }
+      });
+
+      // Bulk tag
+      document.getElementById("bulkTagBtn").addEventListener("click", () => {
+        if (selectedIds.size === 0) return;
+        document.getElementById("bulkTagName").value = "";
+        document.getElementById("bulkTagModal").style.display = "flex";
+      });
+
+      document.getElementById("bulkTagForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const tagsStr = document.getElementById("bulkTagName").value;
+        const newTags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
+        if (newTags.length === 0) return;
+
+        let updated = 0;
+        for (const id of selectedIds) {
+          const bookmark = filteredBookmarks.find(b => b.id === id);
+          if (!bookmark) continue;
+          const existingTags = bookmark.tags || [];
+          const mergedTags = [...new Set([...existingTags, ...newTags])].slice(0, 10);
+          try {
+            const res = await fetch(`/api/bookmarks/${id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tags: mergedTags }),
+            });
+            if (res.ok) updated++;
+          } catch {}
+        }
+        Toasts.success(`Đã thêm tag cho ${updated} bookmark`);
+        document.getElementById("bulkTagModal").style.display = "none";
+        selectedIds.clear();
+        updateBulkActions();
+        loadBookmarks();
+      });
+
+      // Theme toggle
+      const btn = document.getElementById("themeToggle");
+      const applyIcon = () => {
+        const th = document.documentElement.getAttribute("data-theme");
+        btn.innerHTML = th === "light" ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+      };
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        applyIcon();
+      });
+      const stored = localStorage.getItem("theme");
+      if (stored) document.documentElement.setAttribute("data-theme", stored);
+      applyIcon();
+
+      loadUser();
+      loadFolders();
+      loadBookmarks();
+
+      // Service Worker for offline bookmarks
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+
+      // Offline indicator
+      function updateOnlineStatus() {
+        let banner = document.getElementById("offlineBanner");
+        if (!navigator.onLine) {
+          if (!banner) {
+            banner = document.createElement("div");
+            banner.id = "offlineBanner";
+            banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#000;text-align:center;padding:6px;font-size:0.8rem;z-index:10000;font-weight:600";
+            banner.innerHTML = '<i class="fa-solid fa-wifi"></i> Offline — dữ liệu từ cache';
+            document.body.prepend(banner);
+          }
+        } else if (banner) {
+          banner.remove();
+        }
+      }
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
+      updateOnlineStatus();
+    </script>
+    <script type="module" src="/ui.js"></script>
+    <script type="module" src="/accessibility.js"></script>
+  </body>
+</html>
+

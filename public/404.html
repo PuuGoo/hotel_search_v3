@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404 - Không tìm thấy | Hotel Search</title>
+    <meta name="description" content="Trang bạn tìm kiếm không tồn tại" />
+    <meta name="robots" content="noindex" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+      .error-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--background-base);
+        padding: var(--spacing-md);
+      }
+      .error-card {
+        text-align: center;
+        max-width: 480px;
+        padding: var(--spacing-xl);
+        background: var(--surface-glass);
+        backdrop-filter: blur(var(--backdrop-blur));
+        border: 1px solid var(--border-glass);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-glass);
+      }
+      .error-code {
+        font-size: 6rem;
+        font-weight: 700;
+        line-height: 1;
+        background: var(--gradient-text);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: var(--spacing-sm);
+      }
+      .error-icon {
+        font-size: 3rem;
+        margin-bottom: var(--spacing-md);
+        color: var(--text-secondary);
+      }
+      .error-title {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-sm);
+      }
+      .error-desc {
+        font-size: var(--font-size-base);
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-lg);
+        line-height: 1.6;
+      }
+      .error-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="error-page" role="main">
+      <div class="error-card">
+        <div class="error-icon"><i class="fa-solid fa-compass"></i></div>
+        <div class="error-code">404</div>
+        <h1 class="error-title">Không tìm thấy trang</h1>
+        <p class="error-desc">Trang bạn yêu cầu không tồn tại hoặc đã bị di chuyển.</p>
+        <div class="error-actions">
+          <a href="/" class="btn btn-primary btn-pill"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+          <a href="javascript:history.back()" class="btn btn-outline btn-pill"><i class="fa-solid fa-arrow-left"></i> Quay lại</a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
+

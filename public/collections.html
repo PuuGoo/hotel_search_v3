@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage bookmark collections and share curated lists">
+  <title>Bookmark Collections</title>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .collections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+    .collection-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #e0e0e0); border-radius: 8px; padding: 16px; cursor: pointer; transition: box-shadow 0.2s; }
+    .collection-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .collection-card h3 { margin: 0 0 8px; font-size: 16px; }
+    .collection-card p { margin: 0 0 8px; color: var(--text-secondary, #666); font-size: 13px; }
+    .collection-card .meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted, #999); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-shared { background: #e8f5e9; color: #2e7d32; }
+    .badge-private { background: #f5f5f5; color: #757575; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--card-bg, #fff); border-radius: 12px; padding: 24px; width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h2 { margin: 0; }
+    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary, #666); }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 14px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border, #ddd); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+    .bookmark-list { list-style: none; padding: 0; margin: 0; }
+    .bookmark-list li { padding: 8px 12px; border-bottom: 1px solid var(--border, #eee); display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .bookmark-list li:last-child { border-bottom: none; }
+    .bookmark-list a { color: var(--link, #1976d2); text-decoration: none; }
+    .bookmark-list a:hover { text-decoration: underline; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .btn-primary { background: var(--primary, #1976d2); color: #fff; }
+    .btn-danger { background: #d32f2f; color: #fff; }
+    .btn-secondary { background: var(--border, #e0e0e0); color: var(--text, #333); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .share-url { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .share-url input { flex: 1; font-size: 13px; }
+    .actions-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .empty-state { text-align: center; padding: 40px; color: var(--text-muted, #999); }
+    .empty-state p { font-size: 16px; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; }
+    .toast.show { opacity: 1; }
+    .bookmark-select-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 6px; }
+    .bookmark-select-item { padding: 8px 12px; border-bottom: 1px solid var(--border, #eee); display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    .bookmark-select-item:hover { background: var(--hover, #f5f5f5); }
+    .bookmark-select-item:last-child { border-bottom: none; }
+    .engine-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; }
+    .engine-tavily { background: #e3f2fd; color: #1565c0; }
+    .engine-google { background: #fce4ec; color: #c62828; }
+    .engine-ddg { background: #e8f5e9; color: #2e7d32; }
+  </style>
+</head>
+<body>
+  <header class="app-header no-print">
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/bookmarks">Bookmarks</a>
+      <a href="/collections" class="active">Collections</a>
+      <a href="/BRAVE_MASTER">Search</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Bookmark Collections</h1>
+    <p class="subtitle">Curate and share bookmark lists</p>
+
+    <div class="actions-bar">
+      <button class="btn btn-primary" onclick="openCreateModal()">+ New Collection</button>
+    </div>
+
+    <div id="collectionsGrid" class="collections-grid"></div>
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <p>No collections yet</p>
+      <p style="font-size:13px;">Create a collection to organize and share your bookmarks</p>
+    </div>
+  </main>
+
+  <!-- Create/Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="editModalTitle">New Collection</h2>
+        <button class="close-btn" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div class="form-group">
+        <label for="collName">Name</label>
+        <input type="text" id="collName" placeholder="My Travel Picks" maxlength="150">
+      </div>
+      <div class="form-group">
+        <label for="collDesc">Description (optional)</label>
+        <textarea id="collDesc" placeholder="Best hotels I found..." maxlength="500"></textarea>
+      </div>
+      <div id="bookmarkPicker" style="display:none;">
+        <label style="font-weight:500;font-size:14px;margin-bottom:8px;display:block;">Select Bookmarks</label>
+        <input type="text" id="bookmarkSearch" placeholder="Search bookmarks..." style="width:100%;padding:8px;border:1px solid var(--border,#ddd);border-radius:6px;margin-bottom:8px;box-sizing:border-box;" oninput="filterBookmarkPicker()">
+        <div id="bookmarkSelectList" class="bookmark-select-list"></div>
+        <p id="selectedCount" style="font-size:12px;color:var(--text-muted,#999);margin-top:4px;">0 selected</p>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCollection()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="detailName"></h2>
+        <button class="close-btn" onclick="closeDetailModal()">&times;</button>
+      </div>
+      <p id="detailDesc" style="color:var(--text-secondary,#666);margin:0 0 12px;font-size:13px;"></p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="editCurrentCollection()">Edit</button>
+        <button class="btn btn-sm btn-secondary" id="shareBtn" onclick="toggleShare()">Share</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCurrentCollection()">Delete</button>
+      </div>
+      <div id="shareSection" style="display:none;margin-bottom:16px;">
+        <p style="font-size:13px;margin:0 0 4px;">Share link (valid 30 days):</p>
+        <div class="share-url">
+          <input type="text" id="shareUrl" readonly>
+          <button class="btn btn-sm btn-secondary" onclick="copyShareUrl()">Copy</button>
+          <button class="btn btn-sm btn-danger" onclick="revokeShare()">Revoke</button>
+        </div>
+      </div>
+      <h3 style="margin:0 0 8px;font-size:15px;">Bookmarks (<span id="detailCount">0</span>)</h3>
+      <ul id="detailBookmarks" class="bookmark-list"></ul>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let collections = [];
+    let allBookmarks = [];
+    let selectedBookmarkIds = new Set();
+    let currentCollectionId = null;
+    let editingCollectionId = null;
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    async function loadCollections() {
+      const res = await fetch("/api/collections");
+      if (!res.ok) return;
+      const data = await res.json();
+      collections = data.collections || [];
+      renderCollections();
+    }
+
+    async function loadBookmarks() {
+      const res = await fetch("/api/bookmarks?limit=200");
+      if (!res.ok) return;
+      const data = await res.json();
+      allBookmarks = data.bookmarks || [];
+    }
+
+    function renderCollections() {
+      const grid = document.getElementById("collectionsGrid");
+      const empty = document.getElementById("emptyState");
+      if (collections.length === 0) {
+        grid.innerHTML = "";
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+      grid.innerHTML = collections.map(c => `
+        <div class="collection-card" onclick="viewCollection(${c.id})">
+          <h3>${esc(c.name)}</h3>
+          ${c.description ? `<p>${esc(c.description)}</p>` : ""}
+          <div class="meta">
+            <span>${c.bookmarkCount} bookmark${c.bookmarkCount !== 1 ? "s" : ""}</span>
+            <span class="badge ${c.shared ? "badge-shared" : "badge-private"}">${c.shared ? "Shared" : "Private"}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function viewCollection(id) {
+      currentCollectionId = id;
+      const res = await fetch(`/api/collections/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      document.getElementById("detailName").textContent = data.name;
+      document.getElementById("detailDesc").textContent = data.description || "";
+      document.getElementById("detailCount").textContent = data.bookmarkCount;
+
+      const list = document.getElementById("detailBookmarks");
+      if (data.bookmarks.length === 0) {
+        list.innerHTML = "<li style='color:var(--text-muted,#999);'>No bookmarks in this collection</li>";
+      } else {
+        list.innerHTML = data.bookmarks.map(b => `
+          <li>
+            <div>
+              <a href="${esc(b.url)}" target="_blank">${esc(b.title)}</a>
+              <span class="engine-badge engine-${b.engine}">${b.engine}</span>
+            </div>
+          </li>
+        `).join("");
+      }
+
+      // Share section
+      const shareSection = document.getElementById("shareSection");
+      const shareUrl = document.getElementById("shareUrl");
+      const shareBtn = document.getElementById("shareBtn");
+      if (data.shared) {
+        shareSection.style.display = "block";
+        shareUrl.value = window.location.origin + "/collections/view/" + data.shareToken;
+        shareBtn.textContent = "Unshare";
+      } else {
+        shareSection.style.display = "none";
+        shareBtn.textContent = "Share";
+      }
+
+      document.getElementById("detailModal").classList.add("active");
+    }
+
+    function closeDetailModal() {
+      document.getElementById("detailModal").classList.remove("active");
+      currentCollectionId = null;
+    }
+
+    function openCreateModal() {
+      editingCollectionId = null;
+      document.getElementById("editModalTitle").textContent = "New Collection";
+      document.getElementById("collName").value = "";
+      document.getElementById("collDesc").value = "";
+      selectedBookmarkIds = new Set();
+      renderBookmarkPicker();
+      document.getElementById("editModal").classList.add("active");
+    }
+
+    async function editCurrentCollection() {
+      if (!currentCollectionId) return;
+      const res = await fetch(`/api/collections/${currentCollectionId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      editingCollectionId = currentCollectionId;
+      document.getElementById("editModalTitle").textContent = "Edit Collection";
+      document.getElementById("collName").value = data.name;
+      document.getElementById("collDesc").value = data.description || "";
+      selectedBookmarkIds = new Set((data.bookmarkIds || []).map(Number));
+      renderBookmarkPicker();
+      closeDetailModal();
+      document.getElementById("editModal").classList.add("active");
+    }
+
+    function closeEditModal() {
+      document.getElementById("editModal").classList.remove("active");
+      editingCollectionId = null;
+    }
+
+    function renderBookmarkPicker() {
+      const picker = document.getElementById("bookmarkPicker");
+      picker.style.display = "block";
+      const list = document.getElementById("bookmarkSelectList");
+      const search = (document.getElementById("bookmarkSearch").value || "").toLowerCase();
+      const filtered = allBookmarks.filter(b =>
+        !search || b.title.toLowerCase().includes(search) || (b.url || "").toLowerCase().includes(search)
+      );
+      list.innerHTML = filtered.map(b => `
+        <div class="bookmark-select-item" onclick="toggleBookmark(${b.id})">
+          <input type="checkbox" ${selectedBookmarkIds.has(b.id) ? "checked" : ""} style="pointer-events:none;">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.title)}</span>
+          <span class="engine-badge engine-${b.engine}">${b.engine}</span>
+        </div>
+      `).join("");
+      document.getElementById("selectedCount").textContent = `${selectedBookmarkIds.size} selected`;
+    }
+
+    function filterBookmarkPicker() { renderBookmarkPicker(); }
+
+    function toggleBookmark(id) {
+      if (selectedBookmarkIds.has(id)) selectedBookmarkIds.delete(id);
+      else selectedBookmarkIds.add(id);
+      renderBookmarkPicker();
+    }
+
+    async function saveCollection() {
+      const name = document.getElementById("collName").value.trim();
+      const description = document.getElementById("collDesc").value.trim();
+      if (!name) { showToast("Name is required"); return; }
+
+      const body = { name, description, bookmarkIds: [...selectedBookmarkIds] };
+      let res;
+      if (editingCollectionId) {
+        // For edit, use PUT with addBookmarkIds
+        const existingRes = await fetch(`/api/collections/${editingCollectionId}`);
+        const existing = await existingRes.json();
+        const existingIds = new Set((existing.bookmarkIds || []).map(Number));
+        const toAdd = [...selectedBookmarkIds].filter(id => !existingIds.has(id));
+        const toRemove = [...existingIds].filter(id => !selectedBookmarkIds.has(id));
+        res = await fetch(`/api/collections/${editingCollectionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description, addBookmarkIds: toAdd, removeBookmarkIds: toRemove }),
+        });
+      } else {
+        res = await fetch("/api/collections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(err.error || "Error");
+        return;
+      }
+
+      closeEditModal();
+      showToast(editingCollectionId ? "Collection updated" : "Collection created");
+      loadCollections();
+    }
+
+    async function toggleShare() {
+      if (!currentCollectionId) return;
+      const shareSection = document.getElementById("shareSection");
+      if (shareSection.style.display === "none") {
+        const res = await fetch(`/api/collections/${currentCollectionId}/share`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById("shareUrl").value = window.location.origin + "/collections/view/" + data.token;
+        shareSection.style.display = "block";
+        document.getElementById("shareBtn").textContent = "Unshare";
+        showToast("Share link created");
+      } else {
+        await revokeShare();
+      }
+    }
+
+    async function revokeShare() {
+      if (!currentCollectionId) return;
+      await fetch(`/api/collections/${currentCollectionId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revoke: true }),
+      });
+      document.getElementById("shareSection").style.display = "none";
+      document.getElementById("shareBtn").textContent = "Share";
+      showToast("Share link revoked");
+    }
+
+    function copyShareUrl() {
+      const input = document.getElementById("shareUrl");
+      input.select();
+      document.execCommand("copy");
+      showToast("Link copied");
+    }
+
+    async function deleteCurrentCollection() {
+      if (!currentCollectionId) return;
+      if (!confirm("Delete this collection?")) return;
+      await fetch(`/api/collections/${currentCollectionId}`, { method: "DELETE" });
+      closeDetailModal();
+      showToast("Collection deleted");
+      loadCollections();
+    }
+
+    function esc(str) {
+      const d = document.createElement("div");
+      d.textContent = str || "";
+      return d.innerHTML;
+    }
+
+    // Init
+    (async () => {
+      await loadBookmarks();
+      await loadCollections();
+    })();
+  </script>
+</body>
+</html>

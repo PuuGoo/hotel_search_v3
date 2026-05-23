@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Starred Results</title>
+    <meta name="description" content="Kết quả tìm kiếm đã đánh dấu sao" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Starred Results</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <div class="flex gap-md wrap" style="align-items: center">
+        <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+          <i class="fa-solid fa-star"></i> Starred Results
+        </h1>
+      </div>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Kết quả tìm kiếm đã đánh dấu sao để xem lại sau.
+      </p>
+
+      <div id="statsBar" class="flex gap-md wrap" style="margin-bottom: var(--spacing-md)"></div>
+
+      <div class="flex gap-md" style="margin-bottom: var(--spacing-md)">
+        <input id="searchInput" type="text" placeholder="Tìm trong starred..." style="flex: 1" />
+        <select id="filterEngine" style="width: 150px">
+          <option value="">Tất cả engines</option>
+          <option value="tavily">Tavily</option>
+          <option value="google">Google</option>
+          <option value="ddg">DuckDuckGo</option>
+        </select>
+      </div>
+
+      <section id="resultsList" class="stack-sm"></section>
+      <div id="emptyState" class="glass-card text-center hidden" style="padding: var(--spacing-xl)">
+        <i class="fa-solid fa-star" style="font-size: 2rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm)"></i>
+        <p class="text-tertiary">Chưa có kết quả nào được đánh dấu sao.</p>
+      </div>
+
+      <div id="pagination" class="flex gap-sm center" style="margin-top: var(--spacing-md)"></div>
+    </main>
+
+    <div id="tagModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal" style="max-width: 400px">
+        <h2 class="modal-header">Chỉnh sửa Tags</h2>
+        <div>
+          <label style="font-size: 0.82rem">Tags (phân cách bằng dấu phẩy)</label>
+          <input id="inputTags" type="text" placeholder="hotel, đà nẵng, giá rẻ" style="width: 100%" />
+        </div>
+        <div style="margin-top: var(--spacing-sm)">
+          <label style="font-size: 0.82rem">Ghi chú</label>
+          <textarea id="inputNotes" rows="3" placeholder="Ghi chú..." style="width: 100%"></textarea>
+        </div>
+        <div class="modal-actions" style="margin-top: var(--spacing-md)">
+          <button id="tagCancel" type="button" class="btn btn-outline">Hủy</button>
+          <button id="tagSave" type="button" class="btn btn-primary btn-modern">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const statsBar = document.getElementById("statsBar");
+        const resultsList = document.getElementById("resultsList");
+        const emptyState = document.getElementById("emptyState");
+        const pagination = document.getElementById("pagination");
+        const searchInput = document.getElementById("searchInput");
+        const filterEngine = document.getElementById("filterEngine");
+        const tagModal = document.getElementById("tagModal");
+        let currentPage = 1;
+        let editingId = null;
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        async function loadStats() {
+          try {
+            const res = await axios.get("/api/starred-results/stats");
+            const stats = res.data;
+            statsBar.innerHTML = `
+              <div class="badge" style="background: rgba(250,166,26,.2); color: #faa61a">
+                <i class="fa-solid fa-star"></i> ${stats.total} starred
+              </div>
+              ${Object.entries(stats.byEngine).map(([e, c]) => `
+                <div class="badge" style="background: rgba(102,126,234,.15); color: #667eea">
+                  ${escapeHtml(e)}: ${c}
+                </div>
+              `).join("")}
+            `;
+          } catch {}
+        }
+
+        async function loadResults(page = 1) {
+          currentPage = page;
+          try {
+            const res = await axios.get(`/api/starred-results?page=${page}&limit=20`);
+            const data = res.data;
+            let items = data.items;
+
+            // Client-side filter
+            const query = searchInput.value.toLowerCase();
+            const engine = filterEngine.value;
+            if (query) items = items.filter(i => (i.title || "").toLowerCase().includes(query) || (i.url || "").toLowerCase().includes(query));
+            if (engine) items = items.filter(i => i.engine === engine);
+
+            if (items.length === 0) {
+              resultsList.innerHTML = "";
+              emptyState.classList.remove("hidden");
+              pagination.innerHTML = "";
+              return;
+            }
+            emptyState.classList.add("hidden");
+
+            resultsList.innerHTML = items.map(s => `
+              <div class="glass-card" style="padding: var(--spacing-sm)">
+                <div class="flex gap-md wrap" style="align-items: flex-start">
+                  <div style="flex: 1; min-width: 200px">
+                    <div style="font-weight: 600; font-size: 0.85rem">
+                      <i class="fa-solid fa-star" style="color: #faa61a; margin-right: 4px"></i>
+                      ${escapeHtml(s.title || "Untitled")}
+                    </div>
+                    ${s.url ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: var(--accent-primary); word-break: break-all">${escapeHtml(s.url)}</a>` : ''}
+                    ${s.snippet ? `<div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px">${escapeHtml(s.snippet)}</div>` : ''}
+                    <div class="flex gap-xs wrap" style="margin-top: 6px">
+                      <span class="badge" style="font-size: 0.55rem; background: rgba(102,126,234,.15); color: #667eea">${escapeHtml(s.engine)}</span>
+                      ${(s.tags || []).map(t => `<span class="badge" style="font-size: 0.55rem; background: rgba(59,165,93,.15); color: #3ba55d">${escapeHtml(t)}</span>`).join("")}
+                      ${s.score != null ? `<span class="badge" style="font-size: 0.55rem; background: rgba(250,166,26,.15); color: #faa61a">Score: ${s.score}</span>` : ''}
+                    </div>
+                    ${s.notes ? `<div style="font-size: 0.65rem; color: var(--text-tertiary); margin-top: 4px; font-style: italic">${escapeHtml(s.notes)}</div>` : ''}
+                    <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
+                      Starred: ${new Date(s.starredAt).toLocaleString("vi")}
+                    </div>
+                  </div>
+                  <div class="flex gap-xs wrap" style="flex-shrink: 0">
+                    <button class="btn btn-outline btn-small" data-action="edit" data-id="${s.id}" title="Edit tags">
+                      <i class="fa-solid fa-tags"></i>
+                    </button>
+                    <button class="btn btn-outline btn-small" data-action="unstar" data-id="${s.id}" title="Unstar" style="--btn-accent: #ff4d4f">
+                      <i class="fa-solid fa-star"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `).join("");
+
+            // Pagination
+            if (data.totalPages > 1) {
+              pagination.innerHTML = Array.from({ length: data.totalPages }, (_, i) => `
+                <button class="btn ${i + 1 === page ? 'btn-primary' : 'btn-outline'} btn-small" data-page="${i + 1}">${i + 1}</button>
+              `).join("");
+            } else {
+              pagination.innerHTML = "";
+            }
+          } catch (err) {
+            Toasts.error("Không thể tải starred results");
+          }
+        }
+
+        resultsList.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          const { action, id } = btn.dataset;
+
+          if (action === "unstar") {
+            try {
+              await axios.delete(`/api/starred-results/${id}`);
+              Toasts.success("Đã bỏ đánh dấu sao");
+              loadResults(currentPage);
+              loadStats();
+            } catch { Toasts.error("Lỗi"); }
+          }
+
+          if (action === "edit") {
+            editingId = id;
+            try {
+              const res = await axios.get(`/api/starred-results?page=1&limit=100`);
+              const item = res.data.items.find(i => i.id === id);
+              if (!item) return;
+              document.getElementById("inputTags").value = (item.tags || []).join(", ");
+              document.getElementById("inputNotes").value = item.notes || "";
+              tagModal.classList.remove("hidden");
+            } catch { Toasts.error("Lỗi"); }
+          }
+        });
+
+        pagination.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-page]");
+          if (btn) loadResults(parseInt(btn.dataset.page));
+        });
+
+        document.getElementById("tagSave").addEventListener("click", async () => {
+          const tags = document.getElementById("inputTags").value.split(",").map(t => t.trim()).filter(Boolean);
+          const notes = document.getElementById("inputNotes").value.trim();
+          try {
+            await axios.put(`/api/starred-results/${editingId}`, { tags, notes });
+            Toasts.success("Đã cập nhật");
+            tagModal.classList.add("hidden");
+            loadResults(currentPage);
+          } catch { Toasts.error("Lỗi cập nhật"); }
+        });
+
+        document.getElementById("tagCancel").addEventListener("click", () => tagModal.classList.add("hidden"));
+        tagModal.addEventListener("click", (e) => { if (e.target === tagModal) tagModal.classList.add("hidden"); });
+
+        searchInput.addEventListener("input", () => loadResults(1));
+        filterEngine.addEventListener("change", () => loadResults(1));
+
+        loadStats();
+        loadResults();
+      });
+    </script>
+  </body>
+</html>
+

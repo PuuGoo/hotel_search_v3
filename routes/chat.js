@@ -59,14 +59,38 @@ const router = Router();
  *         description: Not authenticated
  */
 
-// List chat messages (authenticated)
-router.get("/api/chat/messages", checkAuthenticated, (_req, res) => {
+// List chat messages (authenticated, paginated)
+router.get("/api/chat/messages", checkAuthenticated, (req, res) => {
   try {
     let messages = [];
     if (fs.existsSync(CHAT_FILE)) {
       messages = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8"));
     }
-    res.json(messages);
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const statusFilter = req.query.status;
+
+    if (statusFilter && ["open", "resolved"].includes(statusFilter)) {
+      messages = messages.filter((m) => m.status === statusFilter);
+    }
+
+    // Sort newest first
+    messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const total = messages.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const paged = messages.slice(offset, offset + limit);
+
+    res.json({
+      messages: paged,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasMore: page < totalPages,
+    });
   } catch (e) {
     console.error("Error reading chat messages:", e.message);
     res.status(500).json({ error: "Failed to read messages" });

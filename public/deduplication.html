@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Result Deduplication</title>
+    <meta name="description" content="Phát hiện và gộp kết quả trùng lặp" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      if (!window.Toasts) {
+        window.Toasts = {
+          show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+          success: function(msg) { console.log("[Toast] success", msg); },
+          error: function(msg) { console.log("[Toast] error", msg); },
+          warning: function(msg) { console.log("[Toast] warning", msg); },
+          info: function(msg) { console.log("[Toast] info", msg); },
+        };
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <header class="app-header no-print">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="logo"><i class="fa-solid fa-hotel"></i></span>
+          <span>Deduplication</span>
+        </div>
+        <div class="flex gap-sm center" style="margin-left: auto">
+          <span id="currentUser" class="text-secondary" style="font-size: 0.82rem"></span>
+          <a href="/dashboard" class="btn btn-outline btn-small" title="Dashboard"><i class="fa-solid fa-chart-pie"></i></a>
+          <button id="themeToggle" type="button" class="btn btn-outline btn-pill" title="Đổi giao diện">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <form method="POST" action="/logout" style="display:inline">
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container stack-lg" style="padding-top: var(--spacing-lg); padding-bottom: var(--spacing-xl)">
+      <h1 class="gradient-text" style="margin: 0; font-size: 1.8rem">
+        <i class="fa-solid fa-code-compare"></i> Result Deduplication
+      </h1>
+      <p class="text-secondary" style="margin: 0 0 var(--spacing-md)">
+        Phát hiện và gộp kết quả trùng lặp từ nhiều engine tìm kiếm.
+      </p>
+
+      <div class="glass-card">
+        <div class="stack-md">
+          <div>
+            <label style="font-size: 0.82rem">Kết quả (JSON array)</label>
+            <textarea id="inputResults" rows="8" placeholder='[{"title":"Hotel ABC","url":"https://example.com","engine":"tavily"},{"title":"Hotel ABC","url":"https://example.com","engine":"google"}]' style="width: 100%; font-family: monospace; font-size: 0.78rem"></textarea>
+          </div>
+          <div class="flex gap-md wrap" style="align-items: flex-end">
+            <div style="flex: 1; min-width: 150px">
+              <label style="font-size: 0.82rem">Ngưỡng tương đồng (0-1)</label>
+              <input id="inputThreshold" type="number" min="0" max="1" step="0.1" value="0.7" style="width: 100%" />
+            </div>
+            <button id="dedupBtn" class="btn btn-primary btn-modern">
+              <i class="fa-solid fa-code-compare"></i><span>Gộp trùng lặp</span>
+            </button>
+            <button id="exampleBtn" type="button" class="btn btn-outline">
+              <i class="fa-solid fa-flask"></i><span>Ví dụ</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="errorState" class="hidden glass-card" style="border-left: 3px solid #ff4d4f; padding: var(--spacing-md)">
+        <div class="flex gap-sm" style="align-items: center">
+          <i class="fa-solid fa-triangle-exclamation" style="color: #ff4d4f"></i>
+          <span id="errorText" style="font-size: 0.82rem; color: #ff8a8a"></span>
+        </div>
+      </div>
+
+      <div id="statsBar" class="flex gap-md wrap hidden" style="margin-bottom: var(--spacing-md)"></div>
+
+      <section id="resultsList" class="stack-sm"></section>
+    </main>
+
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="/ui.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("year").textContent = new Date().getFullYear();
+        const stored = localStorage.getItem("theme");
+        if (stored) document.documentElement.setAttribute("data-theme", stored);
+        document.getElementById("themeToggle").addEventListener("click", () => {
+          const cur = document.documentElement.getAttribute("data-theme");
+          const next = cur === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+        });
+
+        fetch("/api/me").then(r => r.json()).then(user => {
+          document.getElementById("currentUser").textContent = user.displayName || user.username;
+        }).catch(() => {});
+
+        const inputResults = document.getElementById("inputResults");
+        const inputThreshold = document.getElementById("inputThreshold");
+        const dedupBtn = document.getElementById("dedupBtn");
+        const exampleBtn = document.getElementById("exampleBtn");
+        const errorState = document.getElementById("errorState");
+        const errorText = document.getElementById("errorText");
+        const statsBar = document.getElementById("statsBar");
+        const resultsList = document.getElementById("resultsList");
+
+        const exampleData = [
+          { title: "Hotel Đà Nẵng Beach", url: "https://booking.com/hotel-danang-beach", snippet: "Khách sạn 5 sao ven biển", engine: "tavily", score: 0.95 },
+          { title: "Hotel Da Nang Beach Resort", url: "https://booking.com/hotel-danang-beach", snippet: "Luxury beachfront hotel", engine: "google", score: 0.88 },
+          { title: "Khách sạn Biển Đà Nẵng", url: "https://agoda.com/hotel-danang-beach", snippet: "Khách sạn view biển tuyệt đẹp", engine: "ddg", score: 0.82 },
+          { title: "Vinpearl Resort Đà Nẵng", url: "https://vinpearl.com/danang", snippet: "Resort cao cấp", engine: "tavily", score: 0.91 },
+          { title: "Vinpearl Da Nang Resort", url: "https://vinpearl.com/danang", snippet: "Premium resort experience", engine: "google", score: 0.85 },
+          { title: "Hotel Non Duplicate", url: "https://unique-hotel.com", snippet: "A unique hotel", engine: "tavily", score: 0.7 },
+        ];
+
+        exampleBtn.addEventListener("click", () => {
+          inputResults.value = JSON.stringify(exampleData, null, 2);
+        });
+
+        function escapeHtml(str) {
+          if (!str) return "";
+          return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        dedupBtn.addEventListener("click", async () => {
+          errorState.classList.add("hidden");
+          statsBar.classList.add("hidden");
+          resultsList.innerHTML = "";
+
+          let results;
+          try {
+            results = JSON.parse(inputResults.value);
+            if (!Array.isArray(results)) throw new Error("Input must be a JSON array");
+          } catch (err) {
+            errorText.textContent = `JSON không hợp lệ: ${err.message}`;
+            errorState.classList.remove("hidden");
+            return;
+          }
+
+          const threshold = parseFloat(inputThreshold.value) || 0.7;
+          dedupBtn.disabled = true;
+
+          try {
+            const res = await axios.post("/api/deduplicate", { results, threshold });
+            const data = res.data;
+
+            statsBar.innerHTML = `
+              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+                <i class="fa-solid fa-list"></i> ${results.length} kết quả gốc
+              </div>
+              <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
+                <i class="fa-solid fa-check-double"></i> ${data.deduplicated.length} kết quả sau gộp
+              </div>
+              <div class="badge" style="background: rgba(250,166,26,.2); color: #faa61a">
+                <i class="fa-solid fa-copy"></i> ${data.duplicates} trùng lặp
+              </div>
+              <div class="badge" style="background: rgba(255,77,79,.2); color: #ff4d4f">
+                <i class="fa-solid fa-layer-group"></i> ${data.groups} nhóm
+              </div>
+            `;
+            statsBar.classList.remove("hidden");
+
+            if (data.deduplicated.length === 0) {
+              resultsList.innerHTML = '<p class="text-tertiary text-center">Không có kết quả</p>';
+              return;
+            }
+
+            resultsList.innerHTML = data.deduplicated.map(r => `
+              <div class="glass-card" style="padding: var(--spacing-sm); ${r._duplicateCount ? 'border-left: 3px solid #faa61a' : ''}">
+                <div class="flex gap-md wrap" style="align-items: flex-start">
+                  <div style="flex: 1; min-width: 200px">
+                    <div style="font-weight: 600; font-size: 0.85rem">${escapeHtml(r.title || r.name || "Untitled")}</div>
+                    ${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: var(--accent-primary); word-break: break-all">${escapeHtml(r.url)}</a>` : ''}
+                    ${r.snippet || r.description ? `<div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px">${escapeHtml(r.snippet || r.description)}</div>` : ''}
+                    <div class="flex gap-xs wrap" style="margin-top: 6px">
+                      ${(r._engines || [r.engine]).filter(Boolean).map(e => `<span class="badge" style="font-size: 0.55rem; background: rgba(102,126,234,.15); color: #667eea">${escapeHtml(e)}</span>`).join("")}
+                      ${r._duplicateCount ? `<span class="badge" style="font-size: 0.55rem; background: rgba(250,166,26,.15); color: #faa61a">${r._duplicateCount} bản sao</span>` : ''}
+                      ${r.score != null ? `<span class="badge" style="font-size: 0.55rem; background: rgba(59,165,93,.15); color: #3ba55d">Score: ${r.score}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `).join("");
+          } catch (err) {
+            errorText.textContent = err.response?.data?.error || "Lỗi xử lý";
+            errorState.classList.remove("hidden");
+          } finally {
+            dedupBtn.disabled = false;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Price History | Hotel Search</title>
+    <meta name="description" content="Biểu đồ xu hướng giá khách sạn theo thời gian" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script defer src="/analytics-init.js"></script>
+    <style>
+      .chart-container {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+      }
+      .chart-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: var(--spacing-sm);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      canvas { width: 100% !important; height: auto !important; }
+      .stat-row {
+        display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
+      }
+      .stat-item {
+        padding: 8px 16px;
+        background: var(--bg-tertiary, #222);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: 0.82rem;
+      }
+      .stat-item .value { font-weight: 700; font-size: 1.1rem; }
+      .alert-card {
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-xs);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .alert-card:hover { border-color: var(--accent); }
+      .alert-card.selected { border-left: 3px solid var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="container" style="max-width: 1100px; padding-top: var(--spacing-lg)">
+      <div class="card" style="margin-bottom: var(--spacing-md)">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
+          <div>
+            <h1 style="font-size: 1.4rem; margin: 0">
+              <i class="fa-solid fa-chart-line" style="color: #22c55e"></i> Price History
+            </h1>
+            <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
+              Xu hướng giá khách sạn từ price alerts
+            </p>
+          </div>
+          <div style="display: flex; gap: 6px">
+            <a href="/price-alerts" class="btn btn-outline btn-small"><i class="fa-solid fa-bell"></i> Alerts</a>
+            <a href="/dashboard" class="btn btn-outline btn-small"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert List -->
+      <div id="alertList">
+        <div class="empty-state" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+          <i class="fa-solid fa-spinner fa-spin"></i> Đang tải...
+        </div>
+      </div>
+
+      <!-- Chart Area (shown when alert selected) -->
+      <div id="chartArea" style="display:none">
+        <div class="chart-container">
+          <div class="chart-title">
+            <i class="fa-solid fa-chart-area" style="color: #22c55e"></i>
+            <span id="chartAlertName">Price Trend</span>
+          </div>
+          <div id="priceStats" class="stat-row"></div>
+          <canvas id="priceChart" height="250"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { Toasts, escapeHtml } from "/ui.js";
+      import { initSessionTimeout } from "/sessionTimeout.js";
+      initSessionTimeout();
+
+      let alertsData = [];
+      let selectedAlertId = null;
+
+      async function loadAlerts() {
+        try {
+          const res = await fetch("/api/price-alerts/history");
+          if (!res.ok) throw new Error("Failed to load");
+          const data = await res.json();
+          alertsData = data.alerts;
+          renderAlertList();
+        } catch {
+          Toasts.error("Không thể tải price history");
+        }
+      }
+
+      function renderAlertList() {
+        const container = document.getElementById("alertList");
+
+        if (alertsData.length === 0) {
+          container.innerHTML = `
+            <div class="card" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+              <i class="fa-solid fa-chart-line" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.3"></i>
+              <div style="font-size:0.9rem">Chưa có price history</div>
+              <div style="font-size:0.75rem;margin-top:6px">Tạo price alert và check giá để tích lũy dữ liệu</div>
+              <a href="/price-alerts" class="btn btn-primary btn-small" style="margin-top:12px"><i class="fa-solid fa-plus"></i> Tạo Alert</a>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px">
+          ${alertsData.map(a => {
+            const isSelected = selectedAlertId === a.id;
+            const dirIcon = a.direction === "below" ? "fa-arrow-down" : "fa-arrow-up";
+            const dirColor = a.direction === "below" ? "#22c55e" : "#ef4444";
+            const statusBadge = a.status === "triggered"
+              ? '<span class="badge" style="background:rgba(34,197,94,.2);color:#22c55e;font-size:0.65rem">Triggered</span>'
+              : a.status === "active"
+                ? '<span class="badge" style="background:rgba(59,130,246,.2);color:#3b82f6;font-size:0.65rem">Active</span>'
+                : `<span class="badge" style="font-size:0.65rem">${a.status}</span>`;
+
+            return `<div class="card alert-card ${isSelected ? "selected" : ""}" data-id="${a.id}">
+              <div style="display:flex;align-items:center;gap:10px">
+                <i class="fa-solid ${dirIcon}" style="color:${dirColor};font-size:1.1rem"></i>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.hotelName)}</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                    ${statusBadge}
+                    <span style="font-size:0.7rem;color:var(--text-tertiary)">${a.history.length} checks</span>
+                    <span style="font-size:0.7rem;color:var(--text-tertiary)">Target: $${a.targetPrice}</span>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:700;font-size:1rem;color:#22c55e">$${a.currentPrice || "-"}</div>
+                  <div style="font-size:0.65rem;color:var(--text-tertiary)">Min: $${a.minPrice} / Max: $${a.maxPrice}</div>
+                </div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>`;
+
+        container.querySelectorAll(".alert-card").forEach(card => {
+          card.addEventListener("click", () => {
+            selectedAlertId = card.dataset.id;
+            const alert = alertsData.find(a => a.id === selectedAlertId);
+            if (alert) renderChart(alert);
+            renderAlertList();
+          });
+        });
+      }
+
+      function renderChart(alert) {
+        const chartArea = document.getElementById("chartArea");
+        chartArea.style.display = "block";
+        document.getElementById("chartAlertName").textContent = alert.hotelName;
+
+        // Stats
+        const stats = document.getElementById("priceStats");
+        const priceChange = alert.history.length >= 2
+          ? alert.history[alert.history.length - 1].price - alert.history[0].price
+          : 0;
+        const changeColor = priceChange < 0 ? "#22c55e" : priceChange > 0 ? "#ef4444" : "var(--text-tertiary)";
+        const changeIcon = priceChange < 0 ? "fa-arrow-down" : priceChange > 0 ? "fa-arrow-up" : "fa-equals";
+
+        stats.innerHTML = `
+          <div class="stat-item"><div class="value" style="color:#22c55e">$${alert.minPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Min</div></div>
+          <div class="stat-item"><div class="value" style="color:#ef4444">$${alert.maxPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Max</div></div>
+          <div class="stat-item"><div class="value">$${alert.avgPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Average</div></div>
+          <div class="stat-item"><div class="value" style="color:${changeColor}"><i class="fa-solid ${changeIcon}" style="font-size:0.8rem"></i> $${Math.abs(priceChange).toFixed(2)}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Change</div></div>
+          <div class="stat-item"><div class="value" style="color:var(--accent)">$${alert.targetPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Target</div></div>
+        `;
+
+        // Draw chart
+        const canvas = document.getElementById("priceChart");
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width - 32;
+        const h = 250;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, w, h);
+
+        const history = alert.history;
+        if (history.length === 0) return;
+
+        const padding = { top: 20, bottom: 40, left: 60, right: 20 };
+        const chartW = w - padding.left - padding.right;
+        const chartH = h - padding.top - padding.bottom;
+
+        const prices = history.map(h => h.price);
+        const minP = Math.min(...prices, alert.targetPrice) * 0.95;
+        const maxP = Math.max(...prices, alert.targetPrice) * 1.05;
+        const range = maxP - minP || 1;
+
+        // Grid lines
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+          const y = padding.top + (chartH / 5) * i;
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(w - padding.right, y);
+          ctx.stroke();
+
+          const val = maxP - (range / 5) * i;
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "10px Inter, sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText("$" + val.toFixed(0), padding.left - 8, y + 4);
+        }
+
+        // Target price line
+        const targetY = padding.top + chartH - ((alert.targetPrice - minP) / range) * chartH;
+        ctx.strokeStyle = "rgba(245,158,11,0.4)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, targetY);
+        ctx.lineTo(w - padding.right, targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#f59e0b";
+        ctx.font = "10px Inter, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("Target $" + alert.targetPrice, w - padding.right + 4, targetY + 4);
+
+        // Price line
+        const points = history.map((h, i) => ({
+          x: padding.left + (i / Math.max(history.length - 1, 1)) * chartW,
+          y: padding.top + chartH - ((h.price - minP) / range) * chartH,
+        }));
+
+        // Area fill
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, padding.top + chartH);
+        for (const p of points) ctx.lineTo(p.x, p.y);
+        ctx.lineTo(points[points.length - 1].x, padding.top + chartH);
+        ctx.closePath();
+        const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+        gradient.addColorStop(0, "rgba(34,197,94,0.2)");
+        gradient.addColorStop(1, "rgba(34,197,94,0.0)");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Line
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Dots
+        for (const p of points) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#22c55e";
+          ctx.fill();
+        }
+
+        // Date labels
+        const labelEvery = Math.max(1, Math.floor(history.length / 6));
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.font = "9px Inter, sans-serif";
+        ctx.textAlign = "center";
+        for (let i = 0; i < history.length; i += labelEvery) {
+          const date = new Date(history[i].checkedAt);
+          const label = `${date.getMonth() + 1}/${date.getDate()}`;
+          ctx.fillText(label, points[i].x, h - 8);
+        }
+
+        chartArea.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      loadAlerts();
+
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (selectedAlertId) {
+            const alert = alertsData.find(a => a.id === selectedAlertId);
+            if (alert) renderChart(alert);
+          }
+        }, 200);
+      });
+    </script>
+  </body>
+</html>
+
