@@ -1,11 +1,12 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from "@jest/globals";
-import { rateLimitLogin, _loginAttempts, _RATE_LIMIT_WINDOW, rateLimitSearch, _searchRequests, _SEARCH_RATE_WINDOW, _cleanupExpired, rateLimitStatus } from "../middleware/rateLimit.js";
+import { rateLimitLogin, recordLoginFailure, _loginAttempts, _RATE_LIMIT_WINDOW, rateLimitSearch, _searchRequests, _SEARCH_RATE_WINDOW, _cleanupExpired, rateLimitStatus } from "../middleware/rateLimit.js";
 
 describe("Rate Limiter", () => {
   const mockRes = () => {
     const res = {};
     res.status = jest.fn().mockReturnValue(res);
     res.json = jest.fn().mockReturnValue(res);
+    res.setHeader = jest.fn();
     return res;
   };
 
@@ -43,15 +44,18 @@ describe("Rate Limiter", () => {
     expect(next).toHaveBeenCalledTimes(5);
   });
 
-  test("should block after max attempts", () => {
+  test("should block after max failed attempts", () => {
     const req = { ip: "192.168.1.3", connection: { remoteAddress: "192.168.1.3" } };
     const res = mockRes();
     const next = jest.fn();
 
+    // Simulate 5 failed login attempts
     for (let i = 0; i < 5; i++) {
+      recordLoginFailure(req);
       rateLimitLogin(req, res, next);
     }
 
+    // 6th attempt should be blocked
     rateLimitLogin(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(429);
@@ -86,26 +90,35 @@ describe("Rate Limiter", () => {
     const res = mockRes();
     const next = jest.fn();
 
-    // Make 5 requests at time 1000000
-    for (let i = 0; i < 5; i++) {
-      rateLimitLogin(req, res, next);
+    // Simulate 4 failed login attempts (count becomes 4)
+    for (let i = 0; i < 4; i++) {
+      recordLoginFailure(req);
     }
-    expect(next).toHaveBeenCalledTimes(5);
 
-    // 6th request should be blocked
+    // 5th attempt should still be allowed (count=4 < MAX_ATTEMPTS=5)
     rateLimitLogin(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(429);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+
+    // Simulate one more failure (count becomes 5)
+    recordLoginFailure(req);
+
+    // Now should be blocked (count=5 >= MAX_ATTEMPTS=5)
+    const res2 = mockRes();
+    const next2 = jest.fn();
+    rateLimitLogin(req, res2, next2);
+    expect(res2.status).toHaveBeenCalledWith(429);
 
     // Advance time past the window (15 minutes + 1ms)
     dateNowSpy.mockReturnValue(1000000 + 15 * 60 * 1000 + 1);
 
-    const res2 = mockRes();
-    const next2 = jest.fn();
+    const res3 = mockRes();
+    const next3 = jest.fn();
 
     // Should be allowed again after window reset
-    rateLimitLogin(req, res2, next2);
-    expect(next2).toHaveBeenCalled();
-    expect(res2.status).not.toHaveBeenCalled();
+    rateLimitLogin(req, res3, next3);
+    expect(next3).toHaveBeenCalled();
+    expect(res3.status).not.toHaveBeenCalled();
   });
 
   test("should track different IPs independently", () => {
@@ -116,8 +129,9 @@ describe("Rate Limiter", () => {
     const next1 = jest.fn();
     const next2 = jest.fn();
 
-    // Exhaust IP1
+    // Exhaust IP1 with failed attempts
     for (let i = 0; i < 5; i++) {
+      recordLoginFailure(req1);
       rateLimitLogin(req1, res1, next1);
     }
     rateLimitLogin(req1, res1, next1);
@@ -135,9 +149,12 @@ describe("Rate Limiter", () => {
     const res = mockRes();
     const next = jest.fn();
 
-    for (let i = 0; i < 6; i++) {
-      rateLimitLogin(req, res, next);
+    // Simulate 5 failed attempts to exceed limit
+    for (let i = 0; i < 5; i++) {
+      recordLoginFailure(req);
     }
+    // Now rateLimitLogin will block
+    rateLimitLogin(req, res, next);
 
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       error: expect.any(String),
@@ -150,8 +167,9 @@ describe("Rate Limiter", () => {
     const res = mockRes();
     const next = jest.fn();
 
-    // Make 5 requests
+    // Simulate 5 failed login attempts
     for (let i = 0; i < 5; i++) {
+      recordLoginFailure(req);
       rateLimitLogin(req, res, next);
     }
 
@@ -192,6 +210,7 @@ describe("Search Rate Limiter", () => {
     const res = {};
     res.status = jest.fn().mockReturnValue(res);
     res.json = jest.fn().mockReturnValue(res);
+    res.setHeader = jest.fn();
     return res;
   };
 
@@ -286,6 +305,7 @@ describe("Rate Limit Status Endpoint", () => {
     const res = {};
     res.status = jest.fn().mockReturnValue(res);
     res.json = jest.fn().mockReturnValue(res);
+    res.setHeader = jest.fn();
     return res;
   };
 

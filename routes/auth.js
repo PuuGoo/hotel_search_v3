@@ -1,10 +1,14 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { readUsers, writeUsers, checkAuthenticated } from "../middleware/auth.js";
-import { validatePassword, validateUserInput } from "../middleware/validation.js";
-import { rateLimitLogin } from "../middleware/rateLimit.js";
+import { validatePassword, validateUserInput, validatePasswordStrength, checkPasswordStrength } from "../middleware/validation.js";
+import { rateLimitLogin, applyLoginDelay, resetLoginAttempts } from "../middleware/rateLimit.js";
+import { logAudit } from "./audit.js";
+import { trackSession, removeSession } from "./sessionManagement.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +67,8 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
     const user = users.find((u) => u.username === username);
 
     if (user && (await bcrypt.compare(password, user.password))) {
+      // Reset rate limit counter on successful login
+      resetLoginAttempts(req);
       // Regenerate session ID to prevent session fixation
       req.session.regenerate((err) => {
         if (err) {
@@ -77,12 +83,20 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
           displayName: user.displayName,
           features: user.features || [],
         };
+        // Rotate CSRF token after login (privilege escalation)
+        req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+        logAudit("user_login", { userId: user.id, username: user.username, ip: req.ip });
+        trackSession(req.sessionID, req.session.user, req);
         res.redirect("/searchTavily?success=1");
       });
     } else {
       // Log failed login attempt for security monitoring
       console.warn(`Failed login attempt for username: ${username} from IP: ${req.ip}`);
-      res.redirect("/?error=1");
+      logAudit("login_failed", { username, ip: req.ip });
+      // Apply progressive delay before responding
+      applyLoginDelay(req, res, () => {
+        res.redirect("/?error=1");
+      });
     }
   } catch (error) {
     console.error("Login error:", error);
@@ -105,6 +119,10 @@ router.post("/login", rateLimitLogin, validateUserInput, async (req, res) => {
 
 // Logout (POST to prevent CSRF via image tags)
 router.post("/logout", (req, res) => {
+  const username = req.session.user?.username;
+  const userId = req.session.user?.id;
+  logAudit("user_logout", { userId, username, ip: req.ip });
+  removeSession(req.sessionID);
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).send("Error during logout.");
@@ -135,6 +153,43 @@ router.post("/logout", (req, res) => {
 // Current user info
 router.get("/api/me", checkAuthenticated, (req, res) => {
   res.json(req.session.user);
+});
+
+// Password strength check API (for real-time frontend feedback)
+router.get("/api/password-strength", (req, res) => {
+  const { password } = req.query;
+  if (!password) {
+    return res.json({ score: 0, level: "none", errors: [] });
+  }
+  const result = checkPasswordStrength(password);
+  res.json(result);
+});
+
+// User stats summary
+router.get("/api/me/stats", checkAuthenticated, (req, res) => {
+  const userId = req.session.user.id;
+  const stats = { searchCount: 0, bookmarkCount: 0, recentSearches: 0 };
+
+  try {
+    const historyFile = path.join(__dirname, "..", "search_history.json");
+    if (fs.existsSync(historyFile)) {
+      const history = JSON.parse(fs.readFileSync(historyFile, "utf8"));
+      const userHistory = history[userId] || [];
+      stats.searchCount = userHistory.length;
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      stats.recentSearches = userHistory.filter((h) => h.timestamp > oneDayAgo).length;
+    }
+  } catch {}
+
+  try {
+    const bookmarksFile = path.join(__dirname, "..", "bookmarks.json");
+    if (fs.existsSync(bookmarksFile)) {
+      const bookmarks = JSON.parse(fs.readFileSync(bookmarksFile, "utf8"));
+      stats.bookmarkCount = (bookmarks[userId] || []).length;
+    }
+  } catch {}
+
+  res.json(stats);
 });
 
 /**
@@ -169,8 +224,57 @@ router.get("/api/me", checkAuthenticated, (req, res) => {
  *         description: User not found
  */
 
+/**
+ * @swagger
+ * /api/me:
+ *   put:
+ *     summary: Update own profile
+ *     description: Update the authenticated user's display name
+ *     security:
+ *       - sessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               displayName:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 50
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Not authenticated
+ */
+router.put("/api/me", checkAuthenticated, (req, res) => {
+  const { displayName } = req.body;
+  if (!displayName || typeof displayName !== "string") {
+    return res.status(400).json({ error: "Display name is required" });
+  }
+  const trimmed = displayName.trim();
+  if (trimmed.length < 1 || trimmed.length > 50) {
+    return res.status(400).json({ error: "Display name must be 1-50 characters" });
+  }
+
+  const users = readUsers();
+  const user = users.find((u) => u.id === req.session.user.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  user.displayName = trimmed;
+  writeUsers(users);
+  req.session.user.displayName = trimmed;
+  res.json({ success: true, displayName: trimmed });
+});
+
 // Change own password
-router.put("/api/change-password", checkAuthenticated, validatePassword, async (req, res) => {
+router.put("/api/change-password", checkAuthenticated, validatePassword, validatePasswordStrength, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   const users = readUsers();
   const user = users.find((u) => u.id === req.session.user.id);
@@ -183,6 +287,28 @@ router.put("/api/change-password", checkAuthenticated, validatePassword, async (
   }
   user.password = await bcrypt.hash(newPassword, 10);
   writeUsers(users);
+  // Rotate CSRF token after password change (privilege escalation)
+  req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  logAudit("password_changed", { userId: user.id, username: user.username, ip: req.ip });
+  res.json({ success: true });
+});
+
+/**
+ * @swagger
+ * /api/session-ping:
+ *   post:
+ *     summary: Extend session
+ *     description: Updates session activity timestamp to prevent timeout
+ *     security:
+ *       - sessionAuth: []
+ *     responses:
+ *       200:
+ *         description: Session extended
+ *       401:
+ *         description: Not authenticated
+ */
+router.post("/api/session-ping", checkAuthenticated, (req, res) => {
+  req.session.lastActivity = Date.now();
   res.json({ success: true });
 });
 
