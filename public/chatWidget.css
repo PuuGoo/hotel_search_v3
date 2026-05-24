@@ -730,6 +730,118 @@
   color: #e07456;
 }
 
+/* --- Scrollbar --- */
+.cw-messages::-webkit-scrollbar,
+.cw-rooms::-webkit-scrollbar,
+.cw-online-section::-webkit-scrollbar,
+.cw-tab-pane::-webkit-scrollbar {
+  width: 4px;
+}
+.cw-messages::-webkit-scrollbar-track,
+.cw-rooms::-webkit-scrollbar-track,
+.cw-online-section::-webkit-scrollbar-track,
+.cw-tab-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cw-messages::-webkit-scrollbar-thumb,
+.cw-rooms::-webkit-scrollbar-thumb,
+.cw-online-section::-webkit-scrollbar-thumb,
+.cw-tab-pane::-webkit-scrollbar-thumb {
+  background: rgba(212,168,83,0.15);
+  border-radius: 2px;
+}
+.cw-messages::-webkit-scrollbar-thumb:hover,
+.cw-rooms::-webkit-scrollbar-thumb:hover,
+.cw-online-section::-webkit-scrollbar-thumb:hover,
+.cw-tab-pane::-webkit-scrollbar-thumb:hover {
+  background: rgba(212,168,83,0.3);
+}
+
+/* --- Create Room Button --- */
+.cw-create-room-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 12px);
+  margin: 6px;
+  padding: 10px;
+  background: rgba(212,168,83,0.08);
+  border: 1px dashed rgba(212,168,83,0.2);
+  border-radius: 10px;
+  color: #d4a853;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cw-create-room-btn:hover {
+  background: rgba(212,168,83,0.15);
+  border-color: rgba(212,168,83,0.3);
+}
+
+/* --- New message indicator --- */
+.cw-new-messages {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #d4a853;
+  color: #1a1714;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: fadeInUp 0.3s ease;
+  z-index: 10;
+  display: none;
+}
+.cw-new-messages.visible {
+  display: block;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* --- Search input in rooms --- */
+.cw-search-wrapper {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+.cw-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  background: #1a1714;
+  border: 1px solid rgba(212,168,83,0.1);
+  border-radius: 8px;
+  color: #f0ece4;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.cw-search-input::placeholder {
+  color: rgba(240,236,228,0.2);
+}
+.cw-search-input:focus {
+  border-color: rgba(212,168,83,0.3);
+}
+.cw-search-wrapper {
+  position: relative;
+}
+.cw-search-wrapper i {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(240,236,228,0.2);
+  font-size: 0.75rem;
+}
+
 /* --- Mobile --- */
 @media (max-width: 480px) {
   .chat-widget-panel {
@@ -744,5 +856,16 @@
   .chat-widget-trigger {
     bottom: 16px;
     right: 16px;
+  }
+  .cw-msg {
+    max-width: 88%;
+  }
+}
+
+/* --- Tablet --- */
+@media (min-width: 481px) and (max-width: 768px) {
+  .chat-widget-panel {
+    width: 360px;
+    height: 500px;
   }
 }

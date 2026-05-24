@@ -11,8 +11,9 @@
   let typingTimeout = null;
   let panelOpen = false;
   let activeTab = "rooms"; // "rooms" or "online"
+  let searchQuery = "";
 
-  const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","👍","👎","❤️","🔥","🎉","😢","😮","🙏","✨","💯"];
+  const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","👍","👎","❤️","🔥","🎉","😢","😮","🙏","✨","💯","😅","🤣","😊","🥳","😴","🤯","👋","💪","🙌","🫶","🤝","💬","📱","💻","🏨","✈️"];
 
   function loadCSS() {
     if (document.querySelector('link[href="/chatWidget.css"]')) return;
@@ -56,7 +57,12 @@
         '<div class="cw-tab-content">' +
           // Rooms tab
           '<div class="cw-tab-pane active" id="tabRooms">' +
+            '<div class="cw-search-wrapper">' +
+              '<i class="fas fa-search"></i>' +
+              '<input type="text" class="cw-search-input" id="chatSearch" placeholder="Tìm phòng chat..." />' +
+            '</div>' +
             '<div class="cw-rooms" id="chatRooms"></div>' +
+            '<button class="cw-create-room-btn" id="chatCreateRoom"><i class="fas fa-plus"></i> Tạo phòng mới</button>' +
           '</div>' +
           // Online tab
           '<div class="cw-tab-pane" id="tabOnline">' +
@@ -70,7 +76,8 @@
             '<span class="cw-room-title" id="chatRoomTitle">Room</span>' +
             '<span class="cw-room-status"><span class="dot"></span> <span id="chatOnlineCount">0 online</span></span>' +
           '</div>' +
-          '<div class="cw-messages" id="chatMessagesList"></div>' +
+          '<div class="cw-messages" id="chatMessagesList" style="position:relative"></div>' +
+          '<div class="cw-new-messages" id="chatNewMsg"><i class="fas fa-arrow-down"></i> Tin nhắn mới</div>' +
           '<div class="cw-typing" id="chatTyping"></div>' +
           '<div class="cw-emoji-picker" id="chatEmojiPicker"></div>' +
           '<div class="cw-input-area">' +
@@ -128,16 +135,34 @@
 
     socket.on("chat:room:history", function (data) {
       if (data.roomId === currentRoom) renderMessages(data.messages);
+      // Update room preview with last message
+      if (data.messages && data.messages.length > 0) {
+        var lastMsg = data.messages[data.messages.length - 1];
+        var room = rooms.find(function (r) { return r.id === data.roomId; });
+        if (room && lastMsg.from) {
+          room.lastMessage = lastMsg.from.username + ": " + lastMsg.text.substring(0, 40);
+        }
+      }
     });
 
     socket.on("chat:message:new", function (data) {
       var msg = data.message;
       if (msg.roomId === currentRoom && panelOpen) {
         appendMessage(msg);
-        scrollMessagesToBottom();
+        if (isNearBottom()) {
+          scrollMessagesToBottom();
+        } else {
+          var newMsgBtn = document.getElementById("chatNewMsg");
+          if (newMsgBtn) newMsgBtn.classList.add("visible");
+        }
       } else {
         unreadCounts[msg.roomId] = (unreadCounts[msg.roomId] || 0) + 1;
         updateBadge();
+        // Update room preview
+        var room = rooms.find(function (r) { return r.id === msg.roomId; });
+        if (room) {
+          room.lastMessage = msg.from ? msg.from.username + ": " + msg.text.substring(0, 40) : msg.text.substring(0, 50);
+        }
         renderRoomList();
         // Pulse animation
         var trigger = document.getElementById("chatTrigger");
@@ -147,9 +172,7 @@
         }
         // Toast
         if (window.Toasts && msg.from) {
-          var roomName = "";
-          var room = rooms.find(function (r) { return r.id === msg.roomId; });
-          roomName = room ? room.name : msg.roomId;
+          var roomName = room ? room.name : msg.roomId;
           window.Toasts.info(msg.from.username + " (" + roomName + "): " + msg.text.substring(0, 60));
         }
       }
@@ -228,21 +251,39 @@
     var container = document.getElementById("chatRooms");
     if (!container) return;
 
-    if (rooms.length === 0) {
-      container.innerHTML = '<div class="cw-empty"><i class="fas fa-comments"></i><p>Chưa có phòng chat nào</p></div>';
+    var filtered = rooms;
+    if (searchQuery) {
+      var q = searchQuery.toLowerCase();
+      filtered = rooms.filter(function (r) {
+        return r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
+      });
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="cw-empty"><i class="fas fa-comments"></i><p>' +
+        (searchQuery ? 'Không tìm thấy phòng' : 'Chưa có phòng chat nào') + '</p></div>';
       return;
     }
 
-    container.innerHTML = rooms.map(function (room) {
+    // Sort: unread first, then by name
+    filtered.sort(function (a, b) {
+      var ua = unreadCounts[a.id] || 0;
+      var ub = unreadCounts[b.id] || 0;
+      if (ua !== ub) return ub - ua;
+      return a.name.localeCompare(b.name);
+    });
+
+    container.innerHTML = filtered.map(function (room) {
       var unread = unreadCounts[room.id] || 0;
       var isDM = room.type === "dm";
       var icon = isDM ? "fa-user" : "fa-hashtag";
       var iconClass = isDM ? "dm" : "group";
+      var preview = room.lastMessage || (room.memberCount || 0) + ' thành viên';
       return '<div class="cw-room-item" data-room="' + room.id + '">' +
         '<div class="cw-room-icon ' + iconClass + '"><i class="fas ' + icon + '"></i></div>' +
         '<div class="cw-room-info">' +
           '<div class="cw-room-name">' + escapeHTML(room.name) + '</div>' +
-          '<div class="cw-room-preview">' + (room.memberCount || 0) + ' thành viên</div>' +
+          '<div class="cw-room-preview">' + escapeHTML(preview) + '</div>' +
         '</div>' +
         '<div class="cw-room-meta">' +
           (unread > 0 ? '<div class="cw-room-unread">' + unread + '</div>' : "") +
@@ -400,6 +441,14 @@
   function scrollMessagesToBottom() {
     var container = document.getElementById("chatMessagesList");
     if (container) requestAnimationFrame(function () { container.scrollTop = container.scrollHeight; });
+    var newMsgBtn = document.getElementById("chatNewMsg");
+    if (newMsgBtn) newMsgBtn.classList.remove("visible");
+  }
+
+  function isNearBottom() {
+    var container = document.getElementById("chatMessagesList");
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
   }
 
   function sendMessage() {
@@ -455,6 +504,12 @@
         unreadCounts[currentRoom] = 0;
         updateBadge();
       }
+      if (panelOpen) {
+        setTimeout(function () {
+          var searchInput = document.getElementById("chatSearch");
+          if (searchInput && !currentRoom) searchInput.focus();
+        }, 350);
+      }
     });
 
     document.getElementById("chatClose").addEventListener("click", function () {
@@ -498,6 +553,63 @@
       var picker = document.getElementById("chatEmojiPicker");
       picker.classList.toggle("open");
     });
+
+    // New messages button
+    var newMsgBtn = document.getElementById("chatNewMsg");
+    if (newMsgBtn) {
+      newMsgBtn.addEventListener("click", function () {
+        scrollMessagesToBottom();
+      });
+    }
+
+    // Scroll detection for messages
+    var msgList = document.getElementById("chatMessagesList");
+    if (msgList) {
+      msgList.addEventListener("scroll", function () {
+        if (isNearBottom()) {
+          var btn = document.getElementById("chatNewMsg");
+          if (btn) btn.classList.remove("visible");
+        }
+      });
+    }
+
+    // Search rooms
+    var searchInput = document.getElementById("chatSearch");
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        searchQuery = searchInput.value.trim();
+        renderRoomList();
+      });
+    }
+
+    // Create room
+    var createBtn = document.getElementById("chatCreateRoom");
+    if (createBtn) {
+      createBtn.addEventListener("click", function () {
+        var roomName = prompt("Tên phòng chat mới:");
+        if (!roomName || !roomName.trim()) return;
+        var roomId = roomName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        if (!roomId) {
+          if (window.Toasts) window.Toasts.error("Tên phòng không hợp lệ");
+          return;
+        }
+        fetch("/api/chat/rooms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: roomId, name: roomName.trim(), type: "group" }),
+        }).then(function (res) {
+          if (res.ok) {
+            socket.emit("chat:join", { roomId: roomId });
+            joinRoom(roomId);
+            if (window.Toasts) window.Toasts.success("Đã tạo phòng: " + roomName.trim());
+          } else {
+            if (window.Toasts) window.Toasts.error("Không thể tạo phòng");
+          }
+        }).catch(function () {
+          if (window.Toasts) window.Toasts.error("Lỗi kết nối");
+        });
+      });
+    }
   }
 
   async function init() {
