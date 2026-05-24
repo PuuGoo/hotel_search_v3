@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -29,7 +29,7 @@
       .cleanup-info { flex: 1; }
       .cleanup-title { font-weight: 600; font-size: 0.95rem; }
       .cleanup-desc { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
-      .cleanup-stat { font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .cleanup-stat { font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #d4a853, #c49539); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
       .stat-detail { font-size: 0.65rem; color: var(--text-tertiary); }
       .progress-bar { height: 6px; background: var(--glass-border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
       .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
@@ -74,7 +74,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">� <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>
@@ -95,7 +95,7 @@
         }).catch(() => {});
 
         const cleanupItems = [
-          { key: "cache", icon: "fa-database", color: "#667eea", title: "Result Cache", desc: "Remove expired cache entries (older than 1 hour)", stats: (s) => `${s.cacheEntries} entries`, detail: (s) => `${s.cacheExpired} expired`, endpoint: "/api/cleanup/cache" },
+          { key: "cache", icon: "fa-database", color: "#d4a853", title: "Result Cache", desc: "Remove expired cache entries (older than 1 hour)", stats: (s) => `${s.cacheEntries} entries`, detail: (s) => `${s.cacheExpired} expired`, endpoint: "/api/cleanup/cache" },
           { key: "recent", icon: "fa-clock-rotate-left", color: "#3ba55d", title: "Recent Searches", desc: "Remove searches older than 30 days", stats: (s) => `${s.recentSearches} entries`, detail: (s) => `${s.recentOlderThanWeek} older than 7 days`, endpoint: "/api/cleanup/recent" },
           { key: "shared", icon: "fa-share-nodes", color: "#faa61a", title: "Shared Searches", desc: "Remove expired shared links", stats: (s) => `${s.sharedSearches} entries`, detail: (s) => `${s.sharedExpired} expired`, endpoint: "/api/cleanup/shared" },
           { key: "analytics", icon: "fa-chart-line", color: "#e74c3c", title: "Analytics Data", desc: "Remove data older than 90 days", stats: (s) => `${s.analyticsEntries} entries`, detail: (s) => `${s.analyticsDays} days tracked`, endpoint: "/api/cleanup/analytics" },
@@ -169,7 +169,7 @@
             content.innerHTML = Object.entries(data.details).map(([key, count]) => `
               <div class="flex gap-sm" style="align-items: center; font-size: 0.82rem">
                 <span style="flex: 1; text-transform: capitalize">${key}</span>
-                <span class="badge" style="background: rgba(102,126,234,.15); color: #667eea">${count} cleaned</span>
+                <span class="badge" style="background: rgba(212,168,83,.15); color: #d4a853">${count} cleaned</span>
               </div>
             `).join("") + `<div style="margin-top: 8px; font-weight: 600; font-size: 0.9rem">Total: ${data.totalCleaned} items cleaned</div>`;
             Toasts.success(`Cleanup complete: ${data.totalCleaned} items removed`);

@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -33,7 +33,7 @@
       .setting-input { width: 80px; text-align: center; }
       .setting-unit { font-size: 0.75rem; color: var(--text-tertiary); min-width: 50px; }
       .toggle-switch { position: relative; width: 44px; height: 24px; background: var(--glass-border); border-radius: 12px; cursor: pointer; transition: background 0.2s; }
-      .toggle-switch.active { background: var(--accent-primary, #667eea); }
+      .toggle-switch.active { background: var(--accent-primary, #d4a853); }
       .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.2s; }
       .toggle-switch.active::after { transform: translateX(20px); }
       .preview-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--spacing-sm); }
@@ -129,7 +129,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">&copy; <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>
@@ -152,7 +152,7 @@
         let currentSettings = {};
 
         const settingDefs = [
-          { key: "historyDays", icon: "fa-clock-rotate-left", color: "#667eea", label: "Search History", desc: "How long to keep search history", unit: "days", min: 1, max: 365 },
+          { key: "historyDays", icon: "fa-clock-rotate-left", color: "#d4a853", label: "Search History", desc: "How long to keep search history", unit: "days", min: 1, max: 365 },
           { key: "cacheHours", icon: "fa-database", color: "#3ba55d", label: "Result Cache", desc: "How long to cache search results", unit: "hours", min: 0, max: 168 },
           { key: "recentSearchesDays", icon: "fa-list", color: "#faa61a", label: "Recent Searches", desc: "How long to keep recent search suggestions", unit: "days", min: 1, max: 90 },
           { key: "sharedSearchesDays", icon: "fa-share-nodes", color: "#e74c3c", label: "Shared Searches", desc: "Default expiration for shared search links", unit: "days", min: 1, max: 30 },
@@ -250,7 +250,7 @@
               content.innerHTML = items.map(([key, count]) => `
                 <div class="flex gap-sm" style="align-items: center; font-size: 0.82rem">
                   <span style="flex: 1; text-transform: capitalize">${key}</span>
-                  <span class="badge" style="background: rgba(102,126,234,.15); color: #667eea">${count} items</span>
+                  <span class="badge" style="background: rgba(212,168,83,.15); color: #d4a853">${count} items</span>
                 </div>
               `).join("");
             }

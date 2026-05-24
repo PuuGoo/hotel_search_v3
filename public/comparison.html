@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -188,7 +188,7 @@
           clearBtn.classList.remove("hidden");
 
           const engineNames = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
-          const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+          const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
           const engineIcons = { tavily: "fa-bolt", google: "fa-brands fa-google", ddg: "fa-brands fa-searchengin" };
 
           // Stats bar
@@ -196,13 +196,13 @@
           const engineCount = Object.keys(data.results).length;
           const errorCount = Object.keys(data.errors).length;
           statsBar.innerHTML = `
-            <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+            <div class="badge" style="background: rgba(212,168,83,.2); color: #d4a853">
               <i class="fa-solid fa-magnifying-glass"></i> "${escapeHtml(data.query)}"
             </div>
             <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
               <i class="fa-solid fa-list"></i> ${totalResults} kết quả
             </div>
-            <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+            <div class="badge" style="background: rgba(212,168,83,.2); color: #d4a853">
               <i class="fa-solid fa-layer-group"></i> ${engineCount} engine
             </div>
             ${errorCount ? `<div class="badge" style="background: rgba(255,77,79,.2); color: #ff4d4f">
@@ -215,16 +215,16 @@
           for (const [engine, result] of Object.entries(data.results)) {
             const col = document.createElement("div");
             col.className = "glass-card";
-            col.style.borderTop = `3px solid ${engineColors[engine] || "#667eea"}`;
+            col.style.borderTop = `3px solid ${engineColors[engine] || "#d4a853"}`;
             col.innerHTML = `
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: var(--spacing-sm)">
-                <i class="${engineIcons[engine] || 'fa-solid fa-search'}" style="color: ${engineColors[engine] || '#667eea'}; font-size: 1.1rem"></i>
+                <i class="${engineIcons[engine] || 'fa-solid fa-search'}" style="color: ${engineColors[engine] || '#d4a853'}; font-size: 1.1rem"></i>
                 <strong style="font-size: 0.9rem">${engineNames[engine] || engine}</strong>
                 <span class="badge" style="margin-left: auto; background: rgba(255,255,255,.1); font-size: 0.65rem">${result.total} kết quả</span>
               </div>
               <div class="stack-sm" style="max-height: 500px; overflow-y: auto; font-size: 0.75rem">
                 ${result.items.length ? result.items.map((item, i) => `
-                  <div class="glass-card" style="padding: var(--spacing-sm); border-left: 2px solid ${engineColors[engine] || '#667eea'}">
+                  <div class="glass-card" style="padding: var(--spacing-sm); border-left: 2px solid ${engineColors[engine] || '#d4a853'}">
                     <div style="font-weight: 600; margin-bottom: 4px">
                       <span style="color: var(--text-tertiary); font-size: 0.6rem">#${i + 1}</span>
                       <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" style="color: #21d4fd; text-decoration: none; margin-left: 4px">
@@ -266,7 +266,7 @@
             grid.appendChild(errCol);
           }
 
-          statusEl.textContent = `Tìm xong "${data.query}" — ${totalResults} kết quả từ ${engineCount} engine`;
+          statusEl.textContent = `Tìm xong "${data.query}" - ${totalResults} kết quả từ ${engineCount} engine`;
           statusEl.style.color = "#3ba55d";
         }
 

@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -26,7 +26,7 @@
     </script>
     <style>
       .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--spacing-sm); }
-      .stat-card { text-align: center; padding: var(--spacing-md); background: var(--surface-glass); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+      .stat-card { text-align: center; padding: var(--spacing-md); background: var(--color-surface); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
       .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
       .stat-label { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
       .chart-container { position: relative; height: 220px; }
@@ -122,16 +122,16 @@
         user_login: { icon: "fa-right-to-bracket", color: "#3ba55d", bg: "rgba(59,165,93,.15)" },
         user_logout: { icon: "fa-right-from-bracket", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
         login_failed: { icon: "fa-triangle-exclamation", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
-        user_created: { icon: "fa-user-plus", color: "#667eea", bg: "rgba(102,126,234,.15)" },
+        user_created: { icon: "fa-user-plus", color: "#d4a853", bg: "rgba(212,168,83,.15)" },
         user_deleted: { icon: "fa-user-minus", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
         password_changed: { icon: "fa-key", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
         bookmark_added: { icon: "fa-bookmark", color: "#21d4fd", bg: "rgba(33,212,253,.15)" },
         bookmarks_cleared: { icon: "fa-trash", color: "#ff4d4f", bg: "rgba(255,77,79,.15)" },
-        bookmarks_imported: { icon: "fa-file-import", color: "#667eea", bg: "rgba(102,126,234,.15)" },
+        bookmarks_imported: { icon: "fa-file-import", color: "#d4a853", bg: "rgba(212,168,83,.15)" },
         audit_log_cleared: { icon: "fa-broom", color: "#faa61a", bg: "rgba(250,166,26,.15)" },
       };
 
-      const defaultAction = { icon: "fa-circle-dot", color: "#667eea", bg: "rgba(102,126,234,.15)" };
+      const defaultAction = { icon: "fa-circle-dot", color: "#d4a853", bg: "rgba(212,168,83,.15)" };
 
       let engineChart, comparisonChart;
 
@@ -159,7 +159,7 @@
               labels: ["Tavily", "Google", "DuckDuckGo"],
               datasets: [{
                 data: [system.byEngine.tavily, system.byEngine.google, system.byEngine.ddg],
-                backgroundColor: ["#667eea", "#4285f4", "#de5833"],
+                backgroundColor: ["#d4a853", "#4285f4", "#de5833"],
                 borderWidth: 0,
               }],
             },
@@ -182,7 +182,7 @@
               datasets: [{
                 label: "Tìm kiếm",
                 data: [system.totalSearches, system.searchesToday, system.searchesThisWeek],
-                backgroundColor: ["#667eea", "#3ba55d", "#21d4fd"],
+                backgroundColor: ["#d4a853", "#3ba55d", "#21d4fd"],
                 borderRadius: 6,
               }],
             },
@@ -205,7 +205,7 @@
             actList.innerHTML = recentActions.map(a => {
               const ai = actionIcons[a.action] || defaultAction;
               const time = new Date(a.timestamp).toLocaleString("vi-VN");
-              const target = a.target ? ` — ${escapeHtml(a.target)}` : "";
+              const target = a.target ? ` → ${escapeHtml(a.target)}` : "";
               return `<div class="activity-item">
                 <div class="activity-icon" style="background:${ai.bg};color:${ai.color}"><i class="fa-solid ${ai.icon}"></i></div>
                 <div style="flex:1;min-width:0">

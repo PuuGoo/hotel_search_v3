@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -25,7 +25,7 @@
     </script>
   </head>
   <body>
-    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung chính</a>
+    <a href="#mainContent" class="skip-link">Bỏ qua nội dung chính</a>
     <header class="app-header no-print">
       <div class="app-header-inner">
         <div class="brand">
@@ -54,7 +54,7 @@
       <!-- Profile Info -->
       <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
         <div class="flex" style="align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md)">
-          <div style="width: 64px; height: 64px; border-radius: 18px; background: var(--primary-gradient); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: #fff; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4)">
+          <div style="width: 64px; height: 64px; border-radius: 18px; background: var(--primary-gradient); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: #fff; box-shadow: 0 4px 14px rgba(212, 168, 83, 0.4)">
             <i class="fa-solid fa-user"></i>
           </div>
           <div>
@@ -171,7 +171,7 @@
       const featureLabels = { tavily: "Tavily", ddg: "DuckDuckGo", case12: "Case12" };
       const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
       const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
-      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+      const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
 
       // Load profile
       async function loadProfile() {
@@ -192,7 +192,7 @@
           const features = user.features || [];
           if (features.length > 0) {
             document.getElementById("profileFeatures").innerHTML = features.map(f =>
-              `<span class="badge" style="background:rgba(102,126,234,.3);margin-right:4px">${escapeHtml(featureLabels[f] || f)}</span>`
+              `<span class="badge" style="background:rgba(212,168,83,.3);margin-right:4px">${escapeHtml(featureLabels[f] || f)}</span>`
             ).join("");
           } else {
             document.getElementById("profileFeatures").textContent = "Không có";
@@ -245,7 +245,7 @@
           return;
         }
         if (newPassword.length < 8) {
-          Toasts.error("Mật khẩu mới phải >= 8 ký tự");
+          Toasts.error("Mật khẩu mới ph?i >= 8 ký tự");
           return;
         }
         // Check password strength requirements
@@ -292,7 +292,7 @@
           list.innerHTML = items.map(h => {
             const time = new Date(h.timestamp).toLocaleString("vi-VN");
             const icon = engineIcons[h.engine] || "fa-search";
-            const color = engineColors[h.engine] || "#667eea";
+            const color = engineColors[h.engine] || "#d4a853";
             return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">
               <i class="fa-solid ${icon}" style="color:${color};font-size:.8rem;width:20px;text-align:center"></i>
               <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.82rem" title="${escapeHtml(h.query)}">${escapeHtml(h.query)}</span>

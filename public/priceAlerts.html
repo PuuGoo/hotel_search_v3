@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -25,7 +25,7 @@
     </script>
   </head>
   <body>
-    <a href="#mainContent" class="skip-link">Bỏ qua tới nội dung</a>
+    <a href="#mainContent" class="skip-link">Bỏ qua nội dung</a>
     <header class="app-header no-print">
       <div class="app-header-inner">
         <div class="brand">
@@ -40,7 +40,7 @@
             <i class="fa-solid fa-circle-half-stroke"></i>
           </button>
           <form method="POST" action="/logout" style="display:inline">
-            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></button>
+            <button type="submit" class="btn btn-outline btn-small"><i class="fa-solid fa-right-from-bracket"></i><span>Đang xuất</span></button>
           </form>
         </div>
       </div>
@@ -183,7 +183,7 @@
 
             // Stats
             statsBar.innerHTML = `
-              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+              <div class="badge" style="background: rgba(212,168,83,.2); color: #d4a853">
                 <i class="fa-solid fa-bell"></i> ${stats.total} alerts
               </div>
               <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
@@ -206,7 +206,7 @@
             emptyState.classList.add("hidden");
 
             const statusColors = { active: "#3ba55d", triggered: "#faa61a", paused: "#666" };
-            const statusLabels = { active: "Đang theo dõi", triggered: "Đã kích hoạt", paused: "Tạm dừng" };
+            const statusLabels = { active: "Đang theo dõi", triggered: "đã kích hoạt", paused: "Tạm dừng" };
             const directionLabels = { below: "Dưới", above: "Trên" };
 
             alertsList.innerHTML = alerts.map(a => `
@@ -225,8 +225,8 @@
                     </div>
                     <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
                       Tạo: ${formatDate(a.createdAt)}
-                      ${a.lastCheckedAt ? ` • Kiểm tra: ${formatDate(a.lastCheckedAt)}` : ""}
-                      ${a.triggeredAt ? ` • Kích hoạt: ${formatDate(a.triggeredAt)}` : ""}
+                      ${a.lastCheckedAt ? ` - Kiểm tra: ${formatDate(a.lastCheckedAt)}` : ""}
+                      ${a.triggeredAt ? ` - Kích hoạt: ${formatDate(a.triggeredAt)}` : ""}
                     </div>
                   </div>
                   <div class="flex gap-xs wrap" style="flex-shrink: 0">

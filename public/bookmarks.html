@@ -8,13 +8,13 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
     <style>
-      .folder-tab { background: var(--surface-2); border: 1px solid var(--border-color); color: var(--text-secondary); transition: all 0.15s; }
-      .folder-tab:hover { background: rgba(102,126,234,.15); color: var(--text); }
+      .folder-tab { background: var(--color-surface-alt); border: 1px solid var(--border-color); color: var(--text-secondary); transition: all 0.15s; }
+      .folder-tab:hover { background: rgba(212,168,83,.15); color: var(--text-primary); }
       .folder-tab.active { background: var(--primary-gradient); color: #fff; border-color: transparent; }
     </style>
     <script>
@@ -109,6 +109,9 @@
             <i class="fa-solid fa-file-import"></i><span>Import</span>
           </button>
           <input type="file" id="importFile" accept=".csv" style="display: none" />
+          <a href="/bookmarks/import" class="btn btn-outline btn-small" title="Import từ trình duyệt">
+            <i class="fa-solid fa-globe"></i><span>HTML</span>
+          </a>
           <button id="clearAllBtn" class="btn btn-outline btn-small" title="Xóa tất cả" style="color: var(--danger-gradient)">
             <i class="fa-solid fa-trash"></i>
           </button>
@@ -164,12 +167,12 @@
             <label for="editTags">Tags (phân cách bằng dấu phẩy)</label>
             <div class="input-group">
               <span class="input-icon"><i class="fa-solid fa-tags"></i></span>
-              <input id="editTags" type="text" class="has-icon" placeholder="khách sạn, đà nẵng, ..." />
+              <input id="editTags" type="text" class="has-icon" placeholder="khách sạn, Đà Nẵng, ..." />
             </div>
           </div>
           <div class="modal-actions flex gap-sm">
             <button type="submit" class="btn btn-primary" style="flex: 1">
-              <i class="fa-solid fa-check"></i> Lưu
+              <i class="fa-solid fa-check"></i> Luu
             </button>
             <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
           </div>
@@ -192,7 +195,7 @@
           </div>
           <div class="modal-actions flex gap-sm">
             <button type="submit" class="btn btn-primary" style="flex: 1">
-              <i class="fa-solid fa-check"></i> Lưu
+              <i class="fa-solid fa-check"></i> Luu
             </button>
             <button type="button" class="btn btn-outline" data-close style="flex: 1">Hủy</button>
           </div>
@@ -233,7 +236,7 @@
             <label for="bulkTagName">Tag (phân cách bằng dấu phẩy)</label>
             <div class="input-group">
               <span class="input-icon"><i class="fa-solid fa-tags"></i></span>
-              <input id="bulkTagName" type="text" class="has-icon" required placeholder="hotel, đà nẵng, ..." />
+              <input id="bulkTagName" type="text" class="has-icon" required placeholder="hotel, Đà Nẵng, ..." />
             </div>
           </div>
           <div class="modal-actions flex gap-sm">
@@ -253,7 +256,7 @@
 
       const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
       const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
-      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+      const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
 
       let allBookmarks = [];
       let filteredBookmarks = [];
@@ -381,14 +384,14 @@
         container.innerHTML = page.map(b => {
           const time = new Date(b.timestamp).toLocaleString("vi-VN");
           const icon = engineIcons[b.engine] || "fa-search";
-          const color = engineColors[b.engine] || "#667eea";
+          const color = engineColors[b.engine] || "#d4a853";
           const tags = (b.tags || []).map(t =>
-            `<span class="badge" style="font-size:0.6rem;background:rgba(102,126,234,.2);margin-right:3px">${escapeHtml(t)}</span>`
+            `<span class="badge" style="font-size:0.6rem;background:rgba(212,168,83,.2);margin-right:3px">${escapeHtml(t)}</span>`
           ).join("");
           const folderBadge = b.folder ? `<span class="badge" style="font-size:0.6rem;background:rgba(250,166,26,.2);color:#faa61a;margin-right:3px"><i class="fa-solid fa-folder"></i> ${escapeHtml(b.folder)}</span>` : "";
 
           const isSelected = selectedIds.has(b.id);
-          return `<div class="glass-card" style="padding:var(--spacing-sm) var(--spacing-md);margin-bottom:var(--spacing-xs);${isSelected ? "border-left:3px solid var(--accent,#667eea)" : ""}">
+          return `<div class="glass-card" style="padding:var(--spacing-sm) var(--spacing-md);margin-bottom:var(--spacing-xs);${isSelected ? "border-left:3px solid var(--accent,#d4a853)" : ""}">
             <div style="display:flex;align-items:flex-start;gap:12px">
               <div style="display:flex;align-items:center;padding-top:4px">
                 <input type="checkbox" class="bookmark-checkbox" data-id="${b.id}" ${isSelected ? "checked" : ""} style="width:16px;height:16px;cursor:pointer" />
@@ -483,7 +486,7 @@
         const cards = container.querySelectorAll(".glass-card");
         cards.forEach((card, i) => {
           if (i === focusedIndex) {
-            card.style.outline = "2px solid var(--accent, #667eea)";
+            card.style.outline = "2px solid var(--accent, #d4a853)";
             card.style.outlineOffset = "-2px";
             card.scrollIntoView({ block: "nearest", behavior: "smooth" });
           } else {
@@ -933,6 +936,58 @@
       loadFolders();
       loadBookmarks();
 
+      // Import CSV
+      const importBtn = document.getElementById("importBtn");
+      const importFile = document.getElementById("importFile");
+      console.log("[Import] importBtn:", importBtn);
+      console.log("[Import] importFile:", importFile);
+
+      if (importBtn) {
+        importBtn.addEventListener("click", (e) => {
+          console.log("[Import] Button clicked!");
+          e.preventDefault();
+          if (importFile) importFile.click();
+        });
+      }
+
+      if (importFile) {
+        importFile.addEventListener("change", async (e) => {
+          console.log("[Import] File selected:", e.target.files[0]);
+          const file = e.target.files[0];
+          if (!file) return;
+
+          try {
+            const content = await file.text();
+            console.log("[Import] CSV content length:", content.length);
+            console.log("[Import] CSV preview:", content.substring(0, 200));
+
+            const res = await fetch("/api/bookmarks/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ csv: content }),
+            });
+            console.log("[Import] Response status:", res.status);
+            const data = await res.json();
+            console.log("[Import] Response data:", data);
+
+            if (data.success) {
+              let msg = `Đã import ${data.imported} bookmark`;
+              if (data.skipped) msg += `, bỏ qua ${data.skipped} trùng`;
+              if (data.errors) msg += `, ${data.errors} lỗi`;
+              Toasts.success(msg);
+              loadBookmarks();
+            } else {
+              Toasts.error(data.error || "Import thất bại");
+            }
+          } catch (err) {
+            console.error("[Import] Error:", err);
+            Toasts.error("Lỗi đọc file: " + err.message);
+          }
+
+          e.target.value = "";
+        });
+      }
+
       // Service Worker for offline bookmarks
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -946,7 +1001,7 @@
             banner = document.createElement("div");
             banner.id = "offlineBanner";
             banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#000;text-align:center;padding:6px;font-size:0.8rem;z-index:10000;font-weight:600";
-            banner.innerHTML = '<i class="fa-solid fa-wifi"></i> Offline — dữ liệu từ cache';
+            banner.innerHTML = '<i class="fa-solid fa-wifi"></i> Offline - dữ liệu từ cache';
             document.body.prepend(banner);
           }
         } else if (banner) {

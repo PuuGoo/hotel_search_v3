@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -35,8 +35,8 @@
         letter-spacing: 0.5px;
       }
       .chart-container {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
+        background: var(--color-bg-alt);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
         padding: var(--spacing-md);
         margin-bottom: var(--spacing-md);
@@ -54,14 +54,14 @@
         padding: 6px 14px;
         font-size: 0.78rem;
         border-radius: var(--radius-sm);
-        border: 1px solid var(--border);
-        background: var(--bg-secondary);
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-alt);
         color: var(--text-secondary);
         cursor: pointer;
         transition: all 0.15s;
       }
-      .period-btn:hover { border-color: var(--accent); color: var(--accent); }
-      .period-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .period-btn:hover { border-color: var(--color-gold); color: var(--color-gold); }
+      .period-btn.active { background: var(--color-gold); color: #fff; border-color: var(--color-gold); }
       .hour-bar, .dow-bar {
         display: flex;
         align-items: flex-end;
@@ -71,7 +71,7 @@
       }
       .hour-bar .bar, .dow-bar .bar {
         flex: 1;
-        background: var(--accent);
+        background: var(--color-gold);
         border-radius: 3px 3px 0 0;
         min-height: 2px;
         transition: height 0.3s;
@@ -115,7 +115,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
           <div>
             <h1 style="font-size: 1.4rem; margin: 0">
-              <i class="fa-solid fa-chart-line" style="color: var(--accent)"></i> Search Statistics
+              <i class="fa-solid fa-chart-line" style="color: var(--color-gold)"></i> Search Statistics
             </h1>
             <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
               Phân tích mẫu hình tìm kiếm theo thời gian
@@ -140,7 +140,7 @@
 
       <!-- Daily Search Chart -->
       <div class="chart-container">
-        <div class="chart-title"><i class="fa-solid fa-calendar-days" style="color: var(--accent)"></i> Searches per Day</div>
+        <div class="chart-title"><i class="fa-solid fa-calendar-days" style="color: var(--color-gold)"></i> Searches per Day</div>
         <canvas id="dailyChart" height="200"></canvas>
         <div class="engine-legend">
           <div class="legend-item"><div class="legend-dot" style="background: #3b82f6"></div> Tavily</div>
@@ -303,7 +303,7 @@
           const bar = document.createElement("div");
           bar.className = "bar";
           bar.style.height = Math.max(2, (count / maxVal) * 100) + "%";
-          bar.style.background = d === 0 || d === 6 ? "#f59e0b" : "var(--accent)";
+          bar.style.background = d === 0 || d === 6 ? "#f59e0b" : "var(--color-gold)";
           bar.title = `${dowNames[d]} - ${count} searches`;
           container.appendChild(bar);
 

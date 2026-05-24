@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -25,14 +25,14 @@
     </script>
     <style>
       .tag-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; user-select: none; }
-      .tag-pill.selected { border-color: #fff; box-shadow: 0 0 8px rgba(102,126,234,.4); }
+      .tag-pill.selected { border-color: #fff; box-shadow: 0 0 8px rgba(212,168,83,.4); }
       .tag-pill:hover { opacity: 0.85; }
       .query-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; }
-      .query-item.selected { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.1); }
-      .query-item:hover { border-color: var(--accent-primary, #667eea); }
-      .query-checkbox { width: 18px; height: 18px; accent-color: var(--accent-primary, #667eea); }
+      .query-item.selected { border-color: var(--accent-primary, #d4a853); background: rgba(212,168,83,.1); }
+      .query-item:hover { border-color: var(--accent-primary, #d4a853); }
+      .query-checkbox { width: 18px; height: 18px; accent-color: var(--accent-primary, #d4a853); }
       .bulk-textarea { width: 100%; min-height: 120px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--spacing-sm); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; resize: vertical; }
-      .bulk-textarea:focus { outline: none; border-color: var(--accent-primary, #667eea); }
+      .bulk-textarea:focus { outline: none; border-color: var(--accent-primary, #d4a853); }
     </style>
   </head>
   <body>
@@ -94,7 +94,7 @@
             <div style="margin-top: var(--spacing-sm)">
               <div class="flex gap-sm">
                 <input id="newTagName" type="text" placeholder="New tag name..." style="flex: 1" />
-                <input id="newTagColor" type="color" value="#667eea" style="width: 40px; height: 32px; padding: 0; border: none" />
+                <input id="newTagColor" type="color" value="#d4a853" style="width: 40px; height: 32px; padding: 0; border: none" />
                 <button id="createTagBtn" class="btn btn-outline btn-small"><i class="fa-solid fa-plus"></i></button>
               </div>
             </div>
@@ -124,7 +124,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">&copy; <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>

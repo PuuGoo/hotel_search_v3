@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -28,7 +28,7 @@
       .provider-header { display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
       .provider-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
       .key-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 12px; background: rgba(0,0,0,.15); border-radius: var(--radius-md); margin-bottom: 8px; }
-      .key-row.active { border: 1px solid var(--accent-primary, #667eea); background: rgba(102,126,234,.1); }
+      .key-row.active { border: 1px solid var(--accent-primary, #d4a853); background: rgba(212,168,83,.1); }
       .key-value { font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); flex: 1; }
       .active-badge { font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; background: rgba(59,165,93,.2); color: #3ba55d; font-weight: 600; }
       .add-key-form { display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
@@ -65,7 +65,7 @@
       <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--spacing-lg)">
         <div class="provider-card" id="tavilyCard">
           <div class="provider-header">
-            <div class="provider-icon" style="background: #667eea22; color: #667eea">
+            <div class="provider-icon" style="background: #d4a85322; color: #d4a853">
               <i class="fa-solid fa-magnifying-glass"></i>
             </div>
             <div>
@@ -116,7 +116,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">&copy; <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js?v=2"></script>

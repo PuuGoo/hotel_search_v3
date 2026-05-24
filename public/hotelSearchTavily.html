@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/app.css" />
@@ -23,7 +23,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.2/xlsx.full.min.js"></script>
     <script defer src="/analytics-init.js"></script>
     <script>
-      // Toasts stub – will be replaced by real implementation from ui.js module
+      // Toasts stub - will be replaced by real implementation from ui.js module
       if (!window.Toasts) {
         window.Toasts = {
           show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
@@ -36,7 +36,7 @@
     </script>
   </head>
   <body>
-    <a href="#pageSEARCHTAVILY" class="skip-link">Bỏ qua tới nội dung</a>
+    <a href="#pageSEARCHTAVILY" class="skip-link">Bỏ qua nội dung</a>
     <header class="app-header no-print">
       <div class="app-header-inner">
         <div class="brand">
@@ -81,7 +81,7 @@
           <form method="POST" action="/logout" style="display:inline">
             <button type="submit" class="btn btn-outline btn-small"
               ><i class="fa-solid fa-right-from-bracket"></i
-              ><span>Đăng xuất</span></button
+              ><span>Đang xuất</span></button
             >
           </form>
         </div>
@@ -98,7 +98,7 @@
         class="text-secondary"
         style="margin: 0 0 var(--spacing-md); max-width: 720px"
       >
-        Upload file Excel (các cột: No, Child's Name, Child's Address). Quá
+        Upload file Excel (các cột: No, Child's Name, Child's Address). Qu
         trình tìm kiếm chạy live và kết quả hiển thị ngay lập tức.
       </p>
       <div class="tabs" data-tabs role="tablist" aria-label="Điều hướng">
@@ -136,8 +136,8 @@
       <!-- Search History -->
       <details id="searchHistory" class="glass-card" style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md)">
         <summary style="cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px">
-          <i class="fa-solid fa-clock-rotate-left" style="color:#667eea"></i>
-          <span>Lịch sử tìm kiếm</span>
+          <i class="fa-solid fa-clock-rotate-left" style="color:#d4a853"></i>
+          <span>Lọch s? tìm kiếm</span>
           <span id="historyCount" class="badge" style="margin-left:auto;font-size:.6rem;background:rgba(255,255,255,0.1)">0</span>
         </summary>
         <div id="historyList" style="margin-top:var(--spacing-sm);font-size:.72rem;max-height:200px;overflow:auto"></div>
@@ -200,7 +200,7 @@
                     ></i>
                   </div>
                   <div style="font-weight: 600; letter-spacing: 0.5px">
-                    Kéo & Thả hoặc Chọn Tệp
+                    Kéo & Thả hoặc Ch?n T?p
                   </div>
                   <div
                     class="text-tertiary"
@@ -208,7 +208,7 @@
                   >
                     Chấp nhận: <strong>.xlsx</strong>, <strong>.xls</strong
                     ><br />
-                    Dung lượng hợp lý (&lt; 5MB khuyến nghị)
+                    Dung lượng hợp lệ (< 5MB khuyến nghị)
                   </div>
                   <button
                     type="button"
@@ -295,7 +295,7 @@
                   <button
                     id="snapshotArchiveButton"
                     class="btn btn-outline btn-small hidden"
-                    title="Kho lưu các lần đã xóa/dừng"
+                    title="Kho lưu các lần dĐã xóa/d?ng"
                   >
                     <i class="fa-solid fa-box-archive"></i><span>Kho lưu</span>
                   </button>
@@ -546,7 +546,7 @@
               <i class="fa-solid fa-stop"></i><span>Dừng</span>
             </button>
             <button id="ddgStopAllButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
-              <i class="fa-solid fa-ban"></i><span>Dừng hẳn</span>
+              <i class="fa-solid fa-ban"></i><span>Dừng hạn</span>
             </button>
             <button id="ddgResumeButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #3ba55d">
               <i class="fa-solid fa-play"></i><span>Tiếp tục</span>
@@ -608,7 +608,7 @@
               <button
                 id="snapshotArchiveSearchClear"
                 class="btn btn-outline btn-small"
-                aria-label="Xóa lọc"
+                aria-label="Xóa l?c"
               >
                 <i class="fa-solid fa-times"></i>
               </button>
@@ -617,7 +617,7 @@
               class="text-tertiary"
               style="font-size: 0.55rem; margin-bottom: 4px"
             >
-              Double-click vào nhãn để đổi tên • Dùng nút 'Tiếp tục' để chạy
+              Double-click vào nhãn để đổi tên - Dùng nút 'Tiếp tục' để chạy
               tiếp (nếu snapshot có dữ liệu allRows)
             </div>
             <div id="snapshotArchiveList" class="stack-sm"></div>
@@ -833,7 +833,7 @@
               id="ddgClearButton"
               type="button"
               class="btn btn-outline btn-small hidden"
-              title="Xóa kết quả DDG"
+              title="Xóa Kết quả DDG"
             >
               <i class="fa-solid fa-trash"></i><span>Xóa</span>
             </button>
@@ -842,12 +842,12 @@
             <table id="ddgResultsTable">
               <thead>
                 <tr>
-                  <th style="cursor:pointer;user-select:none" data-ddg-sort="order">Order <span id="ddgOrderSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
-                  <th style="cursor:pointer;user-select:none" data-ddg-sort="no">No <span id="ddgNoSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
-                  <th style="cursor:pointer;user-select:none" data-ddg-sort="pct">Best % <span id="ddgPctSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="order">Order <span id="ddgOrderSortIcon" class="sort-icon" title="Sắp xếp">?</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="no">No <span id="ddgNoSortIcon" class="sort-icon" title="Sắp xếp">?</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="pct">Best % <span id="ddgPctSortIcon" class="sort-icon" title="Sắp xếp">?</span></th>
                   <th>All Scores</th>
-                  <th style="cursor:pointer;user-select:none" data-ddg-sort="status">Status <span id="ddgStatusSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
-                  <th style="cursor:pointer;user-select:none" data-ddg-sort="name">Hotel Name <span id="ddgNameSortIcon" class="sort-icon" title="Sắp xếp">▲</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="status">Status <span id="ddgStatusSortIcon" class="sort-icon" title="Sắp xếp">?</span></th>
+                  <th style="cursor:pointer;user-select:none" data-ddg-sort="name">Hotel Name <span id="ddgNameSortIcon" class="sort-icon" title="Sắp xếp">?</span></th>
                   <th>Hotel Address</th>
                   <th>Best Link</th>
                 </tr>
@@ -965,32 +965,32 @@
                   <th>
                     Order
                     <span id="orderSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>
                     No
                     <span id="noSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>
                     %
                     <span id="pctSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>Fuzzy</th>
                   <th>
                     Status
                     <span id="statusSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>
                     Hotel Name
                     <span id="nameSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>Hotel Address</th>
@@ -998,7 +998,7 @@
                   <th>
                     Total Link
                     <span id="linksSortIcon" class="sort-icon" title="Sắp xếp"
-                      >▲</span
+                      >?</span
                     >
                   </th>
                   <th>Actions</th>
@@ -1016,7 +1016,7 @@
             "
           >
             <button id="pagePrev" class="btn btn-outline btn-small">
-              « Prev
+              ‹ Prev
             </button>
             <div
               id="pageInfo"
@@ -1026,7 +1026,7 @@
               Trang 1/1
             </div>
             <button id="pageNext" class="btn btn-outline btn-small">
-              Next »
+              Next ›
             </button>
           </div>
         </div>
@@ -1045,12 +1045,12 @@
         <h2 id="confirmTitle" class="modal-header">Xác nhận xóa</h2>
         <p style="margin: 0 0 12px; font-size: 0.85rem; line-height: 1.5">
           Hành động này sẽ xóa toàn bộ kết quả và phiên đã lưu. Nhập
-          <strong>Đồng Ý Xóa</strong> để xác nhận.
+          <strong>Đúng - Xóa</strong> để xác nhận.
         </p>
         <input
           id="confirmInput"
           type="text"
-          placeholder="Nhập: Đồng Ý Xóa"
+          placeholder="Nh?p: Đúng - Xóa"
           style="margin-bottom: 12px"
         />
         <div class="modal-actions">
@@ -1153,7 +1153,7 @@
                 <i class="fa-solid fa-shield-halved"></i> Circuit: ${cbEntries.map(([k,v]) => `${k}=${v}`).join(', ')}
               </div>`;
             }
-            summary.textContent = `${okCount}/${total} hoạt động`;
+            summary.textContent = `${okCount}/${total} ho?t d?ng`;
             summary.style.background = okCount === total ? "rgba(59,165,93,.3)" : "rgba(250,166,26,.3)";
           }).catch(() => { summary.textContent = "Lỗi kiểm tra"; });
         })();
@@ -1237,7 +1237,7 @@
               const idx = parseInt(row.dataset.hidx);
               const items = getHistory();
               const h = items[idx];
-              if (h) Toasts.info(`"${h.name}" — ${h.rows} rows (${new Date(h.ts).toLocaleString('vi')})`);
+              if (h) Toasts.info(`"${h.name}"  - ${h.rows} rows (${new Date(h.ts).toLocaleString('vi')})`);
             }
           });
           render();
@@ -1370,10 +1370,10 @@
               if (cancel) cancel.onclick = closeModal;
               if (ok)
                 ok.onclick = () => {
-                  if (input && input.value === "Đồng Ý Xóa") {
+                  if (input && input.value === "Đúng - Xóa") {
                     closeModal();
                   } else {
-                    Toasts.show('Bạn phải nhập đúng "Đồng Ý Xóa"', { type: "warning", title: "Xác nhận" });
+                    Toasts.show('Bạn phải nhập đúng "Đúng - Xóa"', { type: "warning", title: "Xác nhận" });
                     if (input) input.focus();
                   }
                 };
@@ -1382,7 +1382,7 @@
           );
         }
 
-        // Modern file input (drag & drop + browse) – Vietnamese labels
+        // Modern file input (drag & drop + browse) - Vietnamese labels
         const dropZone = document.getElementById("fileDropZone");
         const fileInputModern = document.getElementById("fileInput");
         const browseBtn = document.getElementById("browseFileBtn");
@@ -1408,7 +1408,7 @@
             return;
           }
           const sizeKB = Math.round(f.size / 1024);
-          fileInfo.textContent = `${f.name} • ${sizeKB} KB`;
+          fileInfo.textContent = `${f.name} - ${sizeKB} KB`;
           fileInfo.classList.remove("hidden");
         }
         function validateFile(f) {
@@ -1537,15 +1537,15 @@
 
     <!-- Change Password Modal -->
     <div id="changePasswordModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; justify-content: center; align-items: center">
-      <div style="background: var(--surface-1, #1e1e2e); padding: 24px; border-radius: 12px; width: 360px; max-width: 90vw">
-        <h3 style="margin: 0 0 16px 0; font-size: 1.1rem">Đổi mật khẩu</h3>
+      <div style="background: var(--color-surface); padding: 24px; border-radius: var(--radius-lg); width: 360px; max-width: 90vw; border: 1px solid var(--color-border); box-shadow: var(--shadow-xl)">
+        <h3 style="margin: 0 0 16px 0; font-size: 1.1rem; font-family: var(--font-display); color: var(--color-gold)">Đổi mật khẩu</h3>
         <div style="margin-bottom: 12px">
           <label style="display: block; margin-bottom: 4px; font-size: 0.85rem">Mật khẩu cũ</label>
-          <input id="oldPassword" type="password" autocomplete="current-password" style="width: 100%; padding: 8px 12px; background: var(--surface-2, #2a2a3e); border: 1px solid var(--border, #444); border-radius: 6px; color: inherit" />
+          <input id="oldPassword" type="password" autocomplete="current-password" style="width: 100%; padding: 8px 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--text-primary)" />
         </div>
         <div style="margin-bottom: 16px">
           <label style="display: block; margin-bottom: 4px; font-size: 0.85rem">Mật khẩu mới</label>
-          <input id="newMyPassword" type="password" autocomplete="new-password" style="width: 100%; padding: 8px 12px; background: var(--surface-2, #2a2a3e); border: 1px solid var(--border, #444); border-radius: 6px; color: inherit" />
+          <input id="newMyPassword" type="password" autocomplete="new-password" style="width: 100%; padding: 8px 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--text-primary)" />
         </div>
         <div id="changePwMsg" style="margin-bottom: 12px; font-size: 0.85rem; display: none"></div>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
@@ -1563,14 +1563,14 @@
         width: 56px;
         height: 56px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: #fff;
+        background: var(--gradient-gold);
+        color: var(--text-inverse);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 24px;
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        box-shadow: var(--shadow-gold);
         z-index: 1100;
         transition: transform 0.2s;
       }
@@ -1581,10 +1581,10 @@
         right: 24px;
         width: 450px;
         max-height: 600px;
-        background: var(--surface-color, #1e1e2e);
-        border: 1px solid var(--border-color, #333);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-xl);
         z-index: 1100;
         display: flex;
         flex-direction: column;
@@ -1592,9 +1592,9 @@
       }
       .chatbox-header {
         padding: 14px 16px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: #fff;
-        font-weight: 600;
+        background: var(--gradient-gold);
+        color: var(--text-inverse);
+        font-weight: 700;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1619,8 +1619,8 @@
         padding: 10px 12px;
         border-radius: 10px;
         font-size: 0.85rem;
-        background: rgba(255,255,255,0.06);
-        border-left: 3px solid #667eea;
+        background: var(--color-surface-hover);
+        border-left: 3px solid var(--color-gold);
       }
       .chat-msg.resolved {
         opacity: 0.5;
@@ -1648,7 +1648,7 @@
         color: #ffd43b;
       }
       .chat-msg-type.type-question {
-        background: rgba(102, 126, 234, 0.2);
+        background: rgba(212, 168, 83, 0.2);
         color: #748ffc;
       }
       .chat-msg-resolve {
@@ -1665,13 +1665,13 @@
         flex-direction: column;
         gap: 8px;
         padding: 12px 16px;
-        border-top: 1px solid var(--border-color, #333);
+        border-top: 1px solid var(--color-border);
       }
       .chatbox-type {
-        background: var(--surface-color, #1e1e2e);
-        color: #fff;
-        border: 1px solid var(--border-color, #444);
-        border-radius: 8px;
+        background: var(--color-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
         padding: 8px 10px;
         font-size: 0.85rem;
       }
@@ -1681,16 +1681,16 @@
       }
       .chatbox-input-area input {
         flex: 1;
-        background: var(--surface-color, #1e1e2e);
-        color: #fff;
-        border: 1px solid var(--border-color, #444);
-        border-radius: 8px;
+        background: var(--color-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
         padding: 10px 14px;
         font-size: 0.9rem;
       }
       .chatbox-input-area input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: var(--color-gold);
       }
       .chatbox-input-area input::placeholder {
         color: #888;

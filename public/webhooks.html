@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -146,7 +146,7 @@
             const stats = statsRes.data;
 
             statsBar.innerHTML = `
-              <div class="badge" style="background: rgba(102,126,234,.2); color: #667eea">
+              <div class="badge" style="background: rgba(212,168,83,.2); color: #d4a853">
                 <i class="fa-solid fa-link"></i> ${stats.total} webhooks
               </div>
               <div class="badge" style="background: rgba(59,165,93,.2); color: #3ba55d">
@@ -176,13 +176,13 @@
                     </div>
                     <div style="font-size: 0.7rem; margin-top: 4px; word-break: break-all; color: var(--text-secondary)">${escapeHtml(w.url)}</div>
                     <div class="flex gap-xs wrap" style="margin-top: 6px">
-                      ${(w.events || []).map(e => `<span class="badge" style="font-size: 0.55rem; background: rgba(102,126,234,.15); color: #667eea">${escapeHtml(e)}</span>`).join("")}
+                      ${(w.events || []).map(e => `<span class="badge" style="font-size: 0.55rem; background: rgba(212,168,83,.15); color: #d4a853">${escapeHtml(e)}</span>`).join("")}
                     </div>
                     <div class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px">
                       Triggers: ${w.triggerCount || 0}
-                      ${w.lastTriggeredAt ? ` • Lần cuối: ${new Date(w.lastTriggeredAt).toLocaleString("vi")}` : ""}
-                      ${w.lastStatus ? ` • Status: ${w.lastStatus}` : ""}
-                      ${w.lastError ? ` • Lỗi: ${escapeHtml(w.lastError)}` : ""}
+                      ${w.lastTriggeredAt ? ` · Lần cuối: ${new Date(w.lastTriggeredAt).toLocaleString("vi")}` : ""}
+                      ${w.lastStatus ? ` · Status: ${w.lastStatus}` : ""}
+                      ${w.lastError ? ` · Lỗi: ${escapeHtml(w.lastError)}` : ""}
                     </div>
                   </div>
                   <div class="flex gap-xs wrap" style="flex-shrink: 0">

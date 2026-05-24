@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -25,7 +25,7 @@
     </script>
     <style>
       .upload-zone { border: 2px dashed var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-xl); text-align: center; transition: all 0.3s; cursor: pointer; }
-      .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.05); }
+      .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-primary, #d4a853); background: rgba(212,168,83,.05); }
       .upload-zone i { font-size: 2.5rem; color: var(--text-tertiary); margin-bottom: var(--spacing-sm); }
       .upload-zone p { color: var(--text-secondary); font-size: 0.85rem; }
       .upload-zone .hint { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px; }
@@ -35,8 +35,8 @@
       .preview-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 6px 0; border-bottom: 1px solid var(--glass-border); font-size: 0.78rem; }
       .preview-item:last-child { border-bottom: none; }
       .method-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); cursor: pointer; transition: all 0.2s; }
-      .method-card:hover, .method-card.selected { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.08); }
-      .method-card i { font-size: 1.5rem; color: var(--accent-primary, #667eea); margin-bottom: 8px; }
+      .method-card:hover, .method-card.selected { border-color: var(--accent-primary, #d4a853); background: rgba(212,168,83,.08); }
+      .method-card i { font-size: 1.5rem; color: var(--accent-primary, #d4a853); margin-bottom: 8px; }
       .method-card h3 { margin: 0; font-size: 0.9rem; }
       .method-card p { margin: 4px 0 0; font-size: 0.72rem; color: var(--text-secondary); }
     </style>
@@ -131,7 +131,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">� <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>

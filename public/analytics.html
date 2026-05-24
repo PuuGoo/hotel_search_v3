@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -25,7 +25,7 @@
     </script>
     <style>
       .chart-bar { display: flex; align-items: flex-end; gap: 2px; height: 120px; margin-top: var(--spacing-sm); }
-      .chart-bar .bar { flex: 1; background: var(--accent-primary, #667eea); border-radius: 3px 3px 0 0; min-width: 8px; transition: height 0.3s; position: relative; }
+      .chart-bar .bar { flex: 1; background: var(--accent-primary, #d4a853); border-radius: 3px 3px 0 0; min-width: 8px; transition: height 0.3s; position: relative; }
       .chart-bar .bar:hover { opacity: 0.8; }
       .chart-bar .bar::after { content: attr(data-value); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 0.5rem; color: var(--text-secondary); white-space: nowrap; }
       .chart-labels { display: flex; gap: 2px; font-size: 0.5rem; color: var(--text-tertiary); text-align: center; }
@@ -33,7 +33,7 @@
       .donut-chart { width: 160px; height: 160px; border-radius: 50%; position: relative; }
       .donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
       .stat-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-md); text-align: center; }
-      .stat-value { font-size: 1.8rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .stat-value { font-size: 1.8rem; font-weight: 700; background: linear-gradient(135deg, #d4a853, #c49539); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
       .stat-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; }
     </style>
   </head>
@@ -97,7 +97,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">&copy; <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>
@@ -131,8 +131,8 @@
         }
 
         function engineColor(engine) {
-          const colors = { tavily: "#667eea", google: "#3ba55d", ddg: "#faa61a", unknown: "#666" };
-          return colors[engine] || "#667eea";
+          const colors = { tavily: "#d4a853", google: "#3ba55d", ddg: "#faa61a", unknown: "#666" };
+          return colors[engine] || "#d4a853";
         }
 
         async function loadAnalytics() {
@@ -174,7 +174,7 @@
                 <div class="flex gap-sm" style="align-items: center; font-size: 0.78rem">
                   <span style="color: var(--text-tertiary); width: 20px">${i + 1}.</span>
                   <span style="flex: 1">${escapeHtml(q.query)}</span>
-                  <span class="badge" style="font-size: 0.55rem; background: rgba(102,126,234,.15); color: #667eea">${q.count}x</span>
+                  <span class="badge" style="font-size: 0.55rem; background: rgba(212,168,83,.15); color: #d4a853">${q.count}x</span>
                 </div>
               `).join("");
             }
@@ -202,7 +202,7 @@
             const hourlyData = hourly.hourly || [];
             const maxHourly = Math.max(...hourlyData, 1);
             hourlyChart.innerHTML = hourlyData.map((v, i) => `
-              <div class="bar" style="height: ${Math.max((v / maxHourly) * 100, 2)}%; background: ${i >= 9 && i <= 21 ? 'var(--accent-primary, #667eea)' : 'var(--text-tertiary)'}" data-value="${v}" title="${i}:00 - ${v} searches"></div>
+              <div class="bar" style="height: ${Math.max((v / maxHourly) * 100, 2)}%; background: ${i >= 9 && i <= 21 ? 'var(--accent-primary, #d4a853)' : 'var(--text-tertiary)'}" data-value="${v}" title="${i}:00 - ${v} searches"></div>
             `).join("");
             hourlyLabels.innerHTML = hourlyData.map((_, i) => `<span>${i}</span>`).join("");
 

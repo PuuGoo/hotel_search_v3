@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -54,7 +54,7 @@
       <div class="glass-card gradient animate-fade-in" style="margin-bottom: var(--spacing-md)">
         <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-sm)">
           <div>
-            <h1 style="font-size: 1.3rem; margin: 0"><i class="fa-solid fa-bookmark" style="color: #667eea"></i> Tìm kiếm đã lưu</h1>
+            <h1 style="font-size: 1.3rem; margin: 0"><i class="fa-solid fa-bookmark" style="color: #d4a853"></i> Tìm kiếm đã lưu</h1>
             <p class="text-secondary" style="font-size: 0.82rem; margin: 4px 0 0">Lưu và chạy lại các tìm kiếm yêu thích</p>
           </div>
           <div class="flex gap-xs">
@@ -76,7 +76,7 @@
       import { Toasts, escapeHtml } from "/ui.js";
 
       const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
-      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+      const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
       const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
       const engineSearchPaths = { tavily: "/searchTavily", google: "/searchGo", ddg: "/searchTavily" };
 
@@ -109,7 +109,7 @@
 
           list.innerHTML = items.map(s => {
             const icon = engineIcons[s.engine] || "fa-search";
-            const color = engineColors[s.engine] || "#667eea";
+            const color = engineColors[s.engine] || "#d4a853";
             const time = s.lastRun ? new Date(s.lastRun).toLocaleString("vi-VN") : "Chưa chạy";
             return `<div class="glass-card" style="margin-bottom: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md)">
               <div style="display:flex;align-items:center;gap:12px">

@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -19,14 +19,14 @@
         cursor: pointer;
         transition: all 0.15s;
       }
-      .comparison-card:hover { border-color: var(--accent); }
+      .comparison-card:hover { border-color: var(--color-gold); }
       .engine-badge {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 2px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: 600;
       }
       .result-section { margin-bottom: var(--spacing-md); }
       .result-section h3 { font-size: 0.85rem; margin-bottom: var(--spacing-sm); display: flex; align-items: center; gap: 8px; }
-      .result-item { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+      .result-item { padding: 6px 0; border-bottom: 1px solid var(--color-border); font-size: 0.8rem; }
       .result-item:last-child { border-bottom: none; }
     </style>
   </head>
@@ -36,7 +36,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
           <div>
             <h1 style="font-size: 1.4rem; margin: 0">
-              <i class="fa-solid fa-code-compare" style="color: #667eea"></i> Comparison History
+              <i class="fa-solid fa-code-compare" style="color: #d4a853"></i> Comparison History
             </h1>
             <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
               Lịch sử so sánh kết quả giữa các engine
@@ -73,7 +73,7 @@
       initSessionTimeout();
 
       const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
-      const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+      const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
       const engineLabels = { tavily: "Tavily", google: "Google", ddg: "DuckDuckGo" };
 
       let historyData = [];
@@ -164,7 +164,7 @@
           const data = await res.json();
 
           document.getElementById("detailTitle").innerHTML =
-            `<i class="fa-solid fa-code-compare" style="color:#667eea"></i> ${escapeHtml(data.query)}`;
+            `<i class="fa-solid fa-code-compare" style="color:#d4a853"></i> ${escapeHtml(data.query)}`;
 
           let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">';
 
