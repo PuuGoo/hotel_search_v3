@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { checkRole, checkAuthenticated } from "../middleware/auth.js";
 import { rateLimitSearch } from "../middleware/rateLimit.js";
+import { getChatManager } from "../utils/websocket.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,6 +172,61 @@ router.post("/api/chat/messages/:id/resolve", checkRole("admin"), (req, res) => 
   } catch (e) {
     console.error("Error resolving chat message:", e.message);
     res.status(500).json({ success: false, error: "Failed to resolve message" });
+  }
+});
+
+// List chat rooms
+router.get("/api/chat/rooms", checkAuthenticated, (req, res) => {
+  try {
+    const manager = getChatManager();
+    res.json({ rooms: manager.getRoomList() });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to list rooms" });
+  }
+});
+
+// Create a new room
+router.post("/api/chat/rooms", checkAuthenticated, (req, res) => {
+  try {
+    const { id, name, type } = req.body;
+    if (!id || !name) {
+      return res.status(400).json({ error: "id and name are required" });
+    }
+    const safeId = id.toString().trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 50);
+    const safeName = name.toString().trim().slice(0, 100);
+    if (!safeId) {
+      return res.status(400).json({ error: "Invalid room id" });
+    }
+    const manager = getChatManager();
+    const room = manager.createRoom(safeId, safeName, type || "group");
+    if (!room) {
+      return res.status(500).json({ error: "Failed to create room" });
+    }
+    res.json({ success: true, room: { id: room.id, name: room.name, type: room.type } });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to create room" });
+  }
+});
+
+// Get message history for a room
+router.get("/api/chat/rooms/:roomId/messages", checkAuthenticated, (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const manager = getChatManager();
+    const messages = manager.getMessages(req.params.roomId, limit);
+    res.json({ roomId: req.params.roomId, messages });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to get messages" });
+  }
+});
+
+// Get online users
+router.get("/api/chat/users/online", checkAuthenticated, (req, res) => {
+  try {
+    const manager = getChatManager();
+    res.json({ users: manager.getOnlineUsers() });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to get online users" });
   }
 });
 
