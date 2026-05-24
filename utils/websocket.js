@@ -121,6 +121,10 @@ class ChatManager {
     const room = { id, name, type, members: new Set(), createdAt: new Date().toISOString() };
     this.rooms.set(id, room);
     this._saveRooms();
+    // Broadcast updated room list to all connected users
+    if (this.io) {
+      this.io.emit("chat:room:list", { rooms: this.getRoomList() });
+    }
     return room;
   }
 
