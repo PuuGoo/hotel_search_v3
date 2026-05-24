@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Chat — Hotel Search</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/chatWidget.css">
+  <link rel="stylesheet" href="/adminChat.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script>
+    if (!window.Toasts) {
+      window.Toasts = {
+        show: function(msg, opts) { console.log("[Toast]", (opts && opts.type) || "info", msg); },
+        success: function(msg) { console.log("[Toast] success", msg); },
+        error: function(msg) { console.log("[Toast] error", msg); },
+        warning: function(msg) { console.log("[Toast] warning", msg); },
+        info: function(msg) { console.log("[Toast] info", msg); },
+      };
+    }
+  </script>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard" class="nav-brand">Hotel Search</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/admin/chat" class="active">Admin Chat</a>
+      <a href="/admin-dashboard">Admin</a>
+    </div>
+  </nav>
+
+  <main class="admin-chat-layout">
+    <aside class="admin-chat-sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-comments"></i> Chat Rooms</h2>
+        <button id="createRoomBtn" class="btn btn-sm" title="Create Room"><i class="fas fa-plus"></i></button>
+      </div>
+      <div class="room-list" id="adminRoomList"></div>
+      <div class="sidebar-section">
+        <h3><i class="fas fa-users"></i> Online</h3>
+        <div class="online-list" id="adminOnlineList"></div>
+      </div>
+    </aside>
+
+    <section class="admin-chat-main">
+      <div class="chat-placeholder" id="chatPlaceholder">
+        <i class="fas fa-comments" style="font-size: 3rem; color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+        <p>Select a room to start chatting</p>
+      </div>
+      <div class="admin-chat-view" id="adminChatView" style="display:none">
+        <div class="admin-chat-header">
+          <h3 id="adminRoomTitle">Room</h3>
+          <span class="online-count" id="adminOnlineCount"></span>
+        </div>
+        <div class="admin-messages-list" id="adminMessagesList"></div>
+        <div class="chat-typing-indicator" id="adminTyping"></div>
+        <div class="chat-input-area">
+          <input type="text" id="adminChatInput" placeholder="Type a message..." maxlength="2000" autocomplete="off" />
+          <button id="adminChatSend"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="createRoomModal" style="display:none">
+    <div class="modal-card">
+      <h3>Create New Room</h3>
+      <form id="createRoomForm">
+        <label>Room ID</label>
+        <input type="text" id="newRoomId" placeholder="e.g. vip-support" required pattern="[a-z0-9_-]+" maxlength="50">
+        <label>Room Name</label>
+        <input type="text" id="newRoomName" placeholder="e.g. VIP Support" required maxlength="100">
+        <div class="modal-actions">
+          <button type="button" class="btn" id="cancelCreateRoom">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
+  <script src="/adminChat.js"></script>
+</body>
+</html>
