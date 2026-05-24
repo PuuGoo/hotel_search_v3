@@ -72,9 +72,14 @@
         // Messages view (hidden by default)
         '<div class="cw-messages-view" id="chatMessagesView">' +
           '<div class="cw-msg-header">' +
-            '<button class="cw-back-btn" id="chatBack" aria-label="Back"><i class="fas fa-arrow-left"></i></button>' +
-            '<span class="cw-room-title" id="chatRoomTitle">Room</span>' +
-            '<span class="cw-room-status"><span class="dot"></span> <span id="chatOnlineCount">0 online</span></span>' +
+            '<button class="cw-back-btn" id="chatBack" aria-label="Quay lại"><i class="fas fa-arrow-left"></i></button>' +
+            '<div class="cw-room-info">' +
+              '<span class="cw-room-title" id="chatRoomTitle">Room</span>' +
+              '<span class="cw-room-status"><span class="dot"></span> <span id="chatOnlineCount">0 online</span></span>' +
+            '</div>' +
+            '<div class="cw-header-actions">' +
+              '<button id="chatRoomMembers" title="Thành viên"><i class="fas fa-users"></i></button>' +
+            '</div>' +
           '</div>' +
           '<div class="cw-messages" id="chatMessagesList" style="position:relative"></div>' +
           '<div class="cw-new-messages" id="chatNewMsg"><i class="fas fa-arrow-down"></i> Tin nhắn mới</div>' +

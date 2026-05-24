@@ -81,11 +81,11 @@
   position: fixed;
   bottom: 96px;
   right: 24px;
-  width: 400px;
-  height: 560px;
+  width: 380px;
+  height: 520px;
   background: #1a1714;
   border: 1px solid rgba(212, 168, 83, 0.15);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,168,83,0.1);
   z-index: 10000;
   display: none;
@@ -105,10 +105,10 @@
 .cw-header {
   display: flex;
   align-items: center;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: linear-gradient(180deg, #2a2622 0%, #201d19 100%);
   border-bottom: 1px solid rgba(212,168,83,0.1);
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 .cw-header .cw-avatar {
@@ -174,9 +174,9 @@
 }
 .cw-tab {
   flex: 1;
-  padding: 10px;
+  padding: 8px;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: rgba(240,236,228,0.4);
   cursor: pointer;
@@ -243,9 +243,9 @@
 .cw-room-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
   color: #f0ece4;
@@ -255,13 +255,13 @@
   background: rgba(255,255,255,0.04);
 }
 .cw-room-item .cw-room-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
 }
 .cw-room-item .cw-room-icon.group {
@@ -322,9 +322,9 @@
 .cw-online-user {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -332,14 +332,14 @@
   background: rgba(255,255,255,0.04);
 }
 .cw-online-user .cw-user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #1a1714;
   position: relative;
   flex-shrink: 0;
@@ -348,8 +348,8 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #5b9a6f;
   border: 2px solid #1a1714;
@@ -372,9 +372,9 @@
   margin-top: 1px;
 }
 .cw-online-user .cw-dm-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: rgba(212,168,83,0.1);
   border: none;
   color: #d4a853;
@@ -382,7 +382,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   opacity: 0;
   transition: all 0.15s;
   flex-shrink: 0;
@@ -430,16 +430,75 @@
 .cw-msg-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 12px;
   background: #201d19;
   border-bottom: 1px solid rgba(212,168,83,0.08);
   flex-shrink: 0;
+  min-height: 44px;
 }
 .cw-msg-header .cw-back-btn {
   background: none;
   border: none;
-  color: rgba(240,236,228,0.5);
+  color: rgba(240,236,228,0.6);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+.cw-msg-header .cw-back-btn:hover {
+  background: rgba(212,168,83,0.12);
+  color: #d4a853;
+}
+.cw-msg-header .cw-back-btn:active {
+  transform: scale(0.92);
+}
+.cw-msg-header .cw-room-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cw-msg-header .cw-room-title {
+  font-family: "Playfair Display", serif;
+  font-size: 0.9rem;
+  color: #d4a853;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.cw-msg-header .cw-room-status {
+  font-size: 0.65rem;
+  color: rgba(240,236,228,0.35);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+.cw-msg-header .cw-room-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5b9a6f;
+  flex-shrink: 0;
+}
+.cw-msg-header .cw-header-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.cw-msg-header .cw-header-actions button {
+  background: none;
+  border: none;
+  color: rgba(240,236,228,0.4);
   cursor: pointer;
   width: 32px;
   height: 32px;
@@ -448,55 +507,34 @@
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
+  font-size: 0.8rem;
 }
-.cw-msg-header .cw-back-btn:hover {
+.cw-msg-header .cw-header-actions button:hover {
   background: rgba(212,168,83,0.1);
   color: #d4a853;
-}
-.cw-msg-header .cw-room-title {
-  flex: 1;
-  font-family: "Playfair Display", serif;
-  font-size: 0.95rem;
-  color: #d4a853;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cw-msg-header .cw-room-status {
-  font-size: 0.7rem;
-  color: rgba(240,236,228,0.35);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.cw-msg-header .cw-room-status .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #5b9a6f;
 }
 
 /* Messages list */
 .cw-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   scroll-behavior: smooth;
 }
 
 /* Date separator */
 .cw-date-sep {
   text-align: center;
-  padding: 12px 0;
+  padding: 8px 0;
   position: relative;
 }
 .cw-date-sep span {
   background: #1a1714;
-  padding: 0 12px;
-  font-size: 0.7rem;
+  padding: 0 10px;
+  font-size: 0.65rem;
   color: rgba(240,236,228,0.3);
   position: relative;
   z-index: 1;
@@ -513,11 +551,11 @@
 
 /* Message bubble */
 .cw-msg {
-  max-width: 78%;
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.82rem;
+  line-height: 1.4;
   word-wrap: break-word;
   position: relative;
   animation: msgAppear 0.2s ease;
@@ -541,17 +579,17 @@
   color: #f0ece4;
 }
 .cw-msg .cw-msg-author {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: #d4a853;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 .cw-msg .cw-msg-author .role-tag {
-  font-size: 0.55rem;
-  padding: 1px 5px;
+  font-size: 0.5rem;
+  padding: 1px 4px;
   border-radius: 3px;
   background: rgba(155,133,166,0.2);
   color: #9b85a6;
@@ -562,9 +600,9 @@
   white-space: pre-wrap;
 }
 .cw-msg .cw-msg-time {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: rgba(240,236,228,0.25);
-  margin-top: 4px;
+  margin-top: 3px;
   text-align: right;
 }
 .cw-msg.system {
@@ -580,13 +618,13 @@
 
 /* Typing indicator */
 .cw-typing {
-  padding: 6px 16px;
-  font-size: 0.75rem;
+  padding: 4px 12px;
+  font-size: 0.7rem;
   color: rgba(240,236,228,0.35);
-  min-height: 28px;
+  min-height: 22px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .cw-typing .typing-dots {
@@ -610,11 +648,11 @@
 /* --- Input Area --- */
 .cw-input-area {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 6px;
+  padding: 10px 12px;
   border-top: 1px solid rgba(212,168,83,0.08);
   background: #201d19;
-  align-items: flex-end;
+  align-items: center;
   flex-shrink: 0;
 }
 .cw-input-area .cw-emoji-btn {
@@ -622,13 +660,13 @@
   border: none;
   color: rgba(240,236,228,0.3);
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1rem;
   transition: all 0.15s;
   flex-shrink: 0;
 }
@@ -638,13 +676,13 @@
 }
 .cw-input-area input {
   flex: 1;
-  padding: 10px 14px;
+  padding: 9px 12px;
   background: #1a1714;
   border: 1px solid rgba(212,168,83,0.1);
-  border-radius: 12px;
+  border-radius: 10px;
   color: #f0ece4;
   font-family: "Source Sans 3", sans-serif;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   outline: none;
   transition: border-color 0.2s;
   min-width: 0;
@@ -656,9 +694,9 @@
   border-color: rgba(212,168,83,0.3);
 }
 .cw-input-area .cw-send-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #d4a853, #b8912f);
   border: none;
   color: #1a1714;
@@ -687,11 +725,11 @@
 /* --- Emoji Picker --- */
 .cw-emoji-picker {
   display: none;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #2a2622;
   border-top: 1px solid rgba(212,168,83,0.08);
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 .cw-emoji-picker.open {
@@ -700,10 +738,10 @@
 .cw-emoji-picker button {
   background: none;
   border: none;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
+  padding: 3px;
+  border-radius: 4px;
   transition: background 0.1s;
   line-height: 1;
 }
@@ -832,15 +870,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: calc(100% - 12px);
-  margin: 6px;
-  padding: 10px;
+  gap: 5px;
+  width: calc(100% - 10px);
+  margin: 5px;
+  padding: 8px;
   background: rgba(212,168,83,0.08);
   border: 1px dashed rgba(212,168,83,0.2);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #d4a853;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -878,18 +916,18 @@
 
 /* --- Search input in rooms --- */
 .cw-search-wrapper {
-  padding: 8px 12px;
+  padding: 6px 10px;
   flex-shrink: 0;
 }
 .cw-search-input {
   width: 100%;
-  padding: 8px 12px 8px 32px;
+  padding: 7px 10px 7px 30px;
   background: #1a1714;
   border: 1px solid rgba(212,168,83,0.1);
   border-radius: 8px;
   color: #f0ece4;
   font-family: "Source Sans 3", sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   outline: none;
   transition: border-color 0.2s;
   box-sizing: border-box;
@@ -935,7 +973,7 @@
 /* --- Tablet --- */
 @media (min-width: 481px) and (max-width: 768px) {
   .chat-widget-panel {
-    width: 360px;
-    height: 500px;
+    width: 340px;
+    height: 480px;
   }
 }
