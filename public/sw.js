@@ -1,4 +1,4 @@
-const CACHE_NAME = "hotel-search-v6";
+const CACHE_NAME = "hotel-search-v7";
 const STATIC_ASSETS = [
   "/app.css",
   "/ui.js",
