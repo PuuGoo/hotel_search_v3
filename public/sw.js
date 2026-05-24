@@ -1,6 +1,5 @@
-const CACHE_NAME = "hotel-search-v5";
+const CACHE_NAME = "hotel-search-v6";
 const STATIC_ASSETS = [
-  "/bookmarks",
   "/app.css",
   "/ui.js",
   "/sessionTimeout.js",

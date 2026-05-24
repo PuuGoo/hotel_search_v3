@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Search Snapshots | Hotel Search</title>
-    <meta name="description" content="Lưu và so sánh kết quả tìm kiếm theo thời gian" />
+    <meta name="description" content="Luu v� so s�nh k?t qu? t�m ki?m theo th?i gian" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -19,14 +19,14 @@
         cursor: pointer;
         transition: all 0.15s;
       }
-      .snapshot-card:hover { border-color: var(--accent); }
-      .snapshot-card.selected { border-left: 3px solid var(--accent); }
+      .snapshot-card:hover { border-color: var(--color-gold); }
+      .snapshot-card.selected { border-left: 3px solid var(--color-gold); }
       .diff-added { color: #22c55e; }
       .diff-removed { color: #ef4444; }
       .diff-kept { color: var(--text-tertiary); }
       .compare-bar {
         position: sticky; bottom: 0; z-index: 100;
-        background: var(--bg-secondary); border-top: 1px solid var(--border);
+        background: var(--color-bg-alt); border-top: 1px solid var(--color-border);
         padding: 12px 16px; display: flex; align-items: center; gap: 12px;
       }
       .modal-overlay {
@@ -42,10 +42,10 @@
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
           <div>
             <h1 style="font-size: 1.4rem; margin: 0">
-              <i class="fa-solid fa-camera" style="color: var(--accent)"></i> Search Snapshots
+              <i class="fa-solid fa-camera" style="color: var(--color-gold)"></i> Search Snapshots
             </h1>
             <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
-              Lưu và so sánh kết quả tìm kiếm qua các thời điểm
+              Luu v� so s�nh k?t qu? t�m ki?m qua c�c th?i di?m
             </p>
           </div>
           <div style="display: flex; gap: 6px">
@@ -57,7 +57,7 @@
       <!-- Snapshot List -->
       <div id="snapshotList">
         <div class="empty-state" style="text-align:center;padding:40px;color:var(--text-tertiary)">
-          <i class="fa-solid fa-spinner fa-spin"></i> Đang tải...
+          <i class="fa-solid fa-spinner fa-spin"></i> �ang t?i...
         </div>
       </div>
 
@@ -73,7 +73,7 @@
 
     <!-- Compare Modal -->
     <div id="compareModal" class="modal-overlay">
-      <div style="background:var(--bg-secondary);border-radius:12px;padding:24px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid var(--border)">
+      <div style="background:var(--color-bg-alt);border-radius:12px;padding:24px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid var(--color-border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <h2 style="margin:0;font-size:1.1rem"><i class="fa-solid fa-code-compare"></i> Comparison</h2>
           <button id="closeCompareModal" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.4rem">&times;</button>
@@ -98,7 +98,7 @@
           snapshots = data.snapshots;
           renderSnapshots();
         } catch {
-          Toasts.error("Không thể tải snapshots");
+          Toasts.error("Kh�ng th? t?i snapshots");
         }
       }
 
@@ -109,19 +109,19 @@
           container.innerHTML = `
             <div class="card" style="text-align:center;padding:40px;color:var(--text-tertiary)">
               <i class="fa-solid fa-camera" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.3"></i>
-              <div style="font-size:0.9rem">Chưa có snapshot nào</div>
-              <div style="font-size:0.75rem;margin-top:6px">Sử dụng nút <i class="fa-solid fa-camera"></i> trên trang kết quả tìm kiếm để lưu</div>
+              <div style="font-size:0.9rem">Chua c� snapshot n�o</div>
+              <div style="font-size:0.75rem;margin-top:6px">S? d?ng n�t <i class="fa-solid fa-camera"></i> tr�n trang k?t qu? t�m ki?m d? luu</div>
             </div>`;
           return;
         }
 
         const engineIcons = { tavily: "fa-hotel", google: "fa-google", ddg: "fa-searchengin" };
-        const engineColors = { tavily: "#667eea", google: "#4285f4", ddg: "#de5833" };
+        const engineColors = { tavily: "#d4a853", google: "#4285f4", ddg: "#de5833" };
 
         container.innerHTML = snapshots.map(s => {
           const time = new Date(s.timestamp).toLocaleString("vi-VN");
           const icon = engineIcons[s.engine] || "fa-search";
-          const color = engineColors[s.engine] || "#667eea";
+          const color = engineColors[s.engine] || "#d4a853";
           const isSelected = selectedIds.has(s.id);
 
           return `<div class="card snapshot-card ${isSelected ? "selected" : ""}" data-id="${s.id}">
@@ -135,10 +135,10 @@
                 </div>
               </div>
               <div style="display:flex;gap:4px">
-                <button class="btn btn-outline btn-small btn-view" data-id="${s.id}" title="Xem chi tiết" style="padding:4px 8px">
+                <button class="btn btn-outline btn-small btn-view" data-id="${s.id}" title="Xem chi ti?t" style="padding:4px 8px">
                   <i class="fa-solid fa-eye"></i>
                 </button>
-                <button class="btn btn-outline btn-small btn-delete" data-id="${s.id}" title="Xóa" style="padding:4px 8px;color:#ff4d4f">
+                <button class="btn btn-outline btn-small btn-delete" data-id="${s.id}" title="X�a" style="padding:4px 8px;color:#ff4d4f">
                   <i class="fa-solid fa-times"></i>
                 </button>
               </div>
@@ -153,7 +153,7 @@
             if (cb.checked) {
               if (selectedIds.size >= 2) {
                 cb.checked = false;
-                Toasts.warning("Chỉ chọn tối đa 2 snapshots để so sánh");
+                Toasts.warning("Ch? ch?n t?i da 2 snapshots d? so s�nh");
                 return;
               }
               selectedIds.add(id);
@@ -172,7 +172,7 @@
               const data = await res.json();
               showSnapshotDetail(data.snapshot);
             } catch {
-              Toasts.error("Không thể tải snapshot");
+              Toasts.error("Kh�ng th? t?i snapshot");
             }
           });
         });
@@ -180,16 +180,16 @@
         container.querySelectorAll(".btn-delete").forEach(btn => {
           btn.addEventListener("click", async () => {
             const id = Number(btn.dataset.id);
-            if (!confirm("Xóa snapshot này?")) return;
+            if (!confirm("X�a snapshot n�y?")) return;
             try {
               const res = await fetch(`/api/snapshots/${id}`, { method: "DELETE" });
               if (res.ok) {
-                Toasts.success("Đã xóa snapshot");
+                Toasts.success("�� x�a snapshot");
                 selectedIds.delete(id);
                 loadSnapshots();
               }
             } catch {
-              Toasts.error("Lỗi xóa");
+              Toasts.error("L?i x�a");
             }
           });
         });
@@ -226,7 +226,7 @@
               <div style="padding:10px;background:var(--bg-tertiary,#222);border-radius:8px;border:1px solid var(--border,#333)">
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="font-size:0.7rem;color:var(--text-tertiary);min-width:20px">#${i + 1}</span>
-                  <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-weight:600;font-size:0.85rem;color:var(--accent)">${escapeHtml(r.title)}</a>
+                  <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-weight:600;font-size:0.85rem;color:var(--color-gold)">${escapeHtml(r.title)}</a>
                 </div>
                 ${r.snippet ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;margin-left:28px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.snippet)}</div>` : ""}
                 ${r.price ? `<span style="font-size:0.7rem;color:#22c55e;margin-left:28px">${escapeHtml(String(r.price))}</span>` : ""}
@@ -249,7 +249,7 @@
           const data = await res.json();
           showComparison(data);
         } catch {
-          Toasts.error("Lỗi so sánh");
+          Toasts.error("L?i so s�nh");
         }
       }
 
@@ -278,7 +278,7 @@
             <div style="padding:8px 16px;background:rgba(239,68,68,0.1);border-radius:8px;border:1px solid rgba(239,68,68,0.3)">
               <span class="diff-removed"><i class="fa-solid fa-minus"></i> ${data.diff.removedCount} removed</span>
             </div>
-            <div style="padding:8px 16px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid var(--border)">
+            <div style="padding:8px 16px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid var(--color-border)">
               <span class="diff-kept"><i class="fa-solid fa-equals"></i> ${data.diff.keptCount} kept</span>
             </div>
           </div>
@@ -304,7 +304,7 @@
           ${data.diff.kept.length > 0 ? `
             <h4 style="margin:16px 0 8px;font-size:0.9rem" class="diff-kept"><i class="fa-solid fa-equals"></i> Present in both</h4>
             ${data.diff.kept.map(r => `
-              <div style="padding:8px 12px;margin-bottom:4px;background:rgba(255,255,255,0.02);border-radius:6px;border-left:3px solid var(--border)">
+              <div style="padding:8px 12px;margin-bottom:4px;background:rgba(255,255,255,0.02);border-radius:6px;border-left:3px solid var(--color-border)">
                 <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-size:0.82rem;color:var(--text-primary)">${escapeHtml(r.title)}</a>
               </div>
             `).join("")}

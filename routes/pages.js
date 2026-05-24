@@ -117,6 +117,10 @@ router.get("/import-bookmarks", checkAuthenticated, (_req, res) => {
   res.sendFile(path.join(publicDir, "importBookmarks.html"));
 });
 
+router.get("/bookmarks/import", checkAuthenticated, (_req, res) => {
+  res.sendFile(path.join(publicDir, "importBookmarks.html"));
+});
+
 router.get("/system-health", checkAuthenticated, checkRole("admin"), (_req, res) => {
   res.sendFile(path.join(publicDir, "systemHealth.html"));
 });

@@ -313,7 +313,7 @@ function initNotifications() {
     }
 
     const typeIcons = { info: "fa-circle-info", success: "fa-circle-check", warning: "fa-triangle-exclamation", error: "fa-circle-xmark" };
-    const typeColors = { info: "#667eea", success: "#3ba55d", warning: "#faa61a", error: "#ff4d4f" };
+    const typeColors = { info: "#d4a853", success: "#5b9a6f", warning: "#d4a853", error: "#e07456" };
 
     dropdown.innerHTML = `
       <div style="padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06)">
@@ -327,13 +327,13 @@ function initNotifications() {
             <div class="notif-item" data-id="${n.id}" style="padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background .15s;${n.read ? 'opacity:.6' : ''}"
               onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
               <div style="display:flex;align-items:flex-start;gap:8px">
-                <i class="fa-solid ${typeIcons[n.type] || 'fa-circle-info'}" style="color:${typeColors[n.type] || '#667eea'};margin-top:2px;font-size:.7rem"></i>
+                <i class="fa-solid ${typeIcons[n.type] || 'fa-circle-info'}" style="color:${typeColors[n.type] || '#d4a853'};margin-top:2px;font-size:.7rem"></i>
                 <div style="flex:1;min-width:0">
                   <div style="font-size:.75rem;font-weight:${n.read ? '400' : '600'}">${escapeHtml(n.title)}</div>
                   <div style="font-size:.68rem;color:var(--text-secondary);margin-top:2px;white-space:pre-wrap">${escapeHtml(n.message)}</div>
                   <div style="font-size:.55rem;color:var(--text-tertiary);margin-top:3px">${new Date(n.createdAt).toLocaleString("vi")}</div>
                 </div>
-                ${!n.read ? '<div style="width:6px;height:6px;border-radius:50%;background:#667eea;flex-shrink:0;margin-top:6px"></div>' : ""}
+                ${!n.read ? '<div style="width:6px;height:6px;border-radius:50%;background:#d4a853;flex-shrink:0;margin-top:6px"></div>' : ""}
               </div>
             </div>
           `).join("")}

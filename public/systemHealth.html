@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -29,7 +29,7 @@
       .status-ok { background: rgba(59,165,93,.15); color: #3ba55d; }
       .status-degraded { background: rgba(250,166,26,.15); color: #faa61a; }
       .status-unavailable { background: rgba(231,76,60,.15); color: #e74c3c; }
-      .metric-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .metric-value { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #d4a853, #c49539); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
       .metric-label { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
       .progress-bar { height: 8px; background: var(--glass-border); border-radius: 4px; overflow: hidden; }
       .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
@@ -126,7 +126,7 @@
               <span id="heapDetail">--</span>
             </div>
             <div class="progress-bar">
-              <div id="heapBar" class="progress-fill" style="width: 0%; background: #667eea"></div>
+              <div id="heapBar" class="progress-fill" style="width: 0%; background: #d4a853"></div>
             </div>
           </div>
           <div>
@@ -180,7 +180,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">Â© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>
@@ -233,7 +233,7 @@
             // Memory bars
             const heapPct = Math.round((parseInt(data.memory.heapUsed) / parseInt(data.memory.heapTotal)) * 100) || 0;
             document.getElementById("heapBar").style.width = heapPct + "%";
-            document.getElementById("heapBar").style.background = heapPct > 80 ? "#e74c3c" : heapPct > 60 ? "#faa61a" : "#667eea";
+            document.getElementById("heapBar").style.background = heapPct > 80 ? "#e74c3c" : heapPct > 60 ? "#faa61a" : "#d4a853";
             document.getElementById("heapDetail").textContent = `${data.memory.heapUsed} / ${data.memory.heapTotal}`;
 
             document.getElementById("sysBar").style.width = data.memory.systemUsedPercent + "%";

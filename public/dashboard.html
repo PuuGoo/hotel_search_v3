@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
@@ -86,7 +86,7 @@
         color: #fff;
         min-width: fit-content;
       }
-      .bar-fill.tavily { background: linear-gradient(90deg, #667eea, #764ba2); }
+      .bar-fill.tavily { background: linear-gradient(90deg, #d4a853, #c49539); }
       .bar-fill.google { background: linear-gradient(90deg, #4285f4, #34a853); }
       .bar-fill.ddg { background: linear-gradient(90deg, #de5833, #ff8c00); }
       .query-list {
@@ -310,7 +310,7 @@
       <!-- Summary Stats -->
       <div class="grid grid-3" style="margin-bottom: var(--spacing-md)">
         <div class="glass-card stat-card animate-fade-in">
-          <i class="fa-solid fa-magnifying-glass stat-icon" style="color: #667eea"></i>
+          <i class="fa-solid fa-magnifying-glass stat-icon" style="color: #d4a853"></i>
           <div id="totalSearches" class="stat-value gradient-text">--</div>
           <div class="stat-label">Tổng tìm kiếm</div>
         </div>
@@ -385,7 +385,7 @@
       initSessionTimeout();
 
       const engineColors = {
-        tavily: "#667eea",
+        tavily: "#d4a853",
         google: "#4285f4",
         ddg: "#de5833"
       };
@@ -421,7 +421,7 @@
         user_login: "#3ba55d",
         user_logout: "var(--text-tertiary)",
         login_failed: "#ff4d4f",
-        user_created: "#667eea",
+        user_created: "#d4a853",
         user_updated: "#f7971e",
         user_deleted: "#ff4d4f",
         bookmarks_cleared: "#f7971e",
@@ -592,7 +592,7 @@
           const recentSearches = document.getElementById("recentSearches");
           if (data.recentSearches && data.recentSearches.length > 0) {
             recentSearches.innerHTML = data.recentSearches.map(s => {
-              const color = engineColors[s.engine] || "#667eea";
+              const color = engineColors[s.engine] || "#d4a853";
               const icon = s.engine === "tavily" ? "fa-hotel" : s.engine === "google" ? "fa-google" : "fa-searchengin";
               const time = new Date(s.timestamp).toLocaleString("vi-VN");
               return `<div class="activity-item">

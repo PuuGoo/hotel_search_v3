@@ -4,18 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Price History | Hotel Search</title>
-    <meta name="description" content="Biểu đồ xu hướng giá khách sạn theo thời gian" />
+    <meta name="description" content="Bi?u d? xu hu?ng gi� kh�ch s?n theo th?i gian" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script defer src="/analytics-init.js"></script>
     <style>
       .chart-container {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
+        background: var(--color-bg-alt);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
         padding: var(--spacing-md);
         margin-bottom: var(--spacing-md);
@@ -36,7 +36,7 @@
         padding: 8px 16px;
         background: var(--bg-tertiary, #222);
         border-radius: 8px;
-        border: 1px solid var(--border);
+        border: 1px solid var(--color-border);
         font-size: 0.82rem;
       }
       .stat-item .value { font-weight: 700; font-size: 1.1rem; }
@@ -46,8 +46,8 @@
         cursor: pointer;
         transition: all 0.15s;
       }
-      .alert-card:hover { border-color: var(--accent); }
-      .alert-card.selected { border-left: 3px solid var(--accent); }
+      .alert-card:hover { border-color: var(--color-gold); }
+      .alert-card.selected { border-left: 3px solid var(--color-gold); }
     </style>
   </head>
   <body>
@@ -59,7 +59,7 @@
               <i class="fa-solid fa-chart-line" style="color: #22c55e"></i> Price History
             </h1>
             <p style="color: var(--text-tertiary); font-size: 0.82rem; margin: 4px 0 0">
-              Xu hướng giá khách sạn từ price alerts
+              Xu hu?ng gi� kh�ch s?n t? price alerts
             </p>
           </div>
           <div style="display: flex; gap: 6px">
@@ -72,7 +72,7 @@
       <!-- Alert List -->
       <div id="alertList">
         <div class="empty-state" style="text-align:center;padding:40px;color:var(--text-tertiary)">
-          <i class="fa-solid fa-spinner fa-spin"></i> Đang tải...
+          <i class="fa-solid fa-spinner fa-spin"></i> �ang t?i...
         </div>
       </div>
 
@@ -105,7 +105,7 @@
           alertsData = data.alerts;
           renderAlertList();
         } catch {
-          Toasts.error("Không thể tải price history");
+          Toasts.error("Kh�ng th? t?i price history");
         }
       }
 
@@ -116,9 +116,9 @@
           container.innerHTML = `
             <div class="card" style="text-align:center;padding:40px;color:var(--text-tertiary)">
               <i class="fa-solid fa-chart-line" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.3"></i>
-              <div style="font-size:0.9rem">Chưa có price history</div>
-              <div style="font-size:0.75rem;margin-top:6px">Tạo price alert và check giá để tích lũy dữ liệu</div>
-              <a href="/price-alerts" class="btn btn-primary btn-small" style="margin-top:12px"><i class="fa-solid fa-plus"></i> Tạo Alert</a>
+              <div style="font-size:0.9rem">Chua c� price history</div>
+              <div style="font-size:0.75rem;margin-top:6px">T?o price alert v� check gi� d? t�ch luy d? li?u</div>
+              <a href="/price-alerts" class="btn btn-primary btn-small" style="margin-top:12px"><i class="fa-solid fa-plus"></i> T?o Alert</a>
             </div>`;
           return;
         }
@@ -182,7 +182,7 @@
           <div class="stat-item"><div class="value" style="color:#ef4444">$${alert.maxPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Max</div></div>
           <div class="stat-item"><div class="value">$${alert.avgPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Average</div></div>
           <div class="stat-item"><div class="value" style="color:${changeColor}"><i class="fa-solid ${changeIcon}" style="font-size:0.8rem"></i> $${Math.abs(priceChange).toFixed(2)}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Change</div></div>
-          <div class="stat-item"><div class="value" style="color:var(--accent)">$${alert.targetPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Target</div></div>
+          <div class="stat-item"><div class="value" style="color:var(--color-gold)">$${alert.targetPrice}</div><div style="font-size:0.7rem;color:var(--text-tertiary)">Target</div></div>
         `;
 
         // Draw chart

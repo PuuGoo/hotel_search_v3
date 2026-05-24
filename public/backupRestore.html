@@ -8,7 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -25,16 +25,16 @@
     </script>
     <style>
       .backup-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 10px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); margin-bottom: 8px; }
-      .backup-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(102,126,234,.15); color: #667eea; font-size: 0.9rem; }
+      .backup-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(212,168,83,.15); color: #d4a853; font-size: 0.9rem; }
       .backup-info { flex: 1; }
       .backup-name { font-weight: 600; font-size: 0.82rem; }
       .backup-meta { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 2px; }
       .restore-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: var(--spacing-sm) 0; }
       .restore-option { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; padding: 6px 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; }
-      .restore-option:hover { border-color: var(--accent-primary, #667eea); }
-      .restore-option input { accent-color: var(--accent-primary, #667eea); }
+      .restore-option:hover { border-color: var(--accent-primary, #d4a853); }
+      .restore-option input { accent-color: var(--accent-primary, #d4a853); }
       .upload-zone { border: 2px dashed var(--glass-border); border-radius: var(--radius-lg); padding: var(--spacing-lg); text-align: center; cursor: pointer; transition: all 0.2s; }
-      .upload-zone:hover { border-color: var(--accent-primary, #667eea); background: rgba(102,126,234,.05); }
+      .upload-zone:hover { border-color: var(--accent-primary, #d4a853); background: rgba(212,168,83,.05); }
     </style>
   </head>
   <body>
@@ -117,7 +117,7 @@
       </div>
     </main>
 
-    <footer class="app-footer text-tertiary">Â© <span id="year"></span> PuuGoo</footer>
+    <footer class="app-footer text-tertiary">© <span id="year"></span> PuuGoo</footer>
     <div class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/ui.js"></script>
@@ -193,7 +193,7 @@
                 <div class="backup-icon"><i class="fa-solid fa-file-code"></i></div>
                 <div class="backup-info">
                   <div class="backup-name">${escapeHtml(b.filename)}</div>
-                  <div class="backup-meta">${formatSize(b.size)} â€¢ ${formatDate(b.createdAt)}</div>
+                  <div class="backup-meta">${formatSize(b.size)} • ${formatDate(b.createdAt)}</div>
                 </div>
                 <a href="/api/admin/backup/download/${encodeURIComponent(b.filename)}" class="btn btn-outline btn-small" title="Download">
                   <i class="fa-solid fa-download"></i>

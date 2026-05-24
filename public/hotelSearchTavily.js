@@ -2907,7 +2907,7 @@ function initColumnToggle() {
     checkbox.type = "checkbox";
     checkbox.checked = isVisible;
     checkbox.dataset.colIndex = colIndex;
-    checkbox.style.cssText = "accent-color:var(--primary,#667eea);";
+    checkbox.style.cssText = "accent-color:var(--color-gold,#d4a853);";
     checkbox.addEventListener("change", () => {
       visibility[colIndex] = checkbox.checked;
       try {

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=vietnamese&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/app.css" />
@@ -31,6 +31,79 @@
         };
       }
     </script>
+    <style>
+      .login-wrapper {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        z-index: 1;
+      }
+      .login-card {
+        max-width: 420px;
+        width: 100%;
+        padding: var(--spacing-xl) var(--spacing-lg);
+      }
+      .login-brand {
+        text-align: center;
+        margin-bottom: var(--spacing-lg);
+      }
+      .login-brand .logo-mark {
+        width: 56px;
+        height: 56px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--gradient-gold);
+        color: var(--text-inverse);
+        font-size: 1.5rem;
+        margin-bottom: var(--spacing-sm);
+        box-shadow: var(--shadow-gold);
+      }
+      .login-brand h1 {
+        font-family: var(--font-display);
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 4px;
+        letter-spacing: 0.02em;
+      }
+      .login-brand .subtitle {
+        font-size: var(--font-size-sm);
+        color: var(--text-tertiary);
+        letter-spacing: 0.04em;
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        margin: var(--spacing-md) 0;
+        color: var(--text-tertiary);
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .divider::before, .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--color-border);
+      }
+      .login-footer {
+        text-align: center;
+        margin-top: var(--spacing-lg);
+        padding-top: var(--spacing-md);
+        border-top: 1px solid var(--color-border-subtle);
+      }
+      .login-footer a {
+        color: var(--text-tertiary);
+        font-size: var(--font-size-xs);
+        transition: color var(--transition-fast);
+      }
+      .login-footer a:hover { color: var(--color-gold); }
+    </style>
   </head>
   <body>
     <a href="#loginForm" class="skip-link">Bỏ qua tới form đăng nhập</a>
@@ -38,7 +111,7 @@
       <div class="app-header-inner">
         <div class="brand">
           <span class="logo"><i class="fa-solid fa-hotel"></i></span>
-          <span>Hotel Search Admin</span>
+          <span>Hotel Search</span>
         </div>
         <div class="flex gap-sm center" style="margin-left: auto">
           <div class="clock" aria-label="Đồng hồ thời gian thực">--:--:--</div>
@@ -54,36 +127,21 @@
       </div>
     </header>
 
-    <main
-      class="container"
-      style="
-        min-height: calc(100vh - 140px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      "
-    >
+    <main class="container login-wrapper">
       <form
         id="loginForm"
         method="POST"
         action="/login"
-        class="glass-card gradient animate-fade-in"
-        style="max-width: 440px; width: 100%"
+        class="glass-card gradient animate-fade-in login-card"
       >
-        <h1 class="gradient-text" style="font-size: 1.6rem; margin: 0 0 6px">
-          Đăng nhập
-        </h1>
-        <p
-          class="text-secondary"
-          style="
-            margin-top: 0;
-            margin-bottom: var(--spacing-md);
-            font-size: 0.82rem;
-            letter-spacing: 0.5px;
-          "
-        >
-          Nhập thông tin tài khoản để tiếp tục.
-        </p>
+        <div class="login-brand">
+          <div class="logo-mark">
+            <i class="fa-solid fa-hotel"></i>
+          </div>
+          <h1>Hotel Search</h1>
+          <div class="subtitle">Đăng nhập để tiếp tục</div>
+        </div>
+
         <div class="form-row">
           <div class="form-col" style="flex: 1 1 100%">
             <label for="username">Tên đăng nhập</label>
@@ -96,7 +154,7 @@
                 class="has-icon"
                 autocomplete="username"
                 required
-                placeholder="Tên đăng nhập"
+                placeholder="Nhập tên đăng nhập"
               />
             </div>
           </div>
@@ -111,54 +169,44 @@
                 class="has-icon"
                 autocomplete="current-password"
                 required
-                placeholder="••••••••"
+                placeholder="Nhập mật khẩu"
               />
             </div>
           </div>
         </div>
-        <div
-          class="flex gap-sm"
-          style="
-            margin-top: var(--spacing-md);
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-          "
-        >
+
+        <div style="margin-top: var(--spacing-lg)">
           <button
             type="submit"
-            class="btn btn-primary btn-modern"
-            style="flex: 1"
+            class="btn btn-primary btn-modern btn-large w-100"
           >
-            <i class="fa-solid fa-right-to-bracket"></i><span>Đăng nhập</span>
-          </button>
-          <button
-            type="button"
-            id="showAbout"
-            class="btn btn-outline btn-small"
-            style="height: 42px"
-          >
-            <i class="fa-solid fa-circle-info"></i><span>Thông tin</span>
+            <i class="fa-solid fa-right-to-bracket"></i>
+            <span>Đăng nhập</span>
           </button>
         </div>
-        <div style="text-align: center; margin-top: var(--spacing-sm)">
-          <a href="/forgot-password" style="color: var(--text-tertiary); font-size: 0.78rem; text-decoration: none">
+
+        <div class="divider">hoặc</div>
+
+        <div class="flex gap-sm" style="justify-content: center">
+          <a href="/forgot-password" class="btn btn-outline btn-small">
             <i class="fa-solid fa-key"></i> Quên mật khẩu?
           </a>
+          <button type="button" id="showAbout" class="btn btn-outline btn-small">
+            <i class="fa-solid fa-circle-info"></i> Thông tin
+          </button>
         </div>
-        <div class="card-footer">
-          © <span id="year"></span> Hotel Search - PuuGoo
+
+        <div class="login-footer">
+          <span class="text-tertiary" style="font-size: var(--font-size-xs)">
+            &copy; <span id="year"></span> Hotel Search &mdash; PuuGoo
+          </span>
         </div>
       </form>
     </main>
-    <!-- <footer class="app-footer text-tertiary">
-      Built with a custom glassmorphism design system.
-    </footer> -->
 
     <script type="module" src="/ui.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // Show login error from URL param
         const params = new URLSearchParams(window.location.search);
         if (params.get("error") === "1") {
           Toasts.error("Sai tài khoản hoặc mật khẩu");
@@ -171,9 +219,8 @@
           history.replaceState(null, "", "/");
         }
 
-        // Year stamp
         document.getElementById("year").textContent = new Date().getFullYear();
-        // Theme toggle sync with localStorage
+
         const btn = document.getElementById("themeToggle");
         const applyIcon = () => {
           const th = document.documentElement.getAttribute("data-theme");
@@ -189,17 +236,16 @@
           localStorage.setItem("theme", next);
           applyIcon();
         });
-        // load stored theme
         const stored = localStorage.getItem("theme");
         if (stored) {
           document.documentElement.setAttribute("data-theme", stored);
         }
         applyIcon();
-        // About modal
+
         document.getElementById("showAbout").addEventListener("click", () => {
           import("/ui.js").then((m) => {
             m.Modal.open(
-              `<h2 class='modal-header'>Giới thiệu</h2><p style='margin:0 0 12px;font-size:.9rem;line-height:1.5'>Giao diện mới áp dụng glassmorphism, gradient, và accessibility cải thiện.</p><div class='modal-actions'><button class='btn btn-outline' data-close>Đóng</button></div>`,
+              `<h2 class='modal-header'>Giới thiệu</h2><p style='margin:0 0 12px;font-size:.9rem;line-height:1.6;color:var(--text-secondary)'>Hệ thống tìm kiếm khách sạn với giao diện Imperial Hanoi &mdash; thiết kế sang trọng, tối ưu hiệu suất.</p><div class='modal-actions'><button class='btn btn-outline' data-close>Đóng</button></div>`,
               { onClose: null }
             );
             const closeBtn = document.querySelector(".modal [data-close]");
@@ -213,4 +259,3 @@
     </script>
   </body>
 </html>
-
