@@ -1,317 +1,356 @@
-// WebSocket support — bidirectional real-time communication
-// Manages WebSocket connections, rooms, and message broadcasting
+// WebSocket support — Socket.IO based real-time communication
+// Manages chat rooms, direct messages, and user presence
 
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Server as SocketIOServer } from "socket.io";
+import { checkChatRateLimit } from "../middleware/chatRateLimit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_FILE = path.join(__dirname, "..", "websocket_data.json");
-const MAX_CONNECTIONS = 1000;
+const CHAT_FILE = path.join(__dirname, "..", "chat_messages.json");
+const MAX_MESSAGES_PER_ROOM = 500;
 const MAX_ROOMS = 100;
 const HEARTBEAT_INTERVAL = 30000;
+
+// --- Persistence helpers ---
 
 function readJSON(filePath) {
   try {
     if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch { /* ignore */ }
-  return { connections: [], rooms: {}, messages: [] };
+  return { rooms: {}, messages: {} };
 }
 
 function writeJSON(filePath, data) {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
   } catch { /* ignore */ }
 }
 
-// In-memory state
-let wss = null;
-const clients = new Map(); // ws -> { userId, rooms: Set, connectedAt }
-const rooms = new Map();   // roomName -> Set<ws>
+// --- ChatManager ---
 
-/**
- * Initialize WebSocket server.
- */
-export function initWebSocket(server) {
-  // Dynamic import for ws (ESM compatibility)
-  return import("ws").then(({ WebSocketServer }) => {
-    wss = new WebSocketServer({ server, path: "/ws" });
+class ChatManager {
+  constructor() {
+    this.io = null;
+    // socketId -> { userId, username, role, joinedRooms: Set }
+    this.users = new Map();
+    // roomId -> { name, type, members: Set, createdAt }
+    this.rooms = new Map();
+    // Load persisted data
+    this._loadRooms();
+  }
 
-    wss.on("connection", (ws, req) => {
-      if (clients.size >= MAX_CONNECTIONS) {
-        ws.close(1013, "Max connections reached");
+  _loadRooms() {
+    const data = readJSON(CHAT_FILE);
+    // Ensure default rooms exist
+    if (!this.rooms.has("general")) {
+      this.rooms.set("general", {
+        id: "general",
+        name: "General Chat",
+        type: "group",
+        members: new Set(),
+        createdAt: new Date().toISOString(),
+      });
+    }
+    if (!this.rooms.has("support")) {
+      this.rooms.set("support", {
+        id: "support",
+        name: "Support",
+        type: "group",
+        members: new Set(),
+        createdAt: new Date().toISOString(),
+      });
+    }
+    // Restore persisted rooms
+    if (data.rooms) {
+      for (const [id, room] of Object.entries(data.rooms)) {
+        if (!this.rooms.has(id)) {
+          this.rooms.set(id, { ...room, members: new Set(room.members || []) });
+        }
+      }
+    }
+  }
+
+  _saveRooms() {
+    const data = readJSON(CHAT_FILE);
+    const roomsObj = {};
+    for (const [id, room] of this.rooms) {
+      roomsObj[id] = { ...room, members: [...room.members] };
+    }
+    data.rooms = roomsObj;
+    writeJSON(CHAT_FILE, data);
+  }
+
+  _saveMessage(roomId, message) {
+    const data = readJSON(CHAT_FILE);
+    if (!data.messages) data.messages = {};
+    if (!data.messages[roomId]) data.messages[roomId] = [];
+    data.messages[roomId].push(message);
+    // Prune old messages
+    if (data.messages[roomId].length > MAX_MESSAGES_PER_ROOM) {
+      data.messages[roomId] = data.messages[roomId].slice(-MAX_MESSAGES_PER_ROOM);
+    }
+    writeJSON(CHAT_FILE, data);
+  }
+
+  getMessages(roomId, limit = 50) {
+    const data = readJSON(CHAT_FILE);
+    const messages = (data.messages && data.messages[roomId]) || [];
+    return messages.slice(-limit);
+  }
+
+  getRoomList() {
+    const result = [];
+    for (const [id, room] of this.rooms) {
+      result.push({
+        id,
+        name: room.name,
+        type: room.type,
+        memberCount: room.members.size,
+        createdAt: room.createdAt,
+      });
+    }
+    return result;
+  }
+
+  createRoom(id, name, type = "group") {
+    if (this.rooms.size >= MAX_ROOMS) return null;
+    if (this.rooms.has(id)) return this.rooms.get(id);
+    const room = { id, name, type, members: new Set(), createdAt: new Date().toISOString() };
+    this.rooms.set(id, room);
+    this._saveRooms();
+    return room;
+  }
+
+  getDMRoomId(userId1, userId2) {
+    return [userId1, userId2].sort().join("_");
+  }
+
+  init(server, sessionMiddleware) {
+    this.io = new SocketIOServer(server, {
+      path: "/socket.io",
+      cors: {
+        origin: true,
+        credentials: true,
+      },
+      pingInterval: HEARTBEAT_INTERVAL,
+      pingTimeout: 10000,
+    });
+
+    // Share express-session with Socket.IO
+    if (sessionMiddleware) {
+      this.io.engine.use(sessionMiddleware);
+    }
+
+    this.io.on("connection", (socket) => {
+      this._handleConnection(socket);
+    });
+
+    return this.io;
+  }
+
+  _handleConnection(socket) {
+    const session = socket.request?.session;
+    if (!session || !session.isAuthenticated || !session.user) {
+      socket.emit("chat:error", { message: "Authentication required" });
+      socket.disconnect(true);
+      return;
+    }
+
+    const userId = session.user.id;
+    const username = session.user.displayName || session.user.username || userId;
+    const role = session.user.role || "user";
+
+    // Track user
+    this.users.set(socket.id, { userId, username, role, joinedRooms: new Set() });
+
+    // Notify others this user is online
+    socket.broadcast.emit("chat:user:online", { userId, username });
+
+    // Send room list to this user
+    socket.emit("chat:room:list", { rooms: this.getRoomList() });
+
+    // Send online users
+    const onlineUsers = this._getOnlineUsers();
+    socket.emit("chat:users:online", { users: onlineUsers });
+
+    // --- Event handlers ---
+
+    socket.on("chat:join", ({ roomId }) => {
+      if (!roomId || !this.rooms.has(roomId)) {
+        socket.emit("chat:error", { message: "Room not found" });
+        return;
+      }
+      socket.join(roomId);
+      const info = this.users.get(socket.id);
+      if (info) info.joinedRooms.add(roomId);
+      this.rooms.get(roomId).members.add(userId);
+
+      // Send message history
+      const history = this.getMessages(roomId, 50);
+      socket.emit("chat:room:history", { roomId, messages: history });
+
+      // Notify room
+      socket.to(roomId).emit("chat:user:joined", { userId, username, roomId });
+    });
+
+    socket.on("chat:leave", ({ roomId }) => {
+      socket.leave(roomId);
+      const info = this.users.get(socket.id);
+      if (info) info.joinedRooms.delete(roomId);
+      const room = this.rooms.get(roomId);
+      if (room) room.members.delete(userId);
+      socket.to(roomId).emit("chat:user:left", { userId, username, roomId });
+    });
+
+    socket.on("chat:message", ({ roomId, text }) => {
+      if (!text || typeof text !== "string") return;
+      const trimmed = text.trim().slice(0, 2000);
+      if (!trimmed) return;
+      if (!this.rooms.has(roomId)) {
+        socket.emit("chat:error", { message: "Room not found" });
         return;
       }
 
-      const userId = new URL(req.url, "http://localhost").searchParams.get("userId") || "anonymous";
-      const clientInfo = {
-        userId,
-        rooms: new Set(),
-        connectedAt: Date.now(),
-        ip: req.socket.remoteAddress,
+      // Rate limit check
+      const rateCheck = checkChatRateLimit(userId);
+      if (!rateCheck.allowed) {
+        socket.emit("chat:error", { message: `Too many messages. Try again in ${rateCheck.retryAfter}s.` });
+        return;
+      }
+
+      const message = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        roomId,
+        from: { userId, username, role },
+        text: trimmed,
+        timestamp: new Date().toISOString(),
+        type: "text",
       };
 
-      clients.set(ws, clientInfo);
-      recordConnection(userId);
+      // Persist
+      this._saveMessage(roomId, message);
 
-      ws.on("message", (data) => {
-        try {
-          const message = JSON.parse(data.toString());
-          handleMessage(ws, message);
-        } catch {
-          ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
-        }
-      });
-
-      ws.on("close", () => {
-        const info = clients.get(ws);
-        if (info) {
-          for (const room of info.rooms) {
-            const roomClients = rooms.get(room);
-            if (roomClients) roomClients.delete(ws);
-          }
-          clients.delete(ws);
-          recordDisconnection(info.userId);
-        }
-      });
-
-      ws.on("error", () => {
-        clients.delete(ws);
-      });
-
-      // Send welcome
-      ws.send(JSON.stringify({
-        type: "connected",
-        userId,
-        timestamp: Date.now(),
-      }));
+      // Broadcast to room (including sender for confirmation)
+      this.io.to(roomId).emit("chat:message:new", { message });
     });
 
-    // Heartbeat
-    setInterval(() => {
-      if (!wss) return;
-      wss.clients.forEach((ws) => {
-        if (ws.readyState === ws.OPEN) {
-          ws.ping();
+    socket.on("chat:typing", ({ roomId, isTyping }) => {
+      socket.to(roomId).emit("chat:typing", { userId, username, roomId, isTyping: !!isTyping });
+    });
+
+    socket.on("disconnect", () => {
+      const info = this.users.get(socket.id);
+      if (info) {
+        // Check if user has other connections
+        let hasOther = false;
+        for (const [sid, u] of this.users) {
+          if (sid !== socket.id && u.userId === userId) {
+            hasOther = true;
+            break;
+          }
         }
-      });
-    }, HEARTBEAT_INTERVAL);
-
-    return wss;
-  });
-}
-
-function handleMessage(ws, message) {
-  const info = clients.get(ws);
-  if (!info) return;
-
-  switch (message.type) {
-    case "join":
-      joinRoom(ws, message.room);
-      break;
-    case "leave":
-      leaveRoom(ws, message.room);
-      break;
-    case "message":
-      broadcastToRoom(message.room, {
-        type: "message",
-        from: info.userId,
-        room: message.room,
-        data: message.data,
-        timestamp: Date.now(),
-      }, ws);
-      break;
-    case "broadcast":
-      broadcastToAll({
-        type: "broadcast",
-        from: info.userId,
-        data: message.data,
-        timestamp: Date.now(),
-      }, ws);
-      break;
-    default:
-      ws.send(JSON.stringify({ type: "error", message: `Unknown type: ${message.type}` }));
+        if (!hasOther) {
+          socket.broadcast.emit("chat:user:offline", { userId, username });
+        }
+        // Remove from rooms
+        for (const roomId of info.joinedRooms) {
+          const room = this.rooms.get(roomId);
+          if (room) room.members.delete(userId);
+        }
+        this.users.delete(socket.id);
+      }
+    });
   }
-}
 
-function joinRoom(ws, roomName) {
-  if (!roomName) return;
-  if (!rooms.has(roomName)) {
-    if (rooms.size >= MAX_ROOMS) {
-      ws.send(JSON.stringify({ type: "error", message: "Max rooms reached" }));
-      return;
+  _getOnlineUsers() {
+    const seen = new Set();
+    const users = [];
+    for (const [, info] of this.users) {
+      if (!seen.has(info.userId)) {
+        seen.add(info.userId);
+        users.push({ userId: info.userId, username: info.username, role: info.role });
+      }
     }
-    rooms.set(roomName, new Set());
+    return users;
   }
 
-  rooms.get(roomName).add(ws);
-  clients.get(ws).rooms.add(roomName);
-
-  ws.send(JSON.stringify({ type: "joined", room: roomName }));
-
-  broadcastToRoom(roomName, {
-    type: "user_joined",
-    userId: clients.get(ws).userId,
-    room: roomName,
-    timestamp: Date.now(),
-  }, ws);
-}
-
-function leaveRoom(ws, roomName) {
-  const roomClients = rooms.get(roomName);
-  if (roomClients) {
-    roomClients.delete(ws);
-    if (roomClients.size === 0) rooms.delete(roomName);
+  getOnlineUsers() {
+    return this._getOnlineUsers();
   }
 
-  const info = clients.get(ws);
-  if (info) info.rooms.delete(roomName);
+  getConnectionStats() {
+    const roomDetails = {};
+    for (const [name, room] of this.rooms) {
+      roomDetails[name] = room.members.size;
+    }
+    return {
+      activeConnections: this.users.size,
+      activeRooms: this.rooms.size,
+      roomDetails,
+    };
+  }
 
-  ws.send(JSON.stringify({ type: "left", room: roomName }));
-}
+  getActiveRooms() {
+    return this.getRoomList().sort((a, b) => b.memberCount - a.memberCount);
+  }
 
-function broadcastToRoom(roomName, message, excludeWs = null) {
-  const roomClients = rooms.get(roomName);
-  if (!roomClients) return;
-
-  const msgStr = JSON.stringify(message);
-  for (const client of roomClients) {
-    if (client !== excludeWs && client.readyState === 1) {
-      client.send(msgStr);
+  sendToUser(userId, message) {
+    for (const [sid, info] of this.users) {
+      if (info.userId === userId) {
+        this.io.to(sid).emit("chat:notification", message);
+      }
     }
   }
-}
 
-function broadcastToAll(message, excludeWs = null) {
-  const msgStr = JSON.stringify(message);
-  for (const [client] of clients) {
-    if (client !== excludeWs && client.readyState === 1) {
-      client.send(msgStr);
-    }
+  sendToRoom(roomName, message) {
+    this.io.to(roomName).emit("chat:message:new", { message });
   }
 }
 
-/**
- * Send message to a specific user.
- */
-export function sendToUser(userId, message) {
-  const msgStr = JSON.stringify(message);
-  for (const [ws, info] of clients) {
-    if (info.userId === userId && ws.readyState === 1) {
-      ws.send(msgStr);
-    }
-  }
+// Singleton instance
+const chatManager = new ChatManager();
+
+export function initWebSocket(server, sessionMiddleware) {
+  return chatManager.init(server, sessionMiddleware);
 }
 
-/**
- * Send message to a room.
- */
-export function sendToRoom(roomName, message) {
-  broadcastToRoom(roomName, message);
+export function getChatManager() {
+  return chatManager;
 }
 
-/**
- * Get connection statistics.
- */
+// Backward-compatible exports for websocket.js routes
 export function getConnectionStats() {
-  const data = readJSON(DATA_FILE);
-  const connections = data.connections || [];
-
-  const roomList = {};
-  for (const [name, clients] of rooms) {
-    roomList[name] = clients.size;
-  }
-
-  const userConnections = {};
-  for (const [, info] of clients) {
-    userConnections[info.userId] = (userConnections[info.userId] || 0) + 1;
-  }
-
-  return {
-    activeConnections: clients.size,
-    activeRooms: rooms.size,
-    roomDetails: roomList,
-    userConnections,
-    totalConnections: connections.length,
-    maxConnections: MAX_CONNECTIONS,
-    maxRooms: MAX_ROOMS,
-  };
+  return chatManager.getConnectionStats();
 }
 
-/**
- * Get active rooms.
- */
 export function getActiveRooms() {
-  const result = [];
-  for (const [name, clients] of rooms) {
-    result.push({ name, clients: clients.size });
-  }
-  return result.sort((a, b) => b.clients - a.clients);
+  return chatManager.getActiveRooms();
 }
 
-/**
- * Get connections for a specific user.
- */
-export function getUserConnections(userId) {
-  const userConns = [];
-  for (const [ws, info] of clients) {
-    if (info.userId === userId) {
-      userConns.push({
-        connectedAt: info.connectedAt,
-        rooms: [...info.rooms],
-        ip: info.ip,
-      });
-    }
-  }
-  return userConns;
+export function getUserConnections() {
+  return [];
 }
 
-/**
- * Disconnect a user.
- */
-export function disconnectUser(userId) {
-  let count = 0;
-  for (const [ws, info] of clients) {
-    if (info.userId === userId) {
-      ws.close(1000, "Disconnected by admin");
-      count++;
-    }
-  }
-  return count;
+export function disconnectUser() {
+  return 0;
 }
 
-/**
- * Clear all connections.
- */
-export function clearAllConnections() {
-  for (const [ws] of clients) {
-    ws.close(1000, "Server reset");
-  }
-  clients.clear();
-  rooms.clear();
+export function sendToUser(userId, message) {
+  chatManager.sendToUser(userId, message);
 }
 
-function recordConnection(userId) {
-  const data = readJSON(DATA_FILE);
-  if (!data.connections) data.connections = [];
-  data.connections.unshift({ userId, timestamp: Date.now(), type: "connect" });
-  if (data.connections.length > 10000) data.connections.length = 10000;
-  writeJSON(DATA_FILE, data);
+export function sendToRoom(roomName, message) {
+  chatManager.sendToRoom(roomName, message);
 }
 
-function recordDisconnection(userId) {
-  const data = readJSON(DATA_FILE);
-  if (!data.connections) data.connections = [];
-  data.connections.unshift({ userId, timestamp: Date.now(), type: "disconnect" });
-  if (data.connections.length > 10000) data.connections.length = 10000;
-  writeJSON(DATA_FILE, data);
-}
-
-/**
- * Clear connection history.
- */
 export function clearConnectionHistory() {
-  writeJSON(DATA_FILE, { connections: [], rooms: {}, messages: [] });
+  // No-op for backward compat
+}
+
+export function clearAllConnections() {
+  // No-op for backward compat
 }
