@@ -10,6 +10,9 @@
   let unreadCounts = {};
   let typingTimeout = null;
   let panelOpen = false;
+  let activeTab = "rooms"; // "rooms" or "online"
+
+  const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","👍","👎","❤️","🔥","🎉","😢","😮","🙏","✨","💯"];
 
   function loadCSS() {
     if (document.querySelector('link[href="/chatWidget.css"]')) return;
@@ -24,44 +27,99 @@
     var wrapper = document.createElement("div");
     wrapper.id = "chatWidget";
     wrapper.innerHTML =
+      // Trigger button
       '<button class="chat-widget-trigger" id="chatTrigger" aria-label="Open chat">' +
         '<i class="fas fa-comments"></i>' +
         '<span class="badge" id="chatBadge" style="display:none">0</span>' +
+        '<span class="status-dot" id="chatStatusDot"></span>' +
       '</button>' +
+      // Panel
       '<div class="chat-widget-panel" id="chatPanel">' +
-        '<div id="chatRoomList">' +
-          '<div class="chat-widget-header">' +
-            '<h3><i class="fas fa-comments"></i> Chat</h3>' +
+        // Header
+        '<div class="cw-header">' +
+          '<div class="cw-avatar"><i class="fas fa-hotel"></i></div>' +
+          '<div class="cw-title">' +
+            '<h3>Imperial Chat</h3>' +
+            '<div class="cw-subtitle">Hỗ trợ trực tuyến</div>' +
+          '</div>' +
+          '<div class="cw-actions">' +
+            '<button id="chatMinimize" aria-label="Minimize"><i class="fas fa-minus"></i></button>' +
             '<button id="chatClose" aria-label="Close"><i class="fas fa-times"></i></button>' +
           '</div>' +
-          '<div class="chat-widget-rooms" id="chatRooms"></div>' +
-          '<div class="chat-online-section">' +
-            '<div class="chat-online-header"><i class="fas fa-users"></i> Online</div>' +
-            '<div class="chat-online-users" id="chatOnlineUsers"></div>' +
+        '</div>' +
+        // Tabs
+        '<div class="cw-tabs">' +
+          '<button class="cw-tab active" data-tab="rooms"><i class="fas fa-comments"></i> Phòng chat</button>' +
+          '<button class="cw-tab" data-tab="online"><i class="fas fa-users"></i> Online <span class="tab-badge" id="onlineBadge" style="display:none">0</span></button>' +
+        '</div>' +
+        // Tab content
+        '<div class="cw-tab-content">' +
+          // Rooms tab
+          '<div class="cw-tab-pane active" id="tabRooms">' +
+            '<div class="cw-rooms" id="chatRooms"></div>' +
+          '</div>' +
+          // Online tab
+          '<div class="cw-tab-pane" id="tabOnline">' +
+            '<div class="cw-online-section" id="chatOnlineUsers"></div>' +
           '</div>' +
         '</div>' +
-        '<div class="chat-messages-view" id="chatMessagesView">' +
-          '<div class="chat-messages-header">' +
-            '<button class="back-btn" id="chatBack" aria-label="Back"><i class="fas fa-arrow-left"></i></button>' +
-            '<span class="room-title" id="chatRoomTitle">Room</span>' +
-            '<span class="online-count" id="chatOnlineCount"></span>' +
+        // Messages view (hidden by default)
+        '<div class="cw-messages-view" id="chatMessagesView">' +
+          '<div class="cw-msg-header">' +
+            '<button class="cw-back-btn" id="chatBack" aria-label="Back"><i class="fas fa-arrow-left"></i></button>' +
+            '<span class="cw-room-title" id="chatRoomTitle">Room</span>' +
+            '<span class="cw-room-status"><span class="dot"></span> <span id="chatOnlineCount">0 online</span></span>' +
           '</div>' +
-          '<div class="chat-messages-list" id="chatMessagesList"></div>' +
-          '<div class="chat-typing-indicator" id="chatTyping"></div>' +
-          '<div class="chat-input-area">' +
+          '<div class="cw-messages" id="chatMessagesList"></div>' +
+          '<div class="cw-typing" id="chatTyping"></div>' +
+          '<div class="cw-emoji-picker" id="chatEmojiPicker"></div>' +
+          '<div class="cw-input-area">' +
+            '<button class="cw-emoji-btn" id="chatEmojiBtn" aria-label="Emoji"><i class="far fa-smile"></i></button>' +
             '<input type="text" id="chatInput" placeholder="Nhập tin nhắn..." maxlength="2000" autocomplete="off" />' +
-            '<button id="chatSend"><i class="fas fa-paper-plane"></i></button>' +
+            '<button class="cw-send-btn" id="chatSend" aria-label="Send"><i class="fas fa-paper-plane"></i></button>' +
           '</div>' +
         '</div>' +
+        // Connection status
+        '<div class="cw-connection-status" id="chatConnectionStatus"></div>' +
       '</div>';
     document.body.appendChild(wrapper);
+
+    // Build emoji picker
+    var picker = document.getElementById("chatEmojiPicker");
+    if (picker) {
+      EMOJIS.forEach(function (emoji) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = emoji;
+        btn.addEventListener("click", function () {
+          var input = document.getElementById("chatInput");
+          if (input) {
+            input.value += emoji;
+            input.focus();
+          }
+        });
+        picker.appendChild(btn);
+      });
+    }
   }
 
   function connectSocket() {
     if (socket) return;
+
+    var statusEl = document.getElementById("chatConnectionStatus");
+    if (statusEl) {
+      statusEl.className = "cw-connection-status connecting";
+      statusEl.textContent = "Đang kết nối...";
+    }
+
     socket = io({ path: "/socket.io", withCredentials: true });
 
-    socket.on("connect", function () { console.log("[Chat] Connected"); });
+    socket.on("connect", function () {
+      console.log("[Chat] Connected");
+      if (statusEl) statusEl.className = "cw-connection-status";
+      var dot = document.getElementById("chatStatusDot");
+      if (dot) dot.classList.remove("offline");
+    });
 
     socket.on("chat:room:list", function (data) {
       rooms = data.rooms;
@@ -78,17 +136,16 @@
         appendMessage(msg);
         scrollMessagesToBottom();
       } else {
-        // Increment unread
         unreadCounts[msg.roomId] = (unreadCounts[msg.roomId] || 0) + 1;
         updateBadge();
         renderRoomList();
-        // Pulse animation on trigger button
+        // Pulse animation
         var trigger = document.getElementById("chatTrigger");
         if (trigger) {
           trigger.classList.add("pulse");
-          setTimeout(function () { trigger.classList.remove("pulse"); }, 1000);
+          setTimeout(function () { trigger.classList.remove("pulse"); }, 1800);
         }
-        // Show toast notification
+        // Toast
         if (window.Toasts && msg.from) {
           var roomName = "";
           var room = rooms.find(function (r) { return r.id === msg.roomId; });
@@ -101,27 +158,35 @@
     socket.on("chat:typing", function (data) {
       if (data.roomId === currentRoom) {
         var el = document.getElementById("chatTyping");
-        if (el) el.textContent = data.isTyping ? data.username + " đang nhập..." : "";
+        if (el) {
+          if (data.isTyping) {
+            el.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> ' + escapeHTML(data.username) + ' đang nhập...';
+          } else {
+            el.innerHTML = "";
+          }
+        }
       }
     });
 
     socket.on("chat:user:online", function (data) {
-      // Add to online list if not already there
       var exists = onlineUsers.find(function (u) { return u.userId === data.userId; });
       if (!exists) {
         onlineUsers.push({ userId: data.userId, username: data.username, role: "user" });
         renderOnlineUsers();
+        updateOnlineBadge();
       }
     });
 
     socket.on("chat:user:offline", function (data) {
       onlineUsers = onlineUsers.filter(function (u) { return u.userId !== data.userId; });
       renderOnlineUsers();
+      updateOnlineBadge();
     });
 
     socket.on("chat:users:online", function (data) {
       onlineUsers = data.users || [];
       renderOnlineUsers();
+      updateOnlineBadge();
       var el = document.getElementById("chatOnlineCount");
       if (el) el.textContent = onlineUsers.length + " online";
     });
@@ -131,31 +196,66 @@
       if (window.Toasts) window.Toasts.error(data.message);
     });
 
-    socket.on("disconnect", function () { console.log("[Chat] Disconnected"); });
+    socket.on("disconnect", function () {
+      console.log("[Chat] Disconnected");
+      var dot = document.getElementById("chatStatusDot");
+      if (dot) dot.classList.add("offline");
+      var statusEl = document.getElementById("chatConnectionStatus");
+      if (statusEl) {
+        statusEl.className = "cw-connection-status disconnected";
+        statusEl.textContent = "Mất kết nối. Đang thử lại...";
+      }
+    });
+
+    socket.on("reconnect", function () {
+      var statusEl = document.getElementById("chatConnectionStatus");
+      if (statusEl) statusEl.className = "cw-connection-status";
+    });
+  }
+
+  // --- Tab switching ---
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll(".cw-tab").forEach(function (t) {
+      t.classList.toggle("active", t.dataset.tab === tab);
+    });
+    document.getElementById("tabRooms").classList.toggle("active", tab === "rooms");
+    document.getElementById("tabOnline").classList.toggle("active", tab === "online");
   }
 
   // --- Render room list ---
   function renderRoomList() {
     var container = document.getElementById("chatRooms");
     if (!container) return;
+
+    if (rooms.length === 0) {
+      container.innerHTML = '<div class="cw-empty"><i class="fas fa-comments"></i><p>Chưa có phòng chat nào</p></div>';
+      return;
+    }
+
     container.innerHTML = rooms.map(function (room) {
       var unread = unreadCounts[room.id] || 0;
-      var icon = room.type === "dm" ? "fa-user" : "fa-hashtag";
-      return '<div class="chat-room-item" data-room="' + room.id + '">' +
-        '<div class="room-icon"><i class="fas ' + icon + '"></i></div>' +
-        '<div class="room-info">' +
-          '<div class="room-name">' + escapeHTML(room.name) + '</div>' +
-          '<div class="room-preview">' + (room.memberCount || 0) + ' thành viên</div>' +
+      var isDM = room.type === "dm";
+      var icon = isDM ? "fa-user" : "fa-hashtag";
+      var iconClass = isDM ? "dm" : "group";
+      return '<div class="cw-room-item" data-room="' + room.id + '">' +
+        '<div class="cw-room-icon ' + iconClass + '"><i class="fas ' + icon + '"></i></div>' +
+        '<div class="cw-room-info">' +
+          '<div class="cw-room-name">' + escapeHTML(room.name) + '</div>' +
+          '<div class="cw-room-preview">' + (room.memberCount || 0) + ' thành viên</div>' +
         '</div>' +
-        (unread > 0 ? '<span class="unread-badge">' + unread + '</span>' : "") +
+        '<div class="cw-room-meta">' +
+          (unread > 0 ? '<div class="cw-room-unread">' + unread + '</div>' : "") +
+        '</div>' +
       '</div>';
     }).join("");
-    container.querySelectorAll(".chat-room-item").forEach(function (el) {
+
+    container.querySelectorAll(".cw-room-item").forEach(function (el) {
       el.addEventListener("click", function () { joinRoom(el.dataset.room); });
     });
   }
 
-  // --- Render online users (for DM) ---
+  // --- Render online users ---
   function renderOnlineUsers() {
     var container = document.getElementById("chatOnlineUsers");
     if (!container) return;
@@ -163,45 +263,60 @@
       return currentUser && u.userId !== currentUser.id;
     });
     if (filtered.length === 0) {
-      container.innerHTML = '<div class="no-users-online">Không có ai online</div>';
+      container.innerHTML = '<div class="cw-empty"><i class="fas fa-user-slash"></i><p>Không có ai online</p></div>';
       return;
     }
     container.innerHTML = filtered.map(function (u) {
-      return '<div class="chat-online-user" data-userid="' + u.userId + '" data-username="' + escapeHTML(u.username) + '">' +
-        '<span class="online-dot"></span>' +
-        '<span class="online-name">' + escapeHTML(u.username) + '</span>' +
-        (u.role === "admin" ? '<span class="online-role">admin</span>' : "") +
-        '<button class="dm-btn" title="Nhắn riêng"><i class="fas fa-paper-plane"></i></button>' +
+      var roleTag = u.role === "admin" ? "Admin" : "";
+      var colors = ["#d4a853","#6b8cae","#5b9a6f","#e07456","#9b85a6"];
+      var color = colors[Math.abs(hashCode(u.userId)) % colors.length];
+      var initial = (u.username || "?")[0].toUpperCase();
+      return '<div class="cw-online-user" data-userid="' + u.userId + '" data-username="' + escapeHTML(u.username) + '">' +
+        '<div class="cw-user-avatar" style="background:' + color + '">' + initial +
+          '<span class="online-dot"></span>' +
+        '</div>' +
+        '<div class="cw-user-info">' +
+          '<div class="cw-user-name">' + escapeHTML(u.username) + '</div>' +
+          (roleTag ? '<div class="cw-user-role">' + roleTag + '</div>' : '') +
+        '</div>' +
+        '<button class="cw-dm-btn" title="Nhắn riêng"><i class="fas fa-paper-plane"></i></button>' +
       '</div>';
     }).join("");
-    container.querySelectorAll(".dm-btn").forEach(function (btn) {
+    container.querySelectorAll(".cw-dm-btn").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
-        var item = btn.closest(".chat-online-user");
+        var item = btn.closest(".cw-online-user");
         startDM(item.dataset.userid, item.dataset.username);
       });
     });
   }
 
-  // --- Start DM with a user ---
+  function hashCode(str) {
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash;
+  }
+
+  // --- Start DM ---
   function startDM(targetUserId, targetUsername) {
     if (!socket || !currentUser) return;
     var roomId = [currentUser.id, targetUserId].sort().join("_");
-    // Create DM room via REST
     fetch("/api/chat/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: roomId, name: targetUsername, type: "dm" }),
     }).then(function (res) {
       if (res.ok) {
-        // Refresh room list then join
         socket.emit("chat:join", { roomId: roomId });
-        // Add to local rooms if not exists
         var exists = rooms.find(function (r) { return r.id === roomId; });
         if (!exists) {
           rooms.push({ id: roomId, name: targetUsername, type: "dm", memberCount: 2 });
         }
         joinRoom(roomId);
+        switchTab("rooms");
       }
     }).catch(function () {});
   }
@@ -212,8 +327,13 @@
     unreadCounts[roomId] = 0;
     updateBadge();
     socket.emit("chat:join", { roomId: roomId });
-    document.getElementById("chatRoomList").style.display = "none";
+
+    // Hide tabs + room list, show messages
+    document.querySelector(".cw-tabs").style.display = "none";
+    document.getElementById("tabRooms").style.display = "none";
+    document.getElementById("tabOnline").style.display = "none";
     document.getElementById("chatMessagesView").classList.add("active");
+
     var room = rooms.find(function (r) { return r.id === roomId; });
     document.getElementById("chatRoomTitle").textContent = room ? room.name : roomId;
     document.getElementById("chatMessagesList").innerHTML = "";
@@ -227,7 +347,9 @@
       currentRoom = null;
     }
     document.getElementById("chatMessagesView").classList.remove("active");
-    document.getElementById("chatRoomList").style.display = "";
+    document.querySelector(".cw-tabs").style.display = "";
+    document.getElementById("tabRooms").style.display = "";
+    document.getElementById("tabOnline").style.display = "";
     renderRoomList();
   }
 
@@ -235,7 +357,19 @@
     var container = document.getElementById("chatMessagesList");
     if (!container) return;
     container.innerHTML = "";
-    messages.forEach(function (msg) { appendMessage(msg); });
+    var lastDate = "";
+    messages.forEach(function (msg) {
+      // Date separator
+      var msgDate = new Date(msg.timestamp).toLocaleDateString("vi-VN");
+      if (msgDate !== lastDate) {
+        lastDate = msgDate;
+        var sep = document.createElement("div");
+        sep.className = "cw-date-sep";
+        sep.innerHTML = "<span>" + msgDate + "</span>";
+        container.appendChild(sep);
+      }
+      appendMessage(msg);
+    });
     scrollMessagesToBottom();
   }
 
@@ -247,14 +381,18 @@
     var time = new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     var div = document.createElement("div");
     if (isSystem) {
-      div.className = "chat-message system";
+      div.className = "cw-msg system";
       div.textContent = message.text;
     } else {
-      div.className = "chat-message " + (isOwn ? "own" : "other");
+      div.className = "cw-msg " + (isOwn ? "own" : "other");
+      var roleTag = "";
+      if (message.from && message.from.role === "admin") {
+        roleTag = '<span class="role-tag">Admin</span>';
+      }
       div.innerHTML =
-        (isOwn ? "" : '<div class="msg-author">' + escapeHTML(message.from && message.from.username || "Unknown") + '</div>') +
-        '<div>' + escapeHTML(message.text) + '</div>' +
-        '<div class="msg-time">' + time + '</div>';
+        (isOwn ? "" : '<div class="cw-msg-author">' + escapeHTML(message.from && message.from.username || "Unknown") + roleTag + '</div>') +
+        '<div class="cw-msg-text">' + escapeHTML(message.text) + '</div>' +
+        '<div class="cw-msg-time">' + time + '</div>';
     }
     container.appendChild(div);
   }
@@ -282,11 +420,21 @@
       badge.textContent = total;
       badge.style.display = total > 0 ? "" : "none";
     }
-    // Update page title with unread count
     if (total > 0) {
       document.title = "(" + total + ") " + document.title.replace(/^\(\d+\)\s*/, "");
     } else {
       document.title = document.title.replace(/^\(\d+\)\s*/, "");
+    }
+  }
+
+  function updateOnlineBadge() {
+    var filtered = onlineUsers.filter(function (u) {
+      return currentUser && u.userId !== currentUser.id;
+    });
+    var badge = document.getElementById("onlineBadge");
+    if (badge) {
+      badge.textContent = filtered.length;
+      badge.style.display = filtered.length > 0 ? "" : "none";
     }
   }
 
@@ -297,26 +445,45 @@
   }
 
   function bindEvents() {
+    // Trigger open/close
     document.getElementById("chatTrigger").addEventListener("click", function () {
       var panel = document.getElementById("chatPanel");
       panelOpen = !panelOpen;
       panel.classList.toggle("open", panelOpen);
       if (panelOpen && !socket) connectSocket();
-      // Clear unread when opening
       if (panelOpen && currentRoom) {
         unreadCounts[currentRoom] = 0;
         updateBadge();
       }
     });
+
     document.getElementById("chatClose").addEventListener("click", function () {
       panelOpen = false;
       document.getElementById("chatPanel").classList.remove("open");
     });
+
+    document.getElementById("chatMinimize").addEventListener("click", function () {
+      panelOpen = false;
+      document.getElementById("chatPanel").classList.remove("open");
+    });
+
+    // Tabs
+    document.querySelectorAll(".cw-tab").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        switchTab(tab.dataset.tab);
+      });
+    });
+
+    // Back button
     document.getElementById("chatBack").addEventListener("click", goBackToRooms);
+
+    // Send
     document.getElementById("chatSend").addEventListener("click", sendMessage);
     document.getElementById("chatInput").addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
+
+    // Typing
     document.getElementById("chatInput").addEventListener("input", function () {
       if (!currentRoom || !socket) return;
       socket.emit("chat:typing", { roomId: currentRoom, isTyping: true });
@@ -324,6 +491,12 @@
       typingTimeout = setTimeout(function () {
         socket.emit("chat:typing", { roomId: currentRoom, isTyping: false });
       }, 2000);
+    });
+
+    // Emoji toggle
+    document.getElementById("chatEmojiBtn").addEventListener("click", function () {
+      var picker = document.getElementById("chatEmojiPicker");
+      picker.classList.toggle("open");
     });
   }
 
