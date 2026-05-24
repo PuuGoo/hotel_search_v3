@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const CHAT_FILE = path.join(__dirname, "..", "chat_messages.json");
 const MAX_MESSAGES_PER_ROOM = 500;
 const MAX_ROOMS = 100;
+const MAX_CONNECTIONS = 1000;
 const HEARTBEAT_INTERVAL = 30000;
 
 // --- Persistence helpers ---
@@ -45,7 +46,13 @@ class ChatManager {
 
   _loadRooms() {
     const data = readJSON(CHAT_FILE);
-    // Ensure default rooms exist
+    // Restore persisted rooms first
+    if (data.rooms) {
+      for (const [id, room] of Object.entries(data.rooms)) {
+        this.rooms.set(id, { ...room, members: new Set(room.members || []) });
+      }
+    }
+    // Ensure default rooms exist (won't overwrite persisted data)
     if (!this.rooms.has("general")) {
       this.rooms.set("general", {
         id: "general",
@@ -63,14 +70,6 @@ class ChatManager {
         members: new Set(),
         createdAt: new Date().toISOString(),
       });
-    }
-    // Restore persisted rooms
-    if (data.rooms) {
-      for (const [id, room] of Object.entries(data.rooms)) {
-        if (!this.rooms.has(id)) {
-          this.rooms.set(id, { ...room, members: new Set(room.members || []) });
-        }
-      }
     }
   }
 
@@ -291,6 +290,8 @@ class ChatManager {
       activeConnections: this.users.size,
       activeRooms: this.rooms.size,
       roomDetails,
+      maxConnections: MAX_CONNECTIONS || 1000,
+      totalConnections: this.users.size,
     };
   }
 
@@ -331,12 +332,32 @@ export function getActiveRooms() {
   return chatManager.getActiveRooms();
 }
 
-export function getUserConnections() {
-  return [];
+export function getUserConnections(userId) {
+  const result = [];
+  for (const [sid, info] of chatManager.users) {
+    if (info.userId === userId) {
+      result.push({
+        socketId: sid,
+        connectedAt: Date.now(),
+        rooms: [...info.joinedRooms],
+      });
+    }
+  }
+  return result;
 }
 
-export function disconnectUser() {
-  return 0;
+export function disconnectUser(userId) {
+  let count = 0;
+  for (const [sid, info] of chatManager.users) {
+    if (info.userId === userId) {
+      const socket = chatManager.io?.sockets?.sockets?.get(sid);
+      if (socket) {
+        socket.disconnect(true);
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 export function sendToUser(userId, message) {
