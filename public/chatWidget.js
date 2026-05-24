@@ -242,6 +242,19 @@
       if (window.Toasts) window.Toasts.error(data.message);
     });
 
+    socket.on("chat:notification", function (data) {
+      if (data.type === "dm_invite") {
+        var roomName = data.from || data.roomId;
+        showChatToast(data.from, "bắt đầu cuộc trò chuyện", roomName, data.roomId);
+        // Pulse the trigger button
+        var trigger = document.getElementById("chatTrigger");
+        if (trigger) {
+          trigger.classList.add("pulse");
+          setTimeout(function () { trigger.classList.remove("pulse"); }, 1800);
+        }
+      }
+    });
+
     socket.on("disconnect", function () {
       console.log("[Chat] Disconnected");
       var dot = document.getElementById("chatStatusDot");

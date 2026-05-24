@@ -220,6 +220,8 @@ class ChatManager {
     const username = session.user.displayName || session.user.username || userId;
     const role = session.user.role || "user";
 
+    console.log(`[Chat] User connected: ${username} (id=${userId}, socket=${socket.id})`);
+
     // Track user
     this.users.set(socket.id, { userId, username, role, joinedRooms: new Set() });
 
@@ -228,6 +230,21 @@ class ChatManager {
 
     // Send room list to this user (with personalized DM names)
     socket.emit("chat:room:list", { rooms: this.getRoomListForUser(userId) });
+
+    // Auto-join this socket to all DM rooms the user belongs to
+    const userIdStr = String(userId);
+    for (const [roomId, room] of this.rooms) {
+      if (room.type === "dm" && roomId.includes("_")) {
+        const parts = roomId.split("_");
+        if (parts[0] === userIdStr || parts[1] === userIdStr) {
+          socket.join(roomId);
+          const info = this.users.get(socket.id);
+          if (info) info.joinedRooms.add(roomId);
+          room.members.add(userId);
+          console.log(`[Chat] Auto-joined ${username} to DM room: ${roomId}`);
+        }
+      }
+    }
 
     // Send online users
     const onlineUsers = this._getOnlineUsers();
@@ -291,6 +308,8 @@ class ChatManager {
       this._saveMessage(roomId, message);
 
       // Broadcast to room (including sender for confirmation)
+      const roomSockets = this.io.sockets.adapter.rooms.get(roomId);
+      console.log(`[Chat] Message in room ${roomId} from ${username}. Sockets in room: ${roomSockets ? roomSockets.size : 0}`);
       this.io.to(roomId).emit("chat:message:new", { message });
     });
 
@@ -358,11 +377,34 @@ class ChatManager {
 
   sendToUser(userId, message) {
     if (!this.io) return;
+    const target = String(userId);
+    let sent = 0;
     for (const [sid, info] of this.users) {
-      if (info.userId === userId) {
+      if (String(info.userId) === target) {
         this.io.to(sid).emit("chat:notification", message);
+        sent++;
       }
     }
+    console.log(`[Chat] sendToUser(${userId}): sent to ${sent} socket(s)`);
+  }
+
+  joinUserToRoom(userId, roomId) {
+    if (!this.io) return;
+    const target = String(userId);
+    let joined = 0;
+    for (const [sid, info] of this.users) {
+      if (String(info.userId) === target) {
+        const socket = this.io.sockets.sockets.get(sid);
+        if (socket) {
+          socket.join(roomId);
+          info.joinedRooms.add(roomId);
+          joined++;
+        }
+      }
+    }
+    const room = this.rooms.get(roomId);
+    if (room) room.members.add(userId);
+    console.log(`[Chat] joinUserToRoom(${userId}, ${roomId}): joined ${joined} socket(s)`);
   }
 
   sendToRoom(roomName, message) {

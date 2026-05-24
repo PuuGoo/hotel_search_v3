@@ -203,11 +203,13 @@ router.post("/api/chat/rooms", checkAuthenticated, (req, res) => {
     if (!room) {
       return res.status(500).json({ error: "Failed to create room" });
     }
-    // For DM rooms, also notify the other user
+    // For DM rooms, auto-join the other user and notify them
     if (type === "dm" && safeId.includes("_")) {
       const parts = safeId.split("_");
-      const otherUserId = parts[0] === String(req.session.user.id) ? parts[1] : parts[0];
-      // The createRoom already broadcasts, but we send a targeted notification too
+      const otherUserId = parts[0] === String(req.session.user.id) ? Number(parts[1]) : Number(parts[0]);
+      // Auto-join the other user's sockets to this room so they receive messages
+      manager.joinUserToRoom(otherUserId, safeId);
+      // Send a targeted notification so the client shows a toast
       manager.sendToUser(otherUserId, {
         type: "dm_invite",
         roomId: safeId,
