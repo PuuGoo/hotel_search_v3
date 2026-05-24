@@ -1726,7 +1726,7 @@
         async function loadMessages() {
           try {
             const res = await axios.get("/api/chat/messages");
-            const messages = res.data || [];
+            const messages = res.data.messages || res.data || [];
             msgContainer.innerHTML = "";
             messages.forEach((m) => {
               const div = document.createElement("div");
