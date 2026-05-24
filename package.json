@@ -32,8 +32,8 @@
     "multer": "^1.4.5-lts.2",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
-    "tldts": "^7.0.2",
-    "ws": "^8.21.0"
+    "socket.io": "^4.8.0",
+    "tldts": "^7.0.2"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
