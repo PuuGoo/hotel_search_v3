@@ -130,6 +130,21 @@
 
     socket.on("chat:room:list", function (data) {
       rooms = data.rooms;
+      // Update DM names with online users
+      if (currentUser) {
+        rooms.forEach(function (room) {
+          if (room.type === "dm") {
+            var parts = room.id.split("_");
+            if (parts.length === 2) {
+              var otherUserId = parts[0] === String(currentUser.id) ? parts[1] : parts[0];
+              var otherUser = onlineUsers.find(function (u) { return String(u.userId) === String(otherUserId); });
+              if (otherUser) {
+                room.name = otherUser.username;
+              }
+            }
+          }
+        });
+      }
       renderRoomList();
     });
 
@@ -170,10 +185,10 @@
           trigger.classList.add("pulse");
           setTimeout(function () { trigger.classList.remove("pulse"); }, 1800);
         }
-        // Toast
-        if (window.Toasts && msg.from) {
+        // Show notification toast
+        if (msg.from) {
           var roomName = room ? room.name : msg.roomId;
-          window.Toasts.info(msg.from.username + " (" + roomName + "): " + msg.text.substring(0, 60));
+          showChatToast(msg.from.username, msg.text, roomName, msg.roomId);
         }
       }
     });
@@ -197,6 +212,8 @@
         onlineUsers.push({ userId: data.userId, username: data.username, role: "user" });
         renderOnlineUsers();
         updateOnlineBadge();
+        // Update DM room names with this user
+        updateDMRoomNames();
       }
     });
 
@@ -210,6 +227,7 @@
       onlineUsers = data.users || [];
       renderOnlineUsers();
       updateOnlineBadge();
+      updateDMRoomNames();
       var el = document.getElementById("chatOnlineCount");
       if (el) el.textContent = onlineUsers.length + " online";
     });
@@ -341,6 +359,62 @@
     return hash;
   }
 
+  // --- Chat notification toast (self-contained) ---
+  function showChatToast(username, text, roomName, roomId) {
+    var colors = ["#d4a853","#6b8cae","#5b9a6f","#e07456","#9b85a6"];
+    var color = colors[Math.abs(hashCode(username)) % colors.length];
+    var initial = (username || "?")[0].toUpperCase();
+
+    var toast = document.createElement("div");
+    toast.className = "cw-toast";
+    toast.innerHTML =
+      '<div class="cw-toast-avatar" style="background:' + color + '">' + initial + '</div>' +
+      '<div class="cw-toast-body">' +
+        '<div class="cw-toast-name">' + escapeHTML(username) + '</div>' +
+        '<div class="cw-toast-text">' + escapeHTML(text.substring(0, 80)) + '</div>' +
+        '<div class="cw-toast-room">' + escapeHTML(roomName) + '</div>' +
+      '</div>';
+
+    // Click to open the room
+    toast.addEventListener("click", function () {
+      if (roomId) {
+        panelOpen = true;
+        document.getElementById("chatPanel").classList.add("open");
+        joinRoom(roomId);
+      }
+      toast.classList.add("cw-toast-out");
+      setTimeout(function () { toast.remove(); }, 200);
+    });
+
+    document.body.appendChild(toast);
+
+    // Auto dismiss after 5 seconds
+    setTimeout(function () {
+      if (toast.parentNode) {
+        toast.classList.add("cw-toast-out");
+        setTimeout(function () { toast.remove(); }, 200);
+      }
+    }, 5000);
+  }
+
+  // --- Update DM room names based on online users ---
+  function updateDMRoomNames() {
+    if (!currentUser) return;
+    rooms.forEach(function (room) {
+      if (room.type === "dm") {
+        var parts = room.id.split("_");
+        if (parts.length === 2) {
+          var otherUserId = parts[0] === String(currentUser.id) ? parts[1] : parts[0];
+          var otherUser = onlineUsers.find(function (u) { return String(u.userId) === String(otherUserId); });
+          if (otherUser) {
+            room.name = otherUser.username;
+          }
+        }
+      }
+    });
+    renderRoomList();
+  }
+
   // --- Start DM ---
   function startDM(targetUserId, targetUsername) {
     if (!socket || !currentUser) return;
@@ -376,7 +450,21 @@
     document.getElementById("chatMessagesView").classList.add("active");
 
     var room = rooms.find(function (r) { return r.id === roomId; });
-    document.getElementById("chatRoomTitle").textContent = room ? room.name : roomId;
+    var displayName = room ? room.name : roomId;
+
+    // For DM rooms, try to show the other person's name
+    if (room && room.type === "dm") {
+      var parts = roomId.split("_");
+      if (parts.length === 2 && currentUser) {
+        var otherUserId = parts[0] === String(currentUser.id) ? parts[1] : parts[0];
+        var otherUser = onlineUsers.find(function (u) { return String(u.userId) === String(otherUserId); });
+        if (otherUser) {
+          displayName = otherUser.username;
+        }
+      }
+    }
+
+    document.getElementById("chatRoomTitle").textContent = displayName;
     document.getElementById("chatMessagesList").innerHTML = "";
     document.getElementById("chatInput").focus();
     renderRoomList();

@@ -175,11 +175,12 @@ router.post("/api/chat/messages/:id/resolve", checkRole("admin"), (req, res) => 
   }
 });
 
-// List chat rooms
+// List chat rooms (personalized: DM rooms show the other person's name)
 router.get("/api/chat/rooms", checkAuthenticated, (req, res) => {
   try {
     const manager = getChatManager();
-    res.json({ rooms: manager.getRoomList() });
+    const userId = req.session.user.id;
+    res.json({ rooms: manager.getRoomListForUser(userId) });
   } catch (e) {
     res.status(500).json({ error: "Failed to list rooms" });
   }
@@ -201,6 +202,17 @@ router.post("/api/chat/rooms", checkAuthenticated, (req, res) => {
     const room = manager.createRoom(safeId, safeName, type || "group");
     if (!room) {
       return res.status(500).json({ error: "Failed to create room" });
+    }
+    // For DM rooms, also notify the other user
+    if (type === "dm" && safeId.includes("_")) {
+      const parts = safeId.split("_");
+      const otherUserId = parts[0] === String(req.session.user.id) ? parts[1] : parts[0];
+      // The createRoom already broadcasts, but we send a targeted notification too
+      manager.sendToUser(otherUserId, {
+        type: "dm_invite",
+        roomId: safeId,
+        from: req.session.user.username,
+      });
     }
     res.json({ success: true, room: { id: room.id, name: room.name, type: room.type } });
   } catch (e) {

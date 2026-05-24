@@ -115,15 +115,68 @@ class ChatManager {
     return result;
   }
 
+  getRoomListForUser(userId) {
+    const result = [];
+    for (const [id, room] of this.rooms) {
+      let displayName = room.name;
+      // For DM rooms, show the other person's name
+      if (room.type === "dm") {
+        const parts = id.split("_");
+        if (parts.length === 2) {
+          const otherUserId = parts[0] === String(userId) ? parts[1] : parts[0];
+          // Find the other user's username from connected users
+          const otherUser = this._findUserById(otherUserId);
+          if (otherUser) {
+            displayName = otherUser.username;
+          } else {
+            // Fallback: try to get from users.json
+            displayName = this._getUsernameFromId(otherUserId) || room.name;
+          }
+        }
+      }
+      result.push({
+        id,
+        name: displayName,
+        type: room.type,
+        memberCount: room.members.size,
+        createdAt: room.createdAt,
+      });
+    }
+    return result;
+  }
+
+  _findUserById(userId) {
+    for (const [, info] of this.users) {
+      if (String(info.userId) === String(userId)) {
+        return info;
+      }
+    }
+    return null;
+  }
+
+  _getUsernameFromId(userId) {
+    try {
+      const usersPath = path.join(__dirname, "..", "users.json");
+      if (fs.existsSync(usersPath)) {
+        const users = JSON.parse(fs.readFileSync(usersPath, "utf8"));
+        const user = users.find(u => String(u.id) === String(userId));
+        return user ? (user.displayName || user.username) : null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  }
+
   createRoom(id, name, type = "group") {
     if (this.rooms.size >= MAX_ROOMS) return null;
     if (this.rooms.has(id)) return this.rooms.get(id);
     const room = { id, name, type, members: new Set(), createdAt: new Date().toISOString() };
     this.rooms.set(id, room);
     this._saveRooms();
-    // Broadcast updated room list to all connected users
+    // Broadcast personalized room list to each connected user
     if (this.io) {
-      this.io.emit("chat:room:list", { rooms: this.getRoomList() });
+      for (const [sid, info] of this.users) {
+        this.io.to(sid).emit("chat:room:list", { rooms: this.getRoomListForUser(info.userId) });
+      }
     }
     return room;
   }
@@ -173,8 +226,8 @@ class ChatManager {
     // Notify others this user is online
     socket.broadcast.emit("chat:user:online", { userId, username });
 
-    // Send room list to this user
-    socket.emit("chat:room:list", { rooms: this.getRoomList() });
+    // Send room list to this user (with personalized DM names)
+    socket.emit("chat:room:list", { rooms: this.getRoomListForUser(userId) });
 
     // Send online users
     const onlineUsers = this._getOnlineUsers();
