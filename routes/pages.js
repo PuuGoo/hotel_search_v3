@@ -225,4 +225,8 @@ router.get("/reset-password", (_req, res) => {
   res.sendFile(path.join(publicDir, "resetPassword.html"));
 });
 
+router.get("/admin/chat", checkAuthenticated, checkRole("admin"), (_req, res) => {
+  res.sendFile(path.join(publicDir, "adminChat.html"));
+});
+
 export default router;

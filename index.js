@@ -149,6 +149,7 @@ import dataEncryptionRoutes from "./routes/dataEncryption.js";
 import securityIncidentRoutes from "./routes/securityIncidents.js";
 import { pipelineTrace } from "./middleware/pipelineTrace.js";
 import { getSSEManager } from "./middleware/sse.js";
+import { initWebSocket } from "./utils/websocket.js";
 import { errorTracker } from "./middleware/errorTracker.js";
 import { metricsMiddleware, metricsEndpoint, performanceEndpoint } from "./middleware/metrics.js";
 import { csrfProtection } from "./middleware/csrf.js";
@@ -213,7 +214,7 @@ app.use((req, res, next) => {
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
         "img-src 'self' data: https://placehold.co",
-        "connect-src 'self' https://va.vercel-scripts.com",
+        "connect-src 'self' https://va.vercel-scripts.com ws: wss:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -251,19 +252,18 @@ app.use(requestTimeout());
 app.use(apiVersion);
 
 // Session configuration
-app.use(
-  session({
-    secret: config.session.secret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      maxAge: config.session.maxAge,
-      secure: config.isProduction,
-      sameSite: "lax",
-    },
-  })
-);
+const sessionMiddleware = session({
+  secret: config.session.secret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    maxAge: config.session.maxAge,
+    secure: config.isProduction,
+    sameSite: "lax",
+  },
+});
+app.use(sessionMiddleware);
 
 // CSRF protection (after session, before routes)
 app.use(csrfProtection);
@@ -499,6 +499,8 @@ const server = app.listen(PORT, () => {
   console.log(`http://localhost:${PORT}`);
   // Start SSE heartbeat (every 30s)
   getSSEManager().startHeartbeat(30000);
+  initWebSocket(server, sessionMiddleware);
+  console.log("Socket.IO initialized on /socket.io");
 });
 
 // Graceful shutdown
