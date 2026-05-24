@@ -35,6 +35,9 @@ chatbox_data.json
 *_chpw*.txt
 api_keys.json
 .encryption_key
+cookies.txt
+password_reset_tokens.json
+error_log.json
 
 # Test artifacts
 tests/test_users_temp.json
