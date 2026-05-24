@@ -24,6 +24,7 @@
   --color-gold: #d4a853;
   --color-gold-dim: rgba(212, 168, 83, 0.12);
   --color-gold-glow: rgba(212, 168, 83, 0.25);
+  --focus-ring: var(--color-gold);
   --color-sage: #7a9e7e;
   --color-sage-dim: rgba(122, 158, 126, 0.12);
   --color-coral: #e07456;

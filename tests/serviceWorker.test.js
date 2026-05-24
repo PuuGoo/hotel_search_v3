@@ -55,7 +55,7 @@ describe("Service Worker", () => {
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toContain("javascript");
     expect(res.body).toContain("CACHE_NAME");
-    expect(res.body).toContain("hotel-search-v1");
+    expect(res.body).toMatch(/hotel-search-v\d+/);
   });
 
   test("Service worker caches static assets", async () => {

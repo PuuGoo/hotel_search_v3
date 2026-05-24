@@ -300,6 +300,7 @@ class ChatManager {
   }
 
   sendToUser(userId, message) {
+    if (!this.io) return;
     for (const [sid, info] of this.users) {
       if (info.userId === userId) {
         this.io.to(sid).emit("chat:notification", message);
@@ -308,7 +309,14 @@ class ChatManager {
   }
 
   sendToRoom(roomName, message) {
+    if (!this.io) return;
     this.io.to(roomName).emit("chat:message:new", { message });
+  }
+
+  reset() {
+    this.users.clear();
+    this.rooms.clear();
+    this.io = null;
   }
 }
 
@@ -369,9 +377,11 @@ export function sendToRoom(roomName, message) {
 }
 
 export function clearConnectionHistory() {
-  // No-op for backward compat
+  chatManager.users.clear();
+  chatManager.rooms.clear();
 }
 
 export function clearAllConnections() {
-  // No-op for backward compat
+  chatManager.users.clear();
+  chatManager.rooms.clear();
 }
