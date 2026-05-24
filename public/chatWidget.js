@@ -237,6 +237,14 @@
       if (el) el.textContent = onlineUsers.length + " online";
     });
 
+    socket.on("chat:unread:counts", function (data) {
+      if (data.counts) {
+        unreadCounts = data.counts;
+        updateBadge();
+        renderRoomList();
+      }
+    });
+
     socket.on("chat:error", function (data) {
       console.error("[Chat] Error:", data.message);
       if (window.Toasts) window.Toasts.error(data.message);
@@ -605,10 +613,11 @@
       var panel = document.getElementById("chatPanel");
       panelOpen = !panelOpen;
       panel.classList.toggle("open", panelOpen);
-      if (panelOpen && !socket) connectSocket();
+      if (!socket) connectSocket();
       if (panelOpen && currentRoom) {
         unreadCounts[currentRoom] = 0;
         updateBadge();
+        if (socket) socket.emit("chat:join", { roomId: currentRoom });
       }
       if (panelOpen) {
         setTimeout(function () {
@@ -727,6 +736,7 @@
     loadCSS();
     injectHTML();
     bindEvents();
+    connectSocket();
   }
 
   if (document.readyState === "loading") {

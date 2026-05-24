@@ -47,6 +47,7 @@ active_sessions.json
 api_usage.json
 audit_log.json
 bookmarks.json
+chat_last_seen.json
 chat_messages.json
 price_alerts.json
 request_log.json

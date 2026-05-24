@@ -246,7 +246,9 @@
       let allUsers = [];
 
       async function loadUsers() {
+        try {
         const res = await fetch(API);
+        if (!res.ok) { Toasts.error("Lỗi tải danh sách user"); return; }
         allUsers = await res.json();
         const tbody = document.getElementById("userList");
         tbody.innerHTML = allUsers.map(u => `
@@ -304,6 +306,7 @@
         tbody.querySelectorAll('.btn-view-history').forEach(btn => {
           btn.onclick = () => viewUserHistory(parseInt(btn.dataset.id), btn.dataset.username);
         });
+        } catch (err) { console.error("loadUsers error:", err); Toasts.error("Lỗi tải danh sách user"); }
       }
 
       async function viewUserBookmarks(userId, username) {
@@ -387,10 +390,12 @@
 
       window.deleteUser = async (id, username) => {
         if (!confirm(`Xóa user "${username}"?`)) return;
-        const res = await fetch(`${API}/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) { Toasts.success("Đã xóa user"); loadUsers(); }
-        else Toasts.error(data.error);
+        try {
+          const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) { Toasts.success("Đã xóa user"); loadUsers(); }
+          else Toasts.error(data.error);
+        } catch (err) { Toasts.error("Lỗi kết nối"); }
       };
 
       document.getElementById("userForm").onsubmit = async (e) => {
@@ -410,41 +415,45 @@
         const pw = document.getElementById("modalPassword").value;
         if (pw) body.password = pw;
 
-        if (id) {
-          const res = await fetch(`${API}/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
+        try {
+          let res;
+          if (id) {
+            res = await fetch(`${API}/${id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+          } else {
+            if (!pw) { Toasts.error("Cần nhập mật khẩu"); return; }
+            body.password = pw;
+            res = await fetch(API, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+          }
           const data = await res.json();
-          if (data.success) { closeModal("userModal"); Toasts.success("Đã cập nhật user"); loadUsers(); }
-          else Toasts.error(data.error);
-        } else {
-          if (!pw) { Toasts.error("Cần nhập mật khẩu"); return; }
-          body.password = pw;
-          const res = await fetch(API, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          const data = await res.json();
-          if (data.success) { closeModal("userModal"); Toasts.success("Đã thêm user mới"); loadUsers(); }
-          else Toasts.error(data.error);
-        }
+          if (!res.ok || !data.success) { Toasts.error(data.error || "Lỗi thực hiện"); return; }
+          closeModal("userModal");
+          Toasts.success(id ? "Đã cập nhật user" : "Đã thêm user mới");
+          loadUsers();
+        } catch (err) { console.error("userForm error:", err); Toasts.error("Lỗi kết nối"); }
       };
 
       document.getElementById("passwordForm").onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById("pwUserId").value;
         const newPassword = document.getElementById("newPassword").value;
-        const res = await fetch(`${API}/${id}/password`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword }),
-        });
-        const data = await res.json();
-        if (data.success) { closeModal("passwordModal"); Toasts.success("Đổi mật khẩu thành công"); }
-        else Toasts.error(data.error);
+        try {
+          const res = await fetch(`${API}/${id}/password`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ newPassword }),
+          });
+          const data = await res.json();
+          if (data.success) { closeModal("passwordModal"); Toasts.success("Đổi mật khẩu thành công"); }
+          else Toasts.error(data.error);
+        } catch (err) { Toasts.error("Lỗi kết nối"); }
       };
 
       // Theme toggle

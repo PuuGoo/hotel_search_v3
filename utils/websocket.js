@@ -11,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CHAT_FILE = path.join(__dirname, "..", "chat_messages.json");
+const LAST_SEEN_FILE = path.join(__dirname, "..", "chat_last_seen.json");
 const MAX_MESSAGES_PER_ROOM = 500;
 const MAX_ROOMS = 100;
 const MAX_CONNECTIONS = 1000;
@@ -40,8 +41,11 @@ class ChatManager {
     this.users = new Map();
     // roomId -> { name, type, members: Set, createdAt }
     this.rooms = new Map();
+    // "userId:roomId" -> ISO timestamp (last time user viewed a room)
+    this.lastSeen = new Map();
     // Load persisted data
     this._loadRooms();
+    this._loadLastSeen();
   }
 
   _loadRooms() {
@@ -81,6 +85,52 @@ class ChatManager {
     }
     data.rooms = roomsObj;
     writeJSON(CHAT_FILE, data);
+  }
+
+  _loadLastSeen() {
+    try {
+      if (fs.existsSync(LAST_SEEN_FILE)) {
+        const data = JSON.parse(fs.readFileSync(LAST_SEEN_FILE, "utf8"));
+        for (const [key, ts] of Object.entries(data)) {
+          this.lastSeen.set(key, ts);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  _saveLastSeen() {
+    try {
+      const obj = {};
+      for (const [key, ts] of this.lastSeen) {
+        obj[key] = ts;
+      }
+      fs.writeFileSync(LAST_SEEN_FILE, JSON.stringify(obj, null, 2), "utf8");
+    } catch { /* ignore */ }
+  }
+
+  _updateLastSeen(userId, roomId) {
+    const key = `${userId}:${roomId}`;
+    this.lastSeen.set(key, new Date().toISOString());
+    this._saveLastSeen();
+  }
+
+  _getUnreadCounts(userId) {
+    const counts = {};
+    const userIdStr = String(userId);
+    for (const [roomId] of this.rooms) {
+      const key = `${userIdStr}:${roomId}`;
+      const lastSeenTs = this.lastSeen.get(key);
+      if (!lastSeenTs) {
+        // User has never viewed this room - count all messages
+        const messages = this.getMessages(roomId, 500);
+        counts[roomId] = messages.length;
+      } else {
+        // Count messages after last seen
+        const messages = this.getMessages(roomId, 500);
+        counts[roomId] = messages.filter(m => m.timestamp > lastSeenTs).length;
+      }
+    }
+    return counts;
   }
 
   _saveMessage(roomId, message) {
@@ -250,6 +300,10 @@ class ChatManager {
     const onlineUsers = this._getOnlineUsers();
     socket.emit("chat:users:online", { users: onlineUsers });
 
+    // Send unread counts for all rooms
+    const unreadCounts = this._getUnreadCounts(userId);
+    socket.emit("chat:unread:counts", { counts: unreadCounts });
+
     // --- Event handlers ---
 
     socket.on("chat:join", ({ roomId }) => {
@@ -261,6 +315,8 @@ class ChatManager {
       const info = this.users.get(socket.id);
       if (info) info.joinedRooms.add(roomId);
       this.rooms.get(roomId).members.add(userId);
+      // Update last seen timestamp
+      this._updateLastSeen(userId, roomId);
 
       // Send message history
       const history = this.getMessages(roomId, 50);
@@ -306,6 +362,8 @@ class ChatManager {
 
       // Persist
       this._saveMessage(roomId, message);
+      // Update sender's last seen
+      this._updateLastSeen(userId, roomId);
 
       // Broadcast to room (including sender for confirmation)
       const roomSockets = this.io.sockets.adapter.rooms.get(roomId);
