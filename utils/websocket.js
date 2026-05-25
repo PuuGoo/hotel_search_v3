@@ -6,7 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Server as SocketIOServer } from "socket.io";
 import { checkChatRateLimit } from "../middleware/chatRateLimit.js";
-import { acknowledgePendingNotification } from "./realtimeNotifications.js";
+import { acknowledgePendingNotification, evaluateSupportRoomSlaPrediction } from "./realtimeNotifications.js";
 import { getSession, joinSession, leaveSession, recordSearch } from "./searchCollaboration.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1381,6 +1381,27 @@ class ChatManager {
 
   getRoomPresence(roomId) {
     return this._buildRoomPresence(roomId);
+  }
+
+  _evaluateSupportRoomSlaPrediction(roomId, options = {}) {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    const messages = this.getMessages(roomId, 500);
+    const adminUserIds = [];
+    const seenAdmin = new Set();
+    for (const [, info] of this.users) {
+      if (String(info.role) !== "admin") continue;
+      const key = String(info.userId);
+      if (seenAdmin.has(key)) continue;
+      seenAdmin.add(key);
+      adminUserIds.push(info.userId);
+    }
+    return evaluateSupportRoomSlaPrediction({
+      room,
+      messages,
+      adminUserIds,
+      ...options,
+    });
   }
 
   reset() {

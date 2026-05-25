@@ -648,6 +648,63 @@ describe("Route Integration Tests", () => {
       expect(res.status).toBe(404);
     });
 
+    test("GET /api/chat/rooms/:roomId/messages supports keyword/sender/time filters", async () => {
+      const manager = getChatManager();
+      manager.createRoom("search-room", "Search Room", "group");
+
+      const oldTs = new Date(Date.now() - 120_000).toISOString();
+      const midTs = new Date(Date.now() - 60_000).toISOString();
+      const newTs = new Date().toISOString();
+
+      manager._saveMessage("search-room", {
+        id: "search-1",
+        roomId: "search-room",
+        from: { userId: 1, username: "alice", role: "user" },
+        text: "booking issue open",
+        timestamp: oldTs,
+        type: "text",
+      });
+      manager._saveMessage("search-room", {
+        id: "search-2",
+        roomId: "search-room",
+        from: { userId: 2, username: "bob", role: "admin" },
+        text: "refund processed",
+        timestamp: midTs,
+        type: "text",
+      });
+      manager._saveMessage("search-room", {
+        id: "search-3",
+        roomId: "search-room",
+        from: { userId: 1, username: "alice", role: "user" },
+        text: "booking confirmed",
+        timestamp: newTs,
+        type: "text",
+      });
+
+      const byKeyword = await fetch(`${baseUrl}/api/chat/rooms/search-room/messages?keyword=booking`, {
+        headers: { Cookie: userCookie },
+      });
+      expect(byKeyword.status).toBe(200);
+      const keywordData = await byKeyword.json();
+      expect(keywordData.messages.length).toBeGreaterThanOrEqual(2);
+      expect(keywordData.messages.every((m) => String(m.text).toLowerCase().includes("booking"))).toBe(true);
+
+      const bySender = await fetch(`${baseUrl}/api/chat/rooms/search-room/messages?sender=bob`, {
+        headers: { Cookie: userCookie },
+      });
+      expect(bySender.status).toBe(200);
+      const senderData = await bySender.json();
+      expect(senderData.messages.length).toBeGreaterThanOrEqual(1);
+      expect(senderData.messages.every((m) => String(m.from?.username || "").toLowerCase() === "bob")).toBe(true);
+
+      const byTime = await fetch(`${baseUrl}/api/chat/rooms/search-room/messages?from=${encodeURIComponent(midTs)}`, {
+        headers: { Cookie: userCookie },
+      });
+      expect(byTime.status).toBe(200);
+      const timeData = await byTime.json();
+      expect(timeData.messages.every((m) => Date.parse(m.timestamp) >= Date.parse(midTs))).toBe(true);
+    });
+
     test("POST /api/chat/rooms/:roomId/messages/:messageId/reactions toggles reaction", async () => {
       const manager = getChatManager();
       manager.createRoom("integration-room", "Integration Room", "group");
@@ -741,6 +798,166 @@ describe("Route Integration Tests", () => {
 
     test("GET /api/realtime-notifications/sla-predictions denies non-admin", async () => {
       const res = await fetch(`${baseUrl}/api/realtime-notifications/sla-predictions`, {
+        headers: { Cookie: userCookie },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("GET /api/websocket/diagnostics includes SLA observability details for admin", async () => {
+      const manager = getChatManager();
+      const oldTs = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      manager.createRoom("diagnostic-sla-room", "Diagnostic SLA Room", "support");
+      const room = manager.rooms.get("diagnostic-sla-room");
+      if (room) room.createdAt = oldTs;
+      fs.writeFileSync(
+        TEST_SOCKET_CHAT_FILE,
+        JSON.stringify({
+          messages: {
+            "diagnostic-sla-room": [
+              {
+                id: "diag-sla-msg-1",
+                from: { userId: "2", username: "testuser" },
+                text: "still waiting on support",
+                timestamp: oldTs,
+              },
+            ],
+          },
+        }, null, 2),
+        "utf8",
+      );
+      manager.users.set("diagnostic-admin-socket", {
+        userId: "1",
+        username: "Admin",
+        role: "admin",
+        joinedRooms: new Set(),
+        joinedCollabSessions: new Set(),
+      });
+      manager._evaluateSupportRoomSlaPrediction("diagnostic-sla-room");
+
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty("sla");
+      expect(data.sla).toHaveProperty("escalations");
+      expect(data.sla).toHaveProperty("predictions");
+      expect(data.sla.escalations).toHaveProperty("events");
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(data.sla.escalations).toHaveProperty("count");
+      expect(data.sla.predictions).toHaveProperty("alerts");
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+      expect(data.sla.predictions).toHaveProperty("count");
+    });
+
+    test("GET /api/websocket/diagnostics filters SLA predictions by roomId", async () => {
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics?predictionRoomId=diagnostic-sla-room`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+      expect(data.sla.predictions.alerts.every((a) => String(a.roomId) === "diagnostic-sla-room")).toBe(true);
+      expect(data.sla.predictions.count).toBe(data.sla.predictions.alerts.length);
+    });
+
+    test("GET /api/websocket/diagnostics filters SLA escalations by stage", async () => {
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics?escalationStage=first_response_breach`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(data.sla.escalations.events.every((e) => Array.isArray(e.stages) && e.stages.includes("first_response_breach"))).toBe(true);
+      expect(data.sla.escalations.count).toBe(data.sla.escalations.events.length);
+    });
+
+    test("GET /api/websocket/diagnostics supports slaSince filter", async () => {
+      const sinceIso = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics?slaSince=${encodeURIComponent(sinceIso)}`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty("sla");
+      expect(data.sla).toHaveProperty("escalations");
+      expect(data.sla).toHaveProperty("predictions");
+      expect(data.sla.escalations).toHaveProperty("count");
+      expect(data.sla.predictions).toHaveProperty("count");
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+    });
+
+    test("GET /api/websocket/diagnostics filters SLA escalations by roomId", async () => {
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics?escalationRoomId=diagnostic-sla-room`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(data.sla.escalations.events.every((e) => String(e.roomId) === "diagnostic-sla-room")).toBe(true);
+      expect(data.sla.escalations.count).toBe(data.sla.escalations.events.length);
+    });
+
+    test("GET /api/websocket/diagnostics ignores invalid slaSince format", async () => {
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics?slaSince=not-a-date`, {
+        headers: { Cookie: adminCookie },
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveProperty("sla");
+      expect(data.sla).toHaveProperty("escalations");
+      expect(data.sla).toHaveProperty("predictions");
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+    });
+
+    test("GET /api/websocket/diagnostics supports combined predictionRoomId + slaSince filters", async () => {
+      const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const res = await fetch(
+        `${baseUrl}/api/websocket/diagnostics?predictionRoomId=diagnostic-sla-room&slaSince=${encodeURIComponent(sinceIso)}`,
+        { headers: { Cookie: adminCookie } },
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+      expect(data.sla.predictions.alerts.every((a) => String(a.roomId) === "diagnostic-sla-room")).toBe(true);
+      expect(data.sla.predictions.count).toBe(data.sla.predictions.alerts.length);
+    });
+
+    test("GET /api/websocket/diagnostics supports combined escalationRoomId + escalationStage filters", async () => {
+      const res = await fetch(
+        `${baseUrl}/api/websocket/diagnostics?escalationRoomId=diagnostic-sla-room&escalationStage=first_response_breach`,
+        { headers: { Cookie: adminCookie } },
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(
+        data.sla.escalations.events.every(
+          (e) => String(e.roomId) === "diagnostic-sla-room" && Array.isArray(e.stages) && e.stages.includes("first_response_breach"),
+        ),
+      ).toBe(true);
+      expect(data.sla.escalations.count).toBe(data.sla.escalations.events.length);
+    });
+
+    test("GET /api/websocket/diagnostics returns empty SLA sets for non-matching filters", async () => {
+      const res = await fetch(
+        `${baseUrl}/api/websocket/diagnostics?predictionRoomId=missing-room&escalationRoomId=missing-room&escalationStage=nonexistent_stage`,
+        { headers: { Cookie: adminCookie } },
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.sla.escalations.events)).toBe(true);
+      expect(Array.isArray(data.sla.predictions.alerts)).toBe(true);
+      expect(data.sla.escalations.events.length).toBe(0);
+      expect(data.sla.predictions.alerts.length).toBe(0);
+      expect(data.sla.escalations.count).toBe(0);
+      expect(data.sla.predictions.count).toBe(0);
+    });
+
+    test("GET /api/websocket/diagnostics denies non-admin", async () => {
+      const res = await fetch(`${baseUrl}/api/websocket/diagnostics`, {
         headers: { Cookie: userCookie },
       });
       expect(res.status).toBe(403);

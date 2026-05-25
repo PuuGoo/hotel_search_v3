@@ -15,6 +15,7 @@ import {
   clearConnectionHistory,
   getChatManager,
 } from "../utils/websocket.js";
+import { getSlaPredictionAlerts, getSupportSLAState } from "../utils/realtimeNotifications.js";
 
 const router = Router();
 
@@ -114,10 +115,62 @@ router.get("/api/websocket/diagnostics", checkAuthenticated, checkRole("admin"),
     type: req.query.type || null,
     since: req.query.since || null,
   });
+  const predictionRoomId = typeof req.query.predictionRoomId === "string" ? req.query.predictionRoomId : "";
+  const escalationRoomId = typeof req.query.escalationRoomId === "string" ? req.query.escalationRoomId : "";
+  const escalationStage = typeof req.query.escalationStage === "string" ? req.query.escalationStage : "";
+  const parsedSince = typeof req.query.slaSince === "string" ? Date.parse(req.query.slaSince) : NaN;
+  const sinceTs = Number.isFinite(parsedSince) ? parsedSince : null;
+
+  let predictionAlerts = getSlaPredictionAlerts();
+  if (predictionRoomId) {
+    predictionAlerts = predictionAlerts.filter((a) => String(a.roomId) === predictionRoomId);
+  }
+  if (sinceTs !== null) {
+    predictionAlerts = predictionAlerts.filter((a) => Date.parse(a.timestamp) >= sinceTs);
+  }
+
+  const escalationState = getSupportSLAState();
+  let escalationEvents = Object.entries(escalationState).map(([roomId, stagesMap]) => {
+    const stageEntries = Object.entries(stagesMap || {});
+    const stages = stageEntries.map(([stage]) => stage);
+    const lastEscalationTs = stageEntries.reduce((max, [, windowId]) => {
+      const windowTs = Number(windowId) * 60 * 60 * 1000;
+      return Number.isFinite(windowTs) && windowTs > max ? windowTs : max;
+    }, 0);
+    return {
+      roomId,
+      stages,
+      windows: stagesMap || {},
+      lastEscalatedAt: lastEscalationTs > 0 ? new Date(lastEscalationTs).toISOString() : null,
+    };
+  });
+  if (escalationRoomId) {
+    escalationEvents = escalationEvents.filter((e) => String(e.roomId) === escalationRoomId);
+  }
+  if (escalationStage) {
+    escalationEvents = escalationEvents.filter((e) => e.stages.includes(escalationStage));
+  }
+  if (sinceTs !== null) {
+    escalationEvents = escalationEvents.filter((e) => {
+      if (!e.lastEscalatedAt) return false;
+      return Date.parse(e.lastEscalatedAt) >= sinceTs;
+    });
+  }
+
   res.json({
     connections: getConnectionStats(),
     rooms: getActiveRooms(),
     opsHistory,
+    sla: {
+      escalations: {
+        events: escalationEvents,
+        count: escalationEvents.length,
+      },
+      predictions: {
+        alerts: predictionAlerts,
+        count: predictionAlerts.length,
+      },
+    },
   });
 });
 

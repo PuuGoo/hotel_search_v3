@@ -291,7 +291,27 @@ router.get("/api/chat/rooms/:roomId/messages", checkAuthenticated, (req, res) =>
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
     const manager = getChatManager();
-    const messages = manager.getMessages(req.params.roomId, limit);
+    let messages = manager.getMessages(req.params.roomId, Math.max(limit, 500));
+
+    const keyword = typeof req.query.keyword === "string" ? req.query.keyword.trim().toLowerCase() : "";
+    const sender = typeof req.query.sender === "string" ? req.query.sender.trim().toLowerCase() : "";
+    const from = typeof req.query.from === "string" ? Date.parse(req.query.from) : NaN;
+    const to = typeof req.query.to === "string" ? Date.parse(req.query.to) : NaN;
+
+    if (keyword) {
+      messages = messages.filter((m) => String(m.text || "").toLowerCase().includes(keyword));
+    }
+    if (sender) {
+      messages = messages.filter((m) => String(m.from?.username || "").toLowerCase() === sender);
+    }
+    if (Number.isFinite(from)) {
+      messages = messages.filter((m) => Date.parse(m.timestamp) >= from);
+    }
+    if (Number.isFinite(to)) {
+      messages = messages.filter((m) => Date.parse(m.timestamp) <= to);
+    }
+
+    messages = messages.slice(-limit);
     res.json({ roomId: req.params.roomId, messages });
   } catch (e) {
     res.status(500).json({ error: "Failed to get messages" });
