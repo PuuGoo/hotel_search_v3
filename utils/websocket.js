@@ -325,6 +325,22 @@ class ChatManager {
     return messages.filter((m) => !m.deleted && m.timestamp > sinceTs);
   }
 
+  buildReplyMetadata(roomId, replyToMessageId) {
+    if (!roomId || !replyToMessageId) return null;
+    const data = readJSON(CHAT_FILE);
+    const messages = (data.messages && data.messages[roomId]) || [];
+    const target = messages.find((m) => String(m.id) === String(replyToMessageId));
+    if (!target) return null;
+
+    return {
+      replyToMessageId: String(target.id),
+      replyToSnapshot: {
+        senderName: String(target.from?.username || "Unknown"),
+        textSnippet: String(target.text || "[message]").trim().slice(0, 120) || "[message]",
+      },
+    };
+  }
+
   setUserLanguagePreference(userId, language = "en") {
     const normalized = String(language || "en").trim().toLowerCase();
     const allowed = new Set(["en", "vi"]);
@@ -665,7 +681,7 @@ class ChatManager {
       socket.to(roomId).emit("chat:user:left", { userId, username, roomId });
     });
 
-    socket.on("chat:message", ({ roomId, text }) => {
+    socket.on("chat:message", ({ roomId, text, replyToMessageId }) => {
       if (!text || typeof text !== "string") return;
       const trimmed = text.trim().slice(0, 2000);
       if (!trimmed) return;
@@ -674,11 +690,19 @@ class ChatManager {
         return;
       }
 
-      // Rate limit check
       const rateCheck = checkChatRateLimit(userId);
       if (!rateCheck.allowed) {
         socket.emit("chat:error", { message: `Too many messages. Try again in ${rateCheck.retryAfter}s.` });
         return;
+      }
+
+      let replyMeta = null;
+      if (replyToMessageId) {
+        replyMeta = this.buildReplyMetadata(roomId, replyToMessageId);
+        if (!replyMeta) {
+          socket.emit("chat:error", { message: "Reply target not found" });
+          return;
+        }
       }
 
       const message = {
@@ -688,6 +712,8 @@ class ChatManager {
         text: trimmed,
         timestamp: new Date().toISOString(),
         type: "text",
+        replyToMessageId: replyMeta ? replyMeta.replyToMessageId : null,
+        replyToSnapshot: replyMeta ? replyMeta.replyToSnapshot : null,
       };
 
       // Persist

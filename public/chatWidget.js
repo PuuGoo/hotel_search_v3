@@ -9,6 +9,7 @@
   let onlineUsers = [];
   let unreadCounts = {};
   let typingTimeout = null;
+  let replyContext = null;
   let panelOpen = false;
   let activeTab = "rooms"; // "rooms" or "online"
   let searchQuery = "";
@@ -86,6 +87,7 @@
           '<div class="cw-new-messages" id="chatNewMsg"><i class="fas fa-arrow-down"></i> Tin nhắn mới</div>' +
           '<div class="cw-suggestions" id="chatSuggestions"></div>' +
           '<div class="cw-typing" id="chatTyping"></div>' +
+          '<div class="cw-reply-context" id="chatReplyContext" style="display:none"></div>' +
           '<div class="cw-emoji-picker" id="chatEmojiPicker"></div>' +
           '<div class="cw-input-area">' +
             '<button class="cw-emoji-btn" id="chatEmojiBtn" aria-label="Emoji"><i class="far fa-smile"></i></button>' +
@@ -508,6 +510,7 @@
   function joinRoom(roomId) {
     if (currentRoom) socket.emit("chat:leave", { roomId: currentRoom });
     currentRoom = roomId;
+    clearReplyContext();
     adminSuggestions = [];
     renderSuggestions();
     unreadCounts[roomId] = 0;
@@ -579,6 +582,48 @@
     });
   }
 
+  function clearReplyContext() {
+    replyContext = null;
+    renderReplyContext();
+  }
+
+  function setReplyContext(message) {
+    if (!message || !message.id) return;
+    replyContext = {
+      messageId: String(message.id),
+      senderName: String((message.from && message.from.username) || "Unknown"),
+      textSnippet: String(message.text || "").trim().slice(0, 120) || "[message]",
+    };
+    renderReplyContext();
+  }
+
+  function renderReplyContext() {
+    var el = document.getElementById("chatReplyContext");
+    if (!el) return;
+    if (!replyContext) {
+      el.style.display = "none";
+      el.innerHTML = "";
+      return;
+    }
+    el.style.display = "";
+    el.innerHTML =
+      '<div class="cw-reply-context-inner">' +
+      '<div class="cw-reply-context-meta">Reply to <strong>' + escapeHTML(replyContext.senderName) + '</strong></div>' +
+      '<div class="cw-reply-context-text">' + escapeHTML(replyContext.textSnippet) + '</div>' +
+      '<button type="button" class="cw-reply-cancel" id="chatReplyCancel" aria-label="Cancel reply">×</button>' +
+      '</div>';
+    var cancel = document.getElementById("chatReplyCancel");
+    if (cancel) cancel.addEventListener("click", clearReplyContext);
+  }
+
+  function renderReplyQuote(message) {
+    if (!message || !message.replyToSnapshot || !message.replyToMessageId) return "";
+    return '<button type="button" class="cw-reply-quote" data-reply-to="' + escapeHTML(String(message.replyToMessageId)) + '">' +
+      '<span class="cw-reply-quote-author">' + escapeHTML(String(message.replyToSnapshot.senderName || "Unknown")) + '</span>' +
+      '<span class="cw-reply-quote-text">' + escapeHTML(String(message.replyToSnapshot.textSnippet || "[message]")) + '</span>' +
+      '</button>';
+  }
+
   function goBackToRooms() {
     if (currentRoom) {
       socket.emit("chat:leave", { roomId: currentRoom });
@@ -624,13 +669,16 @@
     } else {
       var messageId = escapeHTML(String(message.id || ""));
       div.className = "cw-msg " + (isOwn ? "own" : "other");
+      div.setAttribute("data-message-id", messageId);
       var roleTag = "";
       if (message.from && message.from.role === "admin") {
         roleTag = '<span class="role-tag">Admin</span>';
       }
       div.innerHTML =
         (isOwn ? "" : '<div class="cw-msg-author">' + escapeHTML(message.from && message.from.username || "Unknown") + roleTag + '</div>') +
+        renderReplyQuote(message) +
         '<div class="cw-msg-text">' + escapeHTML(message.text) + '</div>' +
+        '<div class="cw-msg-actions"><button type="button" class="cw-reply-btn" data-reply-message-id="' + messageId + '">Reply</button></div>' +
         '<div class="cw-msg-reactions" data-message-id="' + messageId + '">' + renderReactions(message.reactions || {}) + '</div>' +
         '<div class="cw-msg-time">' + time + '</div>';
     }
@@ -696,8 +744,13 @@
     if (!input || !currentRoom || !socket) return;
     var text = input.value.trim();
     if (!text) return;
-    socket.emit("chat:message", { roomId: currentRoom, text: text });
+    socket.emit("chat:message", {
+      roomId: currentRoom,
+      text: text,
+      replyToMessageId: replyContext ? replyContext.messageId : null,
+    });
     input.value = "";
+    clearReplyContext();
     socket.emit("chat:typing", { roomId: currentRoom, isTyping: false });
   }
 
@@ -813,6 +866,35 @@
         }
       });
       msgList.addEventListener("click", function (e) {
+        var replyBtn = e.target.closest(".cw-reply-btn");
+        if (replyBtn) {
+          var replyId = replyBtn.dataset.replyMessageId;
+          if (!replyId) return;
+          var messageEl = replyBtn.closest(".cw-msg");
+          var textEl = messageEl ? messageEl.querySelector(".cw-msg-text") : null;
+          var authorEl = messageEl ? messageEl.querySelector(".cw-msg-author") : null;
+          var authorName = authorEl ? authorEl.textContent.replace("Admin", "").trim() : ((currentUser && currentUser.displayName) || (currentUser && currentUser.username) || "Unknown");
+          setReplyContext({
+            id: replyId,
+            from: { username: authorName },
+            text: textEl ? textEl.textContent : "",
+          });
+          return;
+        }
+
+        var replyQuote = e.target.closest(".cw-reply-quote");
+        if (replyQuote) {
+          var targetId = replyQuote.getAttribute("data-reply-to");
+          if (!targetId) return;
+          var target = msgList.querySelector('[data-message-id="' + String(targetId).replace(/"/g, '\\"') + '"]');
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.classList.add("cw-reply-target-highlight");
+            setTimeout(function () { target.classList.remove("cw-reply-target-highlight"); }, 1200);
+          }
+          return;
+        }
+
         var btn = e.target.closest(".cw-reaction-pill");
         var bubble = e.target.closest(".cw-msg");
         if (!socket || !currentRoom || !bubble) return;
