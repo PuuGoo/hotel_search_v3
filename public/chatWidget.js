@@ -12,6 +12,7 @@
   let panelOpen = false;
   let activeTab = "rooms"; // "rooms" or "online"
   let searchQuery = "";
+  let adminSuggestions = [];
 
   const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","👍","👎","❤️","🔥","🎉","😢","😮","🙏","✨","💯","😅","🤣","😊","🥳","😴","🤯","👋","💪","🙌","🫶","🤝","💬","📱","💻","🏨","✈️"];
 
@@ -83,6 +84,7 @@
           '</div>' +
           '<div class="cw-messages" id="chatMessagesList" style="position:relative"></div>' +
           '<div class="cw-new-messages" id="chatNewMsg"><i class="fas fa-arrow-down"></i> Tin nhắn mới</div>' +
+          '<div class="cw-suggestions" id="chatSuggestions"></div>' +
           '<div class="cw-typing" id="chatTyping"></div>' +
           '<div class="cw-emoji-picker" id="chatEmojiPicker"></div>' +
           '<div class="cw-input-area">' +
@@ -260,7 +262,48 @@
           trigger.classList.add("pulse");
           setTimeout(function () { trigger.classList.remove("pulse"); }, 1800);
         }
+      } else if (data.type === "notification:new" && data.notification) {
+        var nLegacy = data.notification;
+        if (window.Toasts) {
+          var messageLegacy = nLegacy.title ? (nLegacy.title + (nLegacy.message ? ": " + nLegacy.message : "")) : (nLegacy.message || "New notification");
+          window.Toasts.info(messageLegacy);
+        }
+        socket.emit("notification:ack", { notificationId: nLegacy.id });
       }
+    });
+
+    socket.on("notification:new", function (data) {
+      if (!data || !data.notification) return;
+      var n = data.notification;
+      if (window.Toasts) {
+        var message = n.title ? (n.title + (n.message ? ": " + n.message : "")) : (n.message || "New notification");
+        window.Toasts.info(message);
+      }
+      socket.emit("notification:ack", { notificationId: n.id });
+    });
+
+    socket.on("notification:status", function (data) {
+      if (!data || !window.Toasts) return;
+      if (data.status === "dead_letter") {
+        window.Toasts.error("Notification delivery failed: " + (data.notificationId || "unknown"));
+      } else if (data.status === "acknowledged") {
+        // Keep ack feedback low-noise for end-users.
+      }
+    });
+
+    socket.on("chat:message:reaction", function (data) {
+      if (!data || data.roomId !== currentRoom) return;
+      updateMessageReactions(data.messageId, data.reactions || {});
+    });
+
+    socket.on("chat:message:edited", function (data) {
+      if (!data || data.roomId !== currentRoom) return;
+      updateMessageText(data.messageId, data.text, data.editedAt);
+    });
+
+    socket.on("chat:message:deleted", function (data) {
+      if (!data || data.roomId !== currentRoom) return;
+      markMessageDeleted(data.messageId);
     });
 
     socket.on("disconnect", function () {
@@ -465,6 +508,8 @@
   function joinRoom(roomId) {
     if (currentRoom) socket.emit("chat:leave", { roomId: currentRoom });
     currentRoom = roomId;
+    adminSuggestions = [];
+    renderSuggestions();
     unreadCounts[roomId] = 0;
     updateBadge();
     socket.emit("chat:join", { roomId: roomId });
@@ -493,7 +538,45 @@
     document.getElementById("chatRoomTitle").textContent = displayName;
     document.getElementById("chatMessagesList").innerHTML = "";
     document.getElementById("chatInput").focus();
+
+    fetch("/api/chat/rooms/" + encodeURIComponent(roomId) + "/suggestions")
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(function (data) {
+        adminSuggestions = (data && Array.isArray(data.suggestions)) ? data.suggestions : [];
+        renderSuggestions();
+      })
+      .catch(function () {
+        adminSuggestions = [];
+        renderSuggestions();
+      });
+
     renderRoomList();
+  }
+
+  function renderSuggestions() {
+    var container = document.getElementById("chatSuggestions");
+    if (!container) return;
+    if (!adminSuggestions || adminSuggestions.length === 0) {
+      container.innerHTML = "";
+      container.style.display = "none";
+      return;
+    }
+    container.style.display = "";
+    container.innerHTML = adminSuggestions.map(function (item) {
+      return '<button type="button" class="cw-suggestion-btn" data-text="' +
+        escapeHTML(String(item.text || "")) + '">' + escapeHTML(String(item.text || "")) + '</button>';
+    }).join("");
+    container.querySelectorAll(".cw-suggestion-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var input = document.getElementById("chatInput");
+        if (!input) return;
+        input.value = btn.dataset.text || "";
+        input.focus();
+      });
+    });
   }
 
   function goBackToRooms() {
@@ -539,6 +622,7 @@
       div.className = "cw-msg system";
       div.textContent = message.text;
     } else {
+      var messageId = escapeHTML(String(message.id || ""));
       div.className = "cw-msg " + (isOwn ? "own" : "other");
       var roleTag = "";
       if (message.from && message.from.role === "admin") {
@@ -547,9 +631,51 @@
       div.innerHTML =
         (isOwn ? "" : '<div class="cw-msg-author">' + escapeHTML(message.from && message.from.username || "Unknown") + roleTag + '</div>') +
         '<div class="cw-msg-text">' + escapeHTML(message.text) + '</div>' +
+        '<div class="cw-msg-reactions" data-message-id="' + messageId + '">' + renderReactions(message.reactions || {}) + '</div>' +
         '<div class="cw-msg-time">' + time + '</div>';
     }
     container.appendChild(div);
+  }
+
+  function renderReactions(reactions) {
+    var entries = Object.entries(reactions || {}).filter(function (entry) {
+      return Array.isArray(entry[1]) && entry[1].length > 0;
+    });
+    if (entries.length === 0) return "";
+    return entries.map(function (entry) {
+      return '<button type="button" class="cw-reaction-pill" data-emoji="' + escapeHTML(entry[0]) + '">' +
+        escapeHTML(entry[0]) + " " + entry[1].length + "</button>";
+    }).join("");
+  }
+
+  function updateMessageReactions(messageId, reactions) {
+    var target = document.querySelector('.cw-msg-reactions[data-message-id="' + String(messageId).replace(/"/g, '\\"') + '"]');
+    if (!target) return;
+    target.innerHTML = renderReactions(reactions);
+  }
+
+  function updateMessageText(messageId, text, editedAt) {
+    var bubble = document.querySelector('.cw-msg .cw-msg-reactions[data-message-id="' + String(messageId).replace(/"/g, '\\"') + '"]');
+    if (!bubble) return;
+    var msg = bubble.closest('.cw-msg');
+    if (!msg) return;
+    var textEl = msg.querySelector('.cw-msg-text');
+    if (textEl) textEl.textContent = text || "";
+    var timeEl = msg.querySelector('.cw-msg-time');
+    if (timeEl && editedAt) {
+      var t = new Date(editedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      timeEl.textContent = t + " (edited)";
+    }
+  }
+
+  function markMessageDeleted(messageId) {
+    var bubble = document.querySelector('.cw-msg .cw-msg-reactions[data-message-id="' + String(messageId).replace(/"/g, '\\"') + '"]');
+    if (!bubble) return;
+    var msg = bubble.closest('.cw-msg');
+    if (!msg) return;
+    var textEl = msg.querySelector('.cw-msg-text');
+    if (textEl) textEl.textContent = "[deleted]";
+    bubble.innerHTML = "";
   }
 
   function scrollMessagesToBottom() {
@@ -685,6 +811,19 @@
           var btn = document.getElementById("chatNewMsg");
           if (btn) btn.classList.remove("visible");
         }
+      });
+      msgList.addEventListener("click", function (e) {
+        var btn = e.target.closest(".cw-reaction-pill");
+        var bubble = e.target.closest(".cw-msg");
+        if (!socket || !currentRoom || !bubble) return;
+        var reactionWrap = bubble.querySelector(".cw-msg-reactions");
+        if (!reactionWrap || !reactionWrap.dataset.messageId) return;
+        var emoji = btn ? btn.dataset.emoji : "👍";
+        socket.emit("chat:message:reaction", {
+          roomId: currentRoom,
+          messageId: reactionWrap.dataset.messageId,
+          emoji: emoji,
+        });
       });
     }
 

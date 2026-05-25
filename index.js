@@ -149,7 +149,13 @@ import dataEncryptionRoutes from "./routes/dataEncryption.js";
 import securityIncidentRoutes from "./routes/securityIncidents.js";
 import { pipelineTrace } from "./middleware/pipelineTrace.js";
 import { getSSEManager } from "./middleware/sse.js";
-import { initWebSocket } from "./utils/websocket.js";
+import { initWebSocket, sendToUser, sendToOps } from "./utils/websocket.js";
+import {
+  setNotificationEmitter,
+  setNotificationOpsEmitter,
+  startNotificationRetryScheduler,
+  stopNotificationRetryScheduler,
+} from "./utils/realtimeNotifications.js";
 import { errorTracker } from "./middleware/errorTracker.js";
 import { metricsMiddleware, metricsEndpoint, performanceEndpoint } from "./middleware/metrics.js";
 import { csrfProtection } from "./middleware/csrf.js";
@@ -500,12 +506,16 @@ const server = app.listen(PORT, () => {
   // Start SSE heartbeat (every 30s)
   getSSEManager().startHeartbeat(30000);
   initWebSocket(server, sessionMiddleware);
+  setNotificationEmitter((userId, payload) => sendToUser(userId, payload));
+  setNotificationOpsEmitter((payload) => sendToOps(payload));
+  startNotificationRetryScheduler(30000);
   console.log("Socket.IO initialized on /socket.io");
 });
 
 // Graceful shutdown
 function shutdown(signal) {
   console.log(`\n${signal} received. Shutting down gracefully...`);
+  stopNotificationRetryScheduler();
   server.close(() => {
     console.log("Server closed.");
     process.exit(0);

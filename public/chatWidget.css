@@ -609,6 +609,24 @@
   margin-top: 3px;
   text-align: right;
 }
+.cw-msg .cw-msg-reactions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.cw-msg .cw-reaction-pill {
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  background: rgba(212, 168, 83, 0.08);
+  color: #f0ece4;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.cw-msg .cw-reaction-pill:hover {
+  background: rgba(212, 168, 83, 0.16);
+}
 .cw-msg.system {
   align-self: center;
   background: none;

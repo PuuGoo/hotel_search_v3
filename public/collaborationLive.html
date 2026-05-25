@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Collaboration</title>
+  <link rel="stylesheet" href="/app.css" />
+  <style>
+    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fff; }
+    .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .row input { flex: 1; min-width: 220px; }
+    .logs { max-height: 420px; overflow-y: auto; background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 10px; }
+    .log { padding: 8px; border-bottom: 1px solid #ececec; font-size: 0.92rem; }
+    .pill { display: inline-block; background: #eef6ff; border: 1px solid #cde2ff; color: #245fa8; border-radius: 999px; padding: 2px 8px; margin: 2px; }
+  </style>
+</head>
+<body>
+  <main class="container" style="max-width: 1100px; margin: 24px auto; padding: 0 16px;">
+    <h1>Socket.IO Live Collaboration</h1>
+    <p>Join a collaboration session and share live query drafts and search events.</p>
+
+    <div class="card">
+      <div id="status">Socket: disconnected</div>
+      <div class="row">
+        <input id="sessionId" placeholder="Session ID" />
+        <button class="btn btn-primary" id="joinBtn">Join Session</button>
+        <button class="btn" id="leaveBtn">Leave Session</button>
+      </div>
+      <div class="row">
+        <input id="draft" placeholder="Type draft query to broadcast" />
+      </div>
+      <div class="row">
+        <input id="shareQuery" placeholder="Query to share as completed search" />
+        <input id="shareEngine" placeholder="Engine (e.g. tavily)" value="tavily" />
+        <input id="shareCount" placeholder="Result count" value="0" />
+        <button class="btn btn-primary" id="shareBtn">Share Search</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top: 16px;">
+      <section class="card">
+        <h3>Participants</h3>
+        <div id="participants"></div>
+      </section>
+      <section class="card">
+        <h3>Realtime Logs</h3>
+        <div class="logs" id="logs"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io({ path: "/socket.io", withCredentials: true });
+    let currentSessionId = null;
+
+    const statusEl = document.getElementById("status");
+    const logsEl = document.getElementById("logs");
+    const participantsEl = document.getElementById("participants");
+
+    function log(message, data) {
+      const entry = document.createElement("div");
+      entry.className = "log";
+      const ts = new Date().toLocaleTimeString();
+      entry.textContent = `[${ts}] ${message}${data ? ` ${JSON.stringify(data)}` : ""}`;
+      logsEl.prepend(entry);
+      while (logsEl.children.length > 120) logsEl.removeChild(logsEl.lastChild);
+    }
+
+    function renderParticipants(list) {
+      participantsEl.innerHTML = "";
+      if (!Array.isArray(list) || list.length === 0) {
+        participantsEl.textContent = "No participants";
+        return;
+      }
+      for (const p of list) {
+        const div = document.createElement("span");
+        div.className = "pill";
+        div.textContent = `${p.username || p.userId} (${p.socketCount || 1})`;
+        participantsEl.appendChild(div);
+      }
+    }
+
+    socket.on("connect", () => {
+      statusEl.textContent = `Socket: connected (${socket.id})`;
+      log("connected");
+    });
+
+    socket.on("disconnect", () => {
+      statusEl.textContent = "Socket: disconnected";
+      log("disconnected");
+    });
+
+    socket.on("collab:session:joined", (payload) => {
+      currentSessionId = payload.sessionId;
+      log("joined session", payload);
+      renderParticipants(payload.participants || []);
+    });
+
+    socket.on("collab:presence:update", (payload) => {
+      if (!currentSessionId || payload.sessionId !== currentSessionId) return;
+      renderParticipants(payload.participants || []);
+      log("presence update", payload);
+    });
+
+    socket.on("collab:query:draft", (payload) => {
+      log("draft", payload);
+    });
+
+    socket.on("collab:search:shared", (payload) => {
+      log("search shared", payload);
+    });
+
+    socket.on("collab:error", (err) => {
+      log("collab error", err);
+      alert(err.message || "Collaboration error");
+    });
+
+    document.getElementById("joinBtn").addEventListener("click", () => {
+      const sessionId = document.getElementById("sessionId").value.trim();
+      if (!sessionId) return alert("Enter session id");
+      currentSessionId = sessionId;
+      socket.emit("collab:session:join", { sessionId });
+    });
+
+    document.getElementById("leaveBtn").addEventListener("click", () => {
+      if (!currentSessionId) return;
+      socket.emit("collab:session:leave", { sessionId: currentSessionId });
+      log("left session", { sessionId: currentSessionId });
+      currentSessionId = null;
+      renderParticipants([]);
+    });
+
+    document.getElementById("draft").addEventListener("input", (e) => {
+      if (!currentSessionId) return;
+      socket.emit("collab:query:draft", {
+        sessionId: currentSessionId,
+        query: e.target.value,
+      });
+    });
+
+    document.getElementById("shareBtn").addEventListener("click", () => {
+      if (!currentSessionId) return alert("Join a session first");
+      socket.emit("collab:search:share", {
+        sessionId: currentSessionId,
+        query: document.getElementById("shareQuery").value,
+        engine: document.getElementById("shareEngine").value,
+        resultCount: Number(document.getElementById("shareCount").value) || 0,
+      });
+    });
+  </script>
+</body>
+</html>

@@ -209,6 +209,10 @@ router.get("/realtime", checkAuthenticated, (_req, res) => {
   res.sendFile(path.join(publicDir, "realtime.html"));
 });
 
+router.get("/collaboration-live", checkAuthenticated, (_req, res) => {
+  res.sendFile(path.join(publicDir, "collaborationLive.html"));
+});
+
 router.get("/map", checkAuthenticated, (_req, res) => {
   res.sendFile(path.join(publicDir, "mapView.html"));
 });
@@ -223,6 +227,14 @@ router.get("/forgot-password", (_req, res) => {
 
 router.get("/reset-password", (_req, res) => {
   res.sendFile(path.join(publicDir, "resetPassword.html"));
+});
+
+router.get("/quality-signals", checkAuthenticated, checkRole("admin"), (_req, res) => {
+  res.sendFile(path.join(publicDir, "analytics.html"));
+});
+
+router.get("/feedback-quality", checkAuthenticated, checkRole("admin"), (_req, res) => {
+  res.sendFile(path.join(publicDir, "analytics.html"));
 });
 
 router.get("/admin/chat", checkAuthenticated, checkRole("admin"), (_req, res) => {

@@ -9,7 +9,11 @@ import {
   disconnectUser,
   sendToUser,
   sendToRoom,
+  sendToOps,
+  getOpsEventHistory,
+  clearOpsEventHistory,
   clearConnectionHistory,
+  getChatManager,
 } from "../utils/websocket.js";
 
 const router = Router();
@@ -70,6 +74,54 @@ router.post("/api/websocket/send/room", checkAuthenticated, checkRole("admin"), 
 });
 
 /**
+ * POST /api/websocket/send/ops
+ * Send message to admin ops room (admin only).
+ * Body: { message }
+ */
+router.post("/api/websocket/send/ops", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: "Missing message", code: 400 });
+  }
+  const actor = req.session.user || null;
+  sendToOps(message, actor, "websocket");
+  res.json({ message: "Message sent", room: "ops:admin" });
+});
+
+/**
+ * GET /api/websocket/ops/history
+ * Get ops event history (admin only).
+ */
+router.get("/api/websocket/ops/history", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const events = getOpsEventHistory(req.query.limit || 100, {
+    type: req.query.type || null,
+    since: req.query.since || null,
+  });
+  res.json({ events, count: events.length });
+});
+
+/**
+ * DELETE /api/websocket/ops/history
+ * Clear ops event history (admin only).
+ */
+router.delete("/api/websocket/ops/history", checkAuthenticated, checkRole("admin"), (_req, res) => {
+  const count = clearOpsEventHistory();
+  res.json({ message: `Cleared ${count} ops events`, count });
+});
+
+router.get("/api/websocket/diagnostics", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const opsHistory = getOpsEventHistory(req.query.limit || 100, {
+    type: req.query.type || null,
+    since: req.query.since || null,
+  });
+  res.json({
+    connections: getConnectionStats(),
+    rooms: getActiveRooms(),
+    opsHistory,
+  });
+});
+
+/**
  * POST /api/websocket/disconnect/:userId
  * Disconnect a user (admin only).
  */
@@ -85,6 +137,46 @@ router.post("/api/websocket/disconnect/:userId", checkAuthenticated, checkRole("
 router.delete("/api/websocket/history", checkAuthenticated, checkRole("admin"), (_req, res) => {
   clearConnectionHistory();
   res.json({ message: "Connection history cleared" });
+});
+
+router.post("/api/websocket/moderation/rooms/:roomId/lock", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const manager = getChatManager();
+  const actor = req.session.user || {};
+  const result = manager.lockRoom(req.params.roomId, actor.id, actor.role);
+  if (!result) return res.status(404).json({ error: "Room not found" });
+  sendToRoom(req.params.roomId, { type: "chat:moderation:room_locked", ...result });
+  return res.json({ success: true, moderation: result });
+});
+
+router.post("/api/websocket/moderation/rooms/:roomId/unlock", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const manager = getChatManager();
+  const actor = req.session.user || {};
+  const result = manager.unlockRoom(req.params.roomId, actor.id, actor.role);
+  if (!result) return res.status(404).json({ error: "Room not found" });
+  sendToRoom(req.params.roomId, { type: "chat:moderation:room_unlocked", ...result });
+  return res.json({ success: true, moderation: result });
+});
+
+router.post("/api/websocket/moderation/rooms/:roomId/mute", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const { targetUserId } = req.body || {};
+  if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
+  const manager = getChatManager();
+  const actor = req.session.user || {};
+  const result = manager.muteUserInRoom(req.params.roomId, targetUserId, actor.id, actor.role);
+  if (!result) return res.status(404).json({ error: "Room not found" });
+  sendToRoom(req.params.roomId, { type: "chat:moderation:user_muted", roomId: req.params.roomId, ...result });
+  return res.json({ success: true, moderation: result });
+});
+
+router.post("/api/websocket/moderation/rooms/:roomId/unmute", checkAuthenticated, checkRole("admin"), (req, res) => {
+  const { targetUserId } = req.body || {};
+  if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
+  const manager = getChatManager();
+  const actor = req.session.user || {};
+  const result = manager.unmuteUserInRoom(req.params.roomId, targetUserId, actor.id, actor.role);
+  if (!result) return res.status(404).json({ error: "Room not found" });
+  sendToRoom(req.params.roomId, { type: "chat:moderation:user_unmuted", roomId: req.params.roomId, ...result });
+  return res.json({ success: true, moderation: result });
 });
 
 export default router;
