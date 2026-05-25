@@ -284,6 +284,7 @@ class ChatManager {
     );
 
     let action = "added";
+
     if (existingIndex >= 0) {
       message.reactions[reactionKey].splice(existingIndex, 1);
       action = "removed";
@@ -291,6 +292,20 @@ class ChatManager {
         delete message.reactions[reactionKey];
       }
     } else {
+      for (const [key, users] of Object.entries(message.reactions)) {
+        if (!Array.isArray(users)) continue;
+        const idx = users.findIndex((entry) => String(entry.userId) === actorId);
+        if (idx >= 0) {
+          users.splice(idx, 1);
+          if (users.length === 0) {
+            delete message.reactions[key];
+          }
+        }
+      }
+
+      if (!Array.isArray(message.reactions[reactionKey])) {
+        message.reactions[reactionKey] = [];
+      }
       message.reactions[reactionKey].push({
         userId: user.userId,
         username: user.username,

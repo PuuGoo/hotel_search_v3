@@ -195,6 +195,29 @@ describe("ChatManager", () => {
     expect(reaction.reactions["👍"][0].username).toBe("bob");
   });
 
+  test("toggleMessageReaction keeps a single active emoji per user", () => {
+    const manager = getChatManager();
+    manager.createRoom("reaction-room-single", "Reaction Room Single", "group");
+    manager._saveMessage("reaction-room-single", {
+      id: "msg-single-1",
+      roomId: "reaction-room-single",
+      from: { userId: 1, username: "alice", role: "user" },
+      text: "hello",
+      timestamp: new Date().toISOString(),
+      type: "text",
+    });
+
+    const first = manager.toggleMessageReaction("reaction-room-single", "msg-single-1", 2, "bob", "👍");
+    expect(first).toBeDefined();
+    expect(first.reactions["👍"]).toHaveLength(1);
+
+    const switched = manager.toggleMessageReaction("reaction-room-single", "msg-single-1", 2, "bob", "❤️");
+    expect(switched).toBeDefined();
+    expect(switched.reactions["👍"]).toBeUndefined();
+    expect(switched.reactions["❤️"]).toHaveLength(1);
+    expect(switched.reactions["❤️"][0].userId).toBe(2);
+  });
+
   test("editMessage updates text for message author", () => {
     const manager = getChatManager();
     manager.createRoom("edit-room", "Edit Room", "group");

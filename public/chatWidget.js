@@ -897,7 +897,7 @@
 
         var btn = e.target.closest(".cw-reaction-pill");
         var bubble = e.target.closest(".cw-msg");
-        if (!socket || !currentRoom || !bubble) return;
+        if (!socket || !currentRoom || !bubble || !btn) return;
         var reactionWrap = bubble.querySelector(".cw-msg-reactions");
         if (!reactionWrap || !reactionWrap.dataset.messageId) return;
         var emoji = btn ? btn.dataset.emoji : "👍";
