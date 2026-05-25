@@ -42,6 +42,20 @@ error_log.json
 # Test artifacts
 tests/test_users_temp.json
 
+# Runtime data files
+active_sessions.json
+api_usage.json
+audit_log.json
+bookmarks.json
+chat_last_seen.json
+chat_messages.json
+price_alerts.json
+request_log.json
+search_history.json
+shares.json
+user_activity.json
+user_profiles.json
+
 # Claude / local agent artifacts
 .claude/scheduled_tasks.lock
 .claude/worktrees/
