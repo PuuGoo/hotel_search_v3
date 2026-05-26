@@ -132,6 +132,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("localhost", PORT))
+        sock.close()
+    except OSError:
+        print(f"Hotel Finder server already running on port {PORT}, exiting.", flush=True)
+        sys.exit(0)
+
     print("Starting Playwright browser with stealth...", flush=True)
     start_playwright()
     print(f"Hotel Finder server running at http://localhost:{PORT}", flush=True)
