@@ -90,10 +90,8 @@ def is_blacklisted(url: str) -> bool:
         return True
     try:
         domain = extract_domain(url)
-        parts = domain.split(".")
         for bl in BLACKLISTED_DOMAINS:
-            bl_parts = bl.split(".")
-            if len(parts) >= len(bl_parts) and parts[-len(bl_parts):] == bl_parts:
+            if domain == bl or domain.endswith("." + bl) or domain.startswith(bl + "."):
                 return True
         return False
     except Exception:
