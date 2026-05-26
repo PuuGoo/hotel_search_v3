@@ -111,6 +111,9 @@
         <button id="ddgTabButton" role="tab" aria-selected="false" data-target="panel-results-ddg" style="display: none">
           <i class="fa-brands fa-searchengin"></i> <span>Kết quả DDG</span>
         </button>
+        <button id="hotelFinderTabButton" role="tab" aria-selected="false" data-target="panel-results-hotelfinder">
+          <i class="fa-solid fa-hotel"></i> <span>Hotel URL Finder</span>
+        </button>
       </div>
       <!-- API Health Dashboard (collapsible) -->
       <details id="healthDashboard" class="glass-card" style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm) var(--spacing-md)">
@@ -568,6 +571,67 @@
             <div id="ddgProgressText" class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.45px">0%</div>
           </div>
         </div>
+        <!-- Hotel URL Finder Section -->
+        <div
+          id="hotelFinderSection"
+          class="glass-card"
+          role="region"
+          aria-labelledby="hotelFinderSectionTitle"
+          style="margin-top: var(--spacing-md)"
+        >
+          <div class="card-header" id="hotelFinderSectionTitle">
+            <i class="fa-solid fa-hotel"></i> Hotel URL Finder (Tìm website chính thức)
+          </div>
+          <p class="text-tertiary" style="font-size: 0.72rem; margin: 0 0 var(--spacing-sm)">
+            Upload file Excel (cột: <strong>child_hotel_name</strong>, <strong>child_hotel_address</strong>). Tìm website chính thức qua DuckDuckGo, kiểm tra địa chỉ và đếm ảnh gallery.
+          </p>
+          <div class="form-row">
+            <div class="form-col">
+              <label for="hotelFinderFileInput">Tệp Excel đầu vào</label>
+              <div class="flex gap-sm wrap" style="align-items: center">
+                <input id="hotelFinderFileInput" type="file" accept=".xlsx,.xls" style="display: none" />
+                <button id="hotelFinderPickFile" type="button" class="btn btn-outline btn-small">
+                  <i class="fa-solid fa-file-arrow-up"></i><span>Chọn file</span>
+                </button>
+                <span id="hotelFinderFileName" class="text-tertiary" style="font-size: 0.68rem">Chưa chọn file</span>
+              </div>
+            </div>
+            <div class="form-col" style="max-width: 340px">
+              <label>Trạng thái</label>
+              <div id="hotelFinderStatus" class="badge" style="background: rgba(255,255,255,0.1)">Sẵn sàng</div>
+              <div id="hotelFinderCounter" class="badge" style="background: rgba(255,255,255,0.08); margin-top: 4px">0/0</div>
+            </div>
+          </div>
+          <div class="flex gap-sm wrap" style="margin-top: var(--spacing-sm)">
+            <button id="hotelFinderRunButton" type="button" class="btn btn-accent btn-modern" style="flex: 1">
+              <i class="fa-solid fa-magnifying-glass"></i><span>Bắt đầu tìm URL</span>
+            </button>
+            <button id="hotelFinderStopButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
+              <i class="fa-solid fa-stop"></i><span>Dừng</span>
+            </button>
+            <button id="hotelFinderStopAllButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #ff4d4f">
+              <i class="fa-solid fa-ban"></i><span>Dừng hẳn</span>
+            </button>
+            <button id="hotelFinderResumeButton" type="button" class="btn btn-outline hidden" style="min-width: 120px; --btn-accent: #3ba55d">
+              <i class="fa-solid fa-play"></i><span>Tiếp tục</span>
+            </button>
+            <button id="hotelFinderDownloadButton" type="button" class="btn btn-outline btn-small hidden">
+              <i class="fa-solid fa-download"></i><span>Tải CSV</span>
+            </button>
+            <button id="hotelFinderDownloadJSONButton" type="button" class="btn btn-outline btn-small hidden" title="Xuất JSON">
+              <i class="fa-solid fa-download"></i><span>JSON</span>
+            </button>
+            <button id="hotelFinderDownloadXLSXButton" type="button" class="btn btn-outline btn-small hidden" title="Xuất XLSX">
+              <i class="fa-solid fa-file-excel"></i><span>XLSX</span>
+            </button>
+          </div>
+          <div id="hotelFinderProgressContainer" class="hidden" style="margin-top: var(--spacing-sm)">
+            <div class="progress">
+              <div id="hotelFinderProgressBar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+            <div id="hotelFinderProgressText" class="text-tertiary" style="font-size: 0.6rem; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.45px">0%</div>
+          </div>
+        </div>
       </section>
       <!-- Modal: Snapshot Archive -->
       <div
@@ -857,6 +921,58 @@
           </div>
         </div>
       </section>
+      <!-- Hotel URL Finder Results Panel -->
+      <section
+        id="panel-results-hotelfinder"
+        class="tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-busy="false"
+      >
+        <div
+          id="hotelFinderResultsSection"
+          class="glass-card hidden"
+          aria-live="polite"
+        >
+          <div class="card-header">
+            <i class="fa-solid fa-hotel"></i> Kết quả Hotel URL Finder
+          </div>
+          <div
+            class="flex wrap gap-sm"
+            style="align-items: center; margin-bottom: var(--spacing-sm)"
+          >
+            <label for="hotelFinderFilterInput" class="text-tertiary" style="margin: 0"
+              >Lọc</label
+            >
+            <input
+              id="hotelFinderFilterInput"
+              type="search"
+              placeholder="Tìm tên khách sạn hoặc địa chỉ"
+              style="max-width: 260px"
+            />
+            <div class="badge" style="background: rgba(255, 255, 255, 0.1)">
+              Hiện: <span id="hotelFinderVisibleCount" style="margin-left: 4px">0</span>
+              / <span id="hotelFinderResultsCount">0</span>
+            </div>
+          </div>
+          <div class="table-wrapper" style="max-height: 64vh; overflow: auto">
+            <table id="hotelFinderResultsTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tên khách sạn</th>
+                  <th>Địa chỉ</th>
+                  <th>Website URL</th>
+                  <th>Điểm khớp</th>
+                  <th>Số ảnh</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="hotelFinderResultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
       <section
         id="panel-results"
         class="tab-panel"
@@ -1092,6 +1208,7 @@
     </footer>
     <script type="module" src="/ui.js?v=2"></script>
     <script type="module" src="/hotelSearchTavily.js"></script>
+    <script type="module" src="/hotelUrlFinder.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         // Show login success toast

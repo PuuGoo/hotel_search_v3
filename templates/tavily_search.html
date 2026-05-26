@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tavily Hotel Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .options {
+            margin-top: 16px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .options label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .options input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .results {
+            display: grid;
+            gap: 20px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .result-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .result-title a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .result-title a:hover {
+            text-decoration: underline;
+        }
+
+        .result-url {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .result-content {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .result-images {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .result-images img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .result-images img:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+        }
+
+        .image-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-modal.active {
+            display: flex;
+        }
+
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+
+        .image-modal .close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Tavily Hotel Search</h1>
+
+        <div class="search-box">
+            <div class="search-row">
+                <input type="text" id="searchInput" placeholder="Nhập tên khách sạn, địa chỉ..." autofocus>
+                <button id="searchBtn" onclick="search()">Tìm kiếm</button>
+            </div>
+            <div class="options">
+                <label>
+                    <input type="checkbox" id="extractImages" checked>
+                    Trích ảnh khách sạn
+                </label>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display:none">
+            <div class="spinner"></div>
+            <p>Đang tìm kiếm...</p>
+        </div>
+
+        <div id="error" class="error" style="display:none"></div>
+
+        <div id="results" class="results"></div>
+    </div>
+
+    <div id="imageModal" class="image-modal" onclick="this.classList.remove('active')">
+        <span class="close">&times;</span>
+        <img id="modalImage" src="" alt="Hotel image">
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const results = document.getElementById('results');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') search();
+        });
+
+        function showImage(src) {
+            modalImage.src = src;
+            imageModal.classList.add('active');
+        }
+
+        async function search() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            const extractImages = document.getElementById('extractImages').checked;
+
+            searchBtn.disabled = true;
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, extract_images: extractImages })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    error.textContent = data.error;
+                    error.style.display = 'block';
+                } else {
+                    renderResults(data.results, extractImages);
+                }
+            } catch (err) {
+                error.textContent = 'Lỗi kết nối: ' + err.message;
+                error.style.display = 'block';
+            } finally {
+                searchBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderResults(resultsData, showImages) {
+            results.innerHTML = resultsData.map((r, i) => `
+                <div class="result-card">
+                    <div class="result-title">
+                        <a href="${r.url}" target="_blank">${r.title || 'Không có tiêu đề'}</a>
+                    </div>
+                    <div class="result-url">${r.url}</div>
+                    <div class="result-content">${r.content || ''}</div>
+                    ${showImages && r.image_count !== undefined ? `
+                        <div>
+                            <span class="image-count">📸 ${r.image_count} ảnh</span>
+                        </div>
+                        ${r.sample_images && r.sample_images.length > 0 ? `
+                            <div class="result-images">
+                                ${r.sample_images.map(img => `
+                                    <img src="${img}" alt="Hotel image" onclick="showImage('${img}')" loading="lazy">
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    ` : ''}
+                    ${!showImages ? `
+                        <button onclick="extractImages('${r.url}', this)" style="margin-top: 12px; padding: 8px 16px; font-size: 14px;">
+                            📸 Trích ảnh
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function extractImages(url, btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang trích...';
+
+            try {
+                const response = await fetch('/api/extract-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Lỗi: ' + data.error);
+                } else {
+                    const card = btn.closest('.result-card');
+                    const countHtml = `<div style="margin-top: 12px"><span class="image-count">📸 ${data.count} ảnh</span></div>`;
+                    const imagesHtml = data.urls && data.urls.length > 0 ? `
+                        <div class="result-images">
+                            ${data.urls.slice(0, 10).map(img => `
+                                <img src="${img}" alt="Hotel image" onclick="showImage('${img}')" loading="lazy">
+                            `).join('')}
+                        </div>
+                    ` : '';
+
+                    btn.outerHTML = countHtml + imagesHtml;
+                }
+            } catch (err) {
+                alert('Lỗi: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = '📸 Trích ảnh';
+            }
+        }
+    </script>
+</body>
+</html>

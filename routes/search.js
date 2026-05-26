@@ -433,6 +433,83 @@ router.get("/searchApiDDG", checkAuthenticated, checkFeature("ddg"), rateLimitSe
   }
 });
 
+// ---- Hotel Finder Server management ----
+const HOTEL_FINDER_SERVER_URL = "http://localhost:5002";
+let hotelFinderServerProcess = null;
+
+async function isHotelFinderServerRunning() {
+  try {
+    const resp = await fetch(`${HOTEL_FINDER_SERVER_URL}/health`, { signal: AbortSignal.timeout(2000) });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+process.on("exit", () => {
+  if (hotelFinderServerProcess) {
+    hotelFinderServerProcess.kill();
+  }
+});
+
+async function startHotelFinderServer() {
+  if (await isHotelFinderServerRunning()) return;
+  const { spawn } = await import("child_process");
+  const scriptPath = path.join(__dirname, "..", "hotel_finder_server.py");
+  hotelFinderServerProcess = spawn("python", [scriptPath], {
+    detached: false,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  hotelFinderServerProcess.stdout.on("data", (d) => console.log("[HotelFinder]", d.toString().trim()));
+  hotelFinderServerProcess.stderr.on("data", (d) => console.error("[HotelFinder ERR]", d.toString().trim()));
+  hotelFinderServerProcess.on("exit", (code) => {
+    console.log(`Hotel Finder server exited with code ${code}`);
+    hotelFinderServerProcess = null;
+  });
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    if (await isHotelFinderServerRunning()) {
+      console.log("Hotel Finder server ready.");
+      return;
+    }
+  }
+  throw new Error("Hotel Finder server failed to start.");
+}
+
+// Hotel Finder search API
+router.get("/searchApiHotelFinder", checkAuthenticated, rateLimitSearch, async (req, res) => {
+  const hotelName = (req.query.hotel_name || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
+  const hotelAddress = (req.query.hotel_address || "").toString().replace(/[<>]/g, "").trim().slice(0, 500);
+
+  if (!hotelName) {
+    return res.status(400).json({ error: "hotel_name is required" });
+  }
+
+  try {
+    if (!(await isHotelFinderServerRunning())) {
+      await startHotelFinderServer();
+    }
+
+    const resp = await fetch(`${HOTEL_FINDER_SERVER_URL}/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hotel_name: hotelName, hotel_address: hotelAddress }),
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!resp.ok) {
+      console.error(`Hotel Finder server returned ${resp.status}`);
+      return res.status(502).json({ error: "Hotel Finder server error" });
+    }
+
+    const result = await resp.json();
+    return res.json(result);
+  } catch (error) {
+    console.error("Hotel Finder search error:", error.message);
+    return res.status(500).json({ error: "Hotel Finder search error" });
+  }
+});
+
 // Cache stats endpoint
 router.get("/api/search-cache/stats", checkAuthenticated, (_req, res) => {
   res.json(searchCache.stats());

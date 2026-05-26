@@ -1,317 +1,221 @@
-# New Features Roadmap Implementation Plan
+# How to Bypass CAPTCHA With Playwright
+
+[![Oxylabs promo code](https://raw.githubusercontent.com/oxylabs/product-integrations/refs/heads/master/Affiliate-Universal-1090x275.png)](https://oxylabs.io/pages/gitoxy?utm_source=877&utm_medium=affiliate&groupid=877&utm_content=playwright-captcha-github&transaction_id=102f49063ab94276ae8f116d224b67)
+
+[![](https://dcbadge.limes.pink/api/server/Pds3gBmKMH?style=for-the-badge&theme=discord)](https://discord.gg/Pds3gBmKMH) [![YouTube](https://img.shields.io/badge/YouTube-Oxylabs-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@oxylabs)
+
+This step-by-step tutorial demonstrates how to use Playwright to bypass CAPTCHA challenges using Python. The tutorial will also discuss the perks of using Oxylabs’ Web Unblocker instead of the `playwright-stealth` library. 
+
+  * [1. Install dependencies](#1-install-dependencies)
+  * [2. Import modules](#2-import-modules)
+  * [3. Create a headless browser instance](#3-create-a-headless-browser-instance)
+  * [4. Apply the stealth settings](#4-apply-the-stealth-settings)
+  * [6. Take a screenshot](#6-take-a-screenshot)
+  * [7. Execute and test](#7-execute-and-test)
+- [Bypass CAPTCHA with Web Unblocker](#bypass-captcha-with-web-unblocker)
+  * [1. Create an account](#1-create-an-account)
+  * [2. Create API key](#2-create-api-key)
+  * [3. Install the requests module](#3-install-the-requests-module)
+  * [4. Import the required modules](#4-import-the-required-modules)
+  * [6. Make a request](#6-make-a-request)
+  * [7. Save the response](#7-save-the-response)
+  * [8. Execute and check](#8-execute-and-check)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+### 1. Install dependencies
+Install the Playwright library and the stealth package.
 
-**Goal:** Deliver continuous high-value product features in phased releases, finishing each phase with verification before moving to the next.
+```pip install playwright playwright-stealth```
 
-**Architecture:** Use a vertical-slice rollout: each phase includes backend, realtime/socket behavior, frontend UX, and tests in one pass. Keep phases independently shippable, with explicit acceptance checks. Reuse existing chat/realtime modules and extend behavior incrementally.
+### 2. Import modules 
+Use the synchronous version of the Playwright library for a straightforward and linear program flow.
 
-**Tech Stack:** Node.js, Express, Socket.IO, vanilla JS frontend widget, Jest/Supertest.
+```
+from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
+```
 
----
+### 3. Create a headless browser instance
+Define the `capture_screenshot()` function that encapsulates the whole code to open a headless browser instance, visit the url, and capture the screenshot. In this function, create a new `sync_playwright` instance and then use it to launch the Chromium browser in headless mode.
 
-## Phase Roadmap (Auto-continue model)
+```
+# Define the function to capture the screenshot
+def capture_screenshot():
+    # Create a playwright instance
+    with sync_playwright() as play_wright:
+        browser = play_wright.chromium.launch(headless=True)
 
-### Phase 1: Realtime Message Lifecycle (Edit/Delete + Sync)
-**Outcome:** Users can edit/delete own messages with realtime sync across all clients.
+        # Create a new context and page
+        context = browser.new_context()
+        page = context.new_page()
+```
 
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/chatRealtime.test.js`
-- Modify: `tests/websocket.test.js`
+### 4. Apply the stealth settings
+After creating the browser context, enable Playwright CAPTCHA bypasses by applying the stealth settings to the page using the `playwright-stealth` package. Stealth settings help in reducing the chances of automated access detection by hiding the browsers’ automated behavior.
 
-**Acceptance:**
-- Edit/delete events broadcast correctly.
-- UI reflects edited/deleted states without reload.
-- Targeted realtime tests pass.
+```
+        # Apply the stealth settings
+        stealth_sync(page)
+```
 
----
+5. Navigate to the page
+In the next step, navigate to the target URL by specifying your required URL and navigating to it using the `goto()` page method.
 
-### Phase 2: Room Presence + Read Receipts
-**Outcome:** Per-room online presence and message read receipts for DM/support/group.
+```
+        # Navigate to the website
+        url = "http://sandbox.oxylabs.io/products"
+        page.goto(url)
+```
 
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `public/chatWidget.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-- Modify: `tests/chatRealtime.test.js`
+### 6. Take a screenshot
+Wait for the page to load completely, take the screenshot, and close the browser.
 
-**Acceptance:**
-- Presence list updates join/leave in realtime.
-- Read receipt updates unread counters correctly.
-- No regression in notification tests.
+```
+        # Wait for the webpage to load completely
+        page.wait_for_load_state("load")
 
----
+        # Take a screenshot
+        screenshot_filename = "oxylabs_screenshot.png"
+        page.screenshot(path=screenshot_filename)
 
-### Phase 3: Admin Moderation Tools (Realtime)
-**Outcome:** Admin can soft-delete any message, mute users per room, and lock/unlock rooms.
+        # Close the browser
+        browser.close()
 
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `routes/websocket.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/websocket.test.js`
-- Modify: `tests/routes.test.js`
+        print("Done! You can check the screenshot...")
 
-**Acceptance:**
-- Permission checks enforced server-side.
-- Realtime events emitted for moderation actions.
-- Unauthorized paths return 403 and are tested.
+capture_screenshot()
+```
 
----
+### 7. Execute and test
+Here is what our complete code looks like:
 
-### Phase 4: Delivery Guarantees + Reconnect Recovery
-**Outcome:** Robust reconnect flow with missed-message replay and idempotent event handling.
+```
+# Import the required modules
+from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
 
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/chatRealtime.test.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
+# Define the function to capture the screenshot
+def capture_screenshot():
+    # Create a playwright instance
+    with sync_playwright() as play_wright:
+        browser = play_wright.chromium.launch(headless=True)
 
-**Acceptance:**
-- Reconnect clients resync room state reliably.
-- Duplicate deliveries are prevented client-side/server-side.
-- Recovery tests pass consistently.
+        # Create a new context and page
+        context = browser.new_context()
+        page = context.new_page()
 
----
-
-### Phase 5: Observability + Operational Controls
-**Outcome:** Structured audit trail for socket events and admin endpoints for diagnostics.
+        # Apply the stealth settings
+        stealth_sync(page)
 
-**Files:**
-- Modify: `routes/websocket.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `utils/websocket.js`
-- Modify: `tests/websocket.test.js`
-- Modify: `tests/routes.test.js`
+        # Navigate to the website
+        url = "http://sandbox.oxylabs.io/products"
+        page.goto(url)
 
-**Acceptance:**
-- Key socket lifecycle events logged with metadata.
-- Admin diagnostics endpoints validated and permission-guarded.
-- Route + websocket test suites remain green.
+        # Wait for the webpage to load completely
+        page.wait_for_load_state("load")
 
----
-
-### Phase 6: Search + Filter in Chat History
-**Outcome:** Users can search message history by keyword, sender, and time range with realtime-safe rendering.
-
-**Files:**
-- Modify: `routes/chat.js`
-- Modify: `utils/websocket.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/chatRealtime.test.js`
-
-**Acceptance:**
-- Search API returns accurate filtered results.
-- Frontend query state and results are stable while realtime messages continue.
-- Route and realtime tests remain green.
-
----
-
-### Phase 7: File Attachments Metadata + Preview Events
-**Outcome:** Realtime sharing of attachment metadata (name/type/size/url) and safe preview card rendering.
-
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `routes/chat.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/websocket.test.js`
-- Modify: `tests/routes.test.js`
-
-**Acceptance:**
-- Attachment metadata events broadcast and persist correctly.
-- Client displays preview cards without breaking text-only flows.
-- Validation blocks malformed attachment payloads.
-
----
-
-### Phase 8: SLA Automation for Support Rooms
-**Outcome:** Auto-tag stale support threads, escalate by inactivity thresholds, and notify admins in realtime.
-
-**Files:**
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `utils/websocket.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-- Modify: `tests/websocket.test.js`
-
-**Acceptance:**
-- SLA timers tag and escalate eligible rooms.
-- Admin notifications fire once per escalation stage.
-- No duplicate alerts across reconnect cycles.
-
----
-
-### Phase 9: Smart Routing for Support Intake
-**Outcome:** Incoming support chats are auto-routed to the most relevant admin queue based on topic, load, and priority.
-
-**Files:**
-- Modify: `routes/chat.js`
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `utils/websocket.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-
-**Acceptance:**
-- New support sessions are assigned deterministically.
-- Queue balancing logic respects active admin load.
-- Routing outcomes are visible in realtime events.
-
----
-
-### Phase 10: Conversation Summaries + Handoff Notes
-**Outcome:** Generate concise room summaries and handoff notes for admin shift changes.
-
-**Files:**
-- Modify: `utils/websocket.js`
-- Modify: `routes/chat.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/chatRealtime.test.js`
-- Modify: `tests/routes.test.js`
-
-**Acceptance:**
-- Summary endpoint/event produces stable structured output.
-- Handoff notes persist and broadcast correctly.
-- No regression to existing chat message flows.
-
----
-
-### Phase 11: Proactive User Re-engagement
-**Outcome:** Trigger contextual follow-up nudges for unresolved chats after inactivity windows.
-
-**Files:**
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `utils/websocket.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-- Modify: `tests/websocket.test.js`
-
-**Acceptance:**
-- Nudge rules fire once per rule window and avoid spam.
-- Opt-out and resolved states suppress nudges correctly.
-- Realtime notification tests remain green.
-
----
-
-### Phase 12: Multi-language Realtime Support
-**Outcome:** Realtime chat supports localized system messages and per-user language preferences.
-
-**Files:**
-- Modify: `public/chatWidget.js`
-- Modify: `routes/chat.js`
-- Modify: `utils/websocket.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/chatRealtime.test.js`
-
-**Acceptance:**
-- System/status messages render in selected language.
-- Language preference persists and applies on reconnect.
-- Existing message delivery flows remain intact.
-
----
-
-### Phase 13: Knowledge-Suggested Replies for Admin
-**Outcome:** Provide realtime suggested replies for admins based on recent room context and FAQ mappings.
-
-**Files:**
-- Modify: `routes/chat.js`
-- Modify: `utils/websocket.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/websocket.test.js`
-
-**Acceptance:**
-- Suggestion payloads arrive with deterministic shape.
-- Admin can insert suggestion into compose flow quickly.
-- Suggestions never auto-send without explicit admin action.
-
----
-
-### Phase 14: Conversation Quality Signals
-**Outcome:** Compute lightweight quality metrics (response latency, reopen rate, unresolved flags) and surface them in realtime dashboard widgets.
-
-**Files:**
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `routes/pages.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-- Modify: `tests/routes.test.js`
-
-**Acceptance:**
-- Metrics update deterministically from event stream.
-- Dashboard widgets refresh without full-page reload.
-- Quality signal tests validate calculation integrity.
-
----
-
-### Phase 15: SLA Prediction Alerts
-**Outcome:** Predict likely SLA breaches and alert admins before thresholds are hit.
-
-**Files:**
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `routes/realtimeNotifications.js`
-- Modify: `public/chatWidget.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-- Modify: `tests/routes.test.js`
-
-**Acceptance:**
-- Prediction alerts trigger from deterministic rules.
-- Alerts are deduplicated per room/time window.
-- Existing SLA automation behavior remains stable.
-
----
-
-### Phase 16: Team Assignment Suggestions
-**Outcome:** Suggest best-fit admin/team assignee in realtime using workload + topic metadata.
-
-**Files:**
-- Modify: `routes/chat.js`
-- Modify: `utils/websocket.js`
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/websocket.test.js`
-
-**Acceptance:**
-- Suggestions include explainable scoring factors.
-- Suggested assignment can be accepted/rejected explicitly.
-- Assignment updates broadcast correctly to room subscribers.
-
----
-
-### Phase 17: Post-Chat Feedback Loop
-**Outcome:** Collect post-chat feedback and feed quality signals back to admin dashboard in near realtime.
-
-**Files:**
-- Modify: `routes/chat.js`
-- Modify: `routes/pages.js`
-- Modify: `utils/realtimeNotifications.js`
-- Modify: `tests/routes.test.js`
-- Modify: `tests/realtimeNotificationsSocket.test.js`
-
-**Acceptance:**
-- Feedback submissions are validated and stored.
-- Aggregate feedback metrics update dashboard widgets.
-- No regressions in existing chat completion flows.
-
----
-
-## Execution Rules (for loop auto-progress)
-
-1. Finish current phase only when acceptance criteria and related tests are green.
-2. Immediately start next phase without waiting for manual prompt.
-3. If blocked, create a micro-task inside current phase, resolve, then continue.
-4. Keep each phase incremental; avoid unrelated refactors.
-5. At phase end, run:
-   - `npm test -- tests/chatRealtime.test.js tests/websocket.test.js tests/realtimeNotificationsSocket.test.js tests/routes.test.js`
-
-## Self-review
-
-- Spec coverage: Roadmap covers message lifecycle, presence/receipt, moderation, recovery, observability, search, attachments, SLA automation, smart routing, summaries/handoffs, re-engagement nudges, localization, suggested replies, quality signals, SLA prediction, assignment suggestions, and post-chat feedback.
-- Placeholder scan: No TBD/TODO placeholders.
-- Consistency: File paths and responsibilities align with current codebase modules.
+        # Take a screenshot
+        screenshot_filename = "oxylabs_screenshot.png"
+        page.screenshot(path=screenshot_filename)
+
+        # Close the browser
+        browser.close()
+
+        print("Done! You can check the screenshot...")
+
+capture_screenshot()
+```
+
+Note: Executing the code saves the screenshot.
+
+## Bypass CAPTCHA with Web Unblocker
+
+Oxylabs’ [Web Unblocker](https://oxylabs.io/products/web-unblocker) employs AI techniques to help you access publicly available information behind the CAPTCHA. You just need to send a simple query and Web Unblocker will automatically choose the fastest CAPTCHA proxy, attach all essential headers, and return the response HTML bypassing any anti-bots of the target websites.
+
+### 1. Create an account
+To use Web Unblocker, you'll need an active subscription. You can either get a paid plan or a 7-day free trial [here](https://dashboard.oxylabs.io/). 
+
+### 2. Create API key
+After successfully creating your account, you can set your API key username and password from the dashboard. These API key credentials will be used later in the code.
+
+### 3. Install the requests module
+You should use a library that can help perform HTTP requests. We will use the `requests` to send HTTP requests to Web  Unblocker API and capture the response.
+
+```pip install requests```
+
+### 4. Import the required modules
+In your Python script file, import the modules using the following import statement:
+
+```import requests```
+
+Create the `proxies` dictionary to connect to Web Unblocker and then define the `headers` dictionary that’ll instruct Web Unblocker to use JavaScript rendering. See the [documentation](https://developers.oxylabs.io/advanced-proxy-solutions/web-unblocker) for more details. 
+
+```
+# Define proxy dict. Don't forget to pass your Web Unblocker credentials (username and password)
+proxies = {
+   "http": "http://USERNAME:PASSWORD@unblock.oxylabs.io:60000",
+   "https": "http://USERNAME:PASSWORD@unblock.oxylabs.io:60000",
+}
+
+headers = {
+    "X-Oxylabs-Render": "html"
+}
+```
+
+### 6. Make a request
+Perform your request by specifying the URL, request type, and proxy by using the following code.
+
+```
+response = requests.request(
+   "GET",
+   "http://sandbox.oxylabs.io/products",
+   verify=False,  # Ignore the certificate
+   proxies=proxies,
+)
+```
+
+### 7. Save the response
+Write the following code to print the response and save it in an HTML file.
+
+```
+# Print result page to stdout
+print(response.text)
+
+# Save returned HTML to result.html file
+with open("result.html", "w") as f:
+   f.write(response.text)
+```
+
+### 8. Execute and check
+Execute the code and test the output. If the output HTML  file has actual page contents, the script successfully bypassed the CAPTCHA. Here is what our complete code looks like.
+
+```
+# Import the modules
+import requests
+
+# Define proxy dict. Don't forget to put your real user and pass here as well.
+proxies = {
+   "http": "http://USERNAME:PASSWORD@unblock.oxylabs.io:60000",
+   "https": "http://USERNAME:PASSWORD@unblock.oxylabs.io:60000",
+}
+
+headers = {
+    "X-Oxylabs-Render": "html"
+}
+
+response = requests.request(
+   "GET",
+   "http://sandbox.oxylabs.io/products",
+   verify=False,  # Ignore the certificate
+   proxies=proxies,
+   headers=headers,
+)
+
+# Print result page to stdout
+print(response.text)
+
+# Save returned HTML to result.html file
+with open("result.html", "w") as f:
+   f.write(response.text)
+```
+
+And that's it! For a more detailed tutorial with images, you can check out this [article](https://oxylabs.io/blog/playwright-bypass-captcha). 

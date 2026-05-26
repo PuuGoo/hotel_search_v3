@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel URL Finder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a73e8;
+        }
+        .header .subtitle {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Upload area */
+        .upload-area {
+            background: #fff;
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 24px;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #1a73e8;
+            background: #f0f7ff;
+        }
+        .upload-area .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .upload-area p {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .upload-area .browse {
+            color: #1a73e8;
+            font-weight: 500;
+            text-decoration: underline;
+        }
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        /* Progress */
+        .progress-section {
+            display: none;
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .progress-section.active { display: block; }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .progress-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .progress-stats {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #1a73e8;
+            border-radius: 4px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        .progress-bar.error { background: #d93025; }
+        .progress-bar.done { background: #34a853; }
+
+        /* Table */
+        .table-section {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .table-section.active { display: block; }
+
+        .table-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .table-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #1a73e8;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-success {
+            background: #34a853;
+            color: #fff;
+        }
+        .btn-success:hover { background: #2d8f47; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        td {
+            padding: 10px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid #f0f0f0;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        tr:hover { background: #f8f9fa; }
+        tr.searching { background: #fffde7; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .status-searching { background: #fff3e0; color: #e65100; }
+        .status-matched { background: #e8f5e9; color: #2e7d32; }
+        .status-no-valid-result { background: #fce4ec; color: #c62828; }
+        .status-missing-input { background: #f5f5f5; color: #999; }
+
+        .url-link {
+            color: #1a73e8;
+            text-decoration: none;
+            max-width: 280px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .url-link:hover { text-decoration: underline; }
+
+        .empty-state {
+            padding: 48px;
+            text-align: center;
+            color: #999;
+        }
+
+        /* Error */
+        .error-msg {
+            background: #fce4ec;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .error-msg.active { display: block; }
+
+        /* Download */
+        .download-section {
+            display: none;
+            text-align: center;
+            padding: 24px;
+        }
+        .download-section.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Hotel URL Finder</h1>
+        <span class="subtitle">Tìm official website URL cho danh sách khách sạn</span>
+    </div>
+
+    <div class="container">
+        <!-- Upload -->
+        <div class="upload-area" id="uploadArea">
+            <div class="icon">&#128230;</div>
+            <p>Kéo thả file Excel vào đây hoặc <span class="browse">chọn file</span></p>
+            <p style="font-size:12px; color:#999;">Hỗ trợ .xlsx, cột cần có: child_hotel_name, child_hotel_address</p>
+            <input type="file" id="fileInput" accept=".xlsx">
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="errorMsg"></div>
+
+        <!-- Progress -->
+        <div class="progress-section" id="progressSection">
+            <div class="progress-header">
+                <h3 id="progressTitle">Đang xử lý...</h3>
+                <span class="progress-stats" id="progressStats">0 / 0</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-section" id="tableSection">
+            <div class="table-header">
+                <h3>Kết quả tìm kiếm</h3>
+                <button class="btn btn-success" id="downloadBtn" style="display:none;">&#128190; Tải file Excel</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Tên khách sạn</th>
+                            <th>Địa chỉ</th>
+                            <th>Website URL</th>
+                            <th>Điểm khớp</th>
+                            <th>Số ảnh</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultBody">
+                    </tbody>
+                </table>
+                <div class="empty-state" id="emptyState">Chưa có dữ liệu</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressTitle = document.getElementById('progressTitle');
+        const progressStats = document.getElementById('progressStats');
+        const tableSection = document.getElementById('tableSection');
+        const resultBody = document.getElementById('resultBody');
+        const emptyState = document.getElementById('emptyState');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMsg = document.getElementById('errorMsg');
+
+        let currentJobId = null;
+
+        // Drag & drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+        });
+
+        function uploadFile(file) {
+            if (!file.name.endsWith('.xlsx')) {
+                showError('Chỉ hỗ trợ file .xlsx');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Reset UI
+            hideError();
+            resultBody.innerHTML = '';
+            emptyState.style.display = 'none';
+            downloadBtn.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressBar.className = 'progress-bar';
+            progressSection.classList.add('active');
+            tableSection.classList.add('active');
+            progressTitle.textContent = 'Đang tải lên...';
+
+            fetch('/upload', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+                    currentJobId = data.job_id;
+                    progressTitle.textContent = 'Đang tìm kiếm...';
+                    listenProgress(data.job_id);
+                })
+                .catch(err => showError('Lỗi upload: ' + err.message));
+        }
+
+        function listenProgress(jobId) {
+            const evtSource = new EventSource(`/progress/${jobId}`);
+
+            evtSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.error && !data.type) {
+                    showError(data.error);
+                    evtSource.close();
+                    return;
+                }
+
+                if (data.type === 'status') {
+                    const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+                    progressBar.style.width = pct + '%';
+                    progressStats.textContent = `${data.current} / ${data.total}`;
+                    return;
+                }
+
+                if (data.type === 'complete') {
+                    progressBar.style.width = '100%';
+                    progressBar.classList.add('done');
+                    progressTitle.textContent = 'Hoàn thành!';
+                    downloadBtn.style.display = 'inline-block';
+                    downloadBtn.onclick = () => {
+                        window.location.href = `/download/${jobId}`;
+                    };
+                    evtSource.close();
+                    return;
+                }
+
+                if (data.type === 'error') {
+                    showError(data.error);
+                    progressBar.classList.add('error');
+                    progressTitle.textContent = 'Lỗi!';
+                    evtSource.close();
+                    return;
+                }
+
+                // Row data
+                addRow(data);
+            };
+
+            evtSource.onerror = () => {
+                evtSource.close();
+            };
+        }
+
+        function addRow(row) {
+            emptyState.style.display = 'none';
+
+            const tr = document.createElement('tr');
+            if (row.status === 'searching') tr.classList.add('searching');
+
+            const statusClass = 'status-' + row.status;
+            const statusText = {
+                'matched': 'Tìm thấy',
+                'no-valid-result': 'Không tìm thấy',
+                'missing-input': 'Thiếu dữ liệu',
+                'searching': 'Đang tìm...',
+            }[row.status] || row.status;
+
+            let urlHtml = '';
+            if (row.url) {
+                urlHtml = `<a href="${escapeHtml(row.url)}" target="_blank" class="url-link" title="${escapeHtml(row.url)}">${escapeHtml(row.url)}</a>`;
+            }
+
+            tr.innerHTML = `
+                <td>${row.row - 1}</td>
+                <td title="${escapeHtml(row.hotel_name)}">${escapeHtml(row.hotel_name)}</td>
+                <td title="${escapeHtml(row.hotel_address)}">${escapeHtml(row.hotel_address)}</td>
+                <td>${urlHtml}</td>
+                <td>${row.score}%</td>
+                <td>${row.img_count}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            `;
+
+            resultBody.appendChild(tr);
+            // Auto scroll to bottom
+            tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('active');
+        }
+        function hideError() {
+            errorMsg.classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
