@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from hotel_url_finder import is_exact_name_match, address_match_percentage, extract_ddg_url, is_blacklisted
+from hotel_url_finder import is_exact_name_match, address_match_percentage, extract_ddg_url
 from hotel_gallery import extract_gallery_images
 
 
@@ -77,9 +77,6 @@ def pick_url_for_hotel(page, hotel_name: str, hotel_address: str) -> tuple:
         log(f"  [{engine}] {len(results)} results found")
         matches = []
         for i, r in enumerate(results):
-            if is_blacklisted(r["url"]):
-                log(f"  [{engine}] #{i+1} SKIP blacklisted: {r['url']}")
-                continue
             name_ok = is_exact_name_match(hotel_name, r["title"])
             if not name_ok:
                 log(f"  [{engine}] #{i+1} SKIP name mismatch: {r['title']}")
