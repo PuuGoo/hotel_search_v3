@@ -3,6 +3,7 @@ DDG Search Server - chạy liên tục, tái sử dụng Chrome driver.
 Node.js gọi qua HTTP POST /search
 """
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import sys
 import json
 import time
 import re
@@ -82,10 +83,8 @@ def is_blacklisted(url):
         return True
     try:
         domain = urlparse(url).netloc.lower().replace("www.", "", 1)
-        parts = domain.split(".")
         for bl in BLACKLISTED_DOMAINS:
-            bl_parts = bl.split(".")
-            if len(parts) >= len(bl_parts) and parts[-len(bl_parts):] == bl_parts:
+            if domain == bl or domain.endswith("." + bl) or domain.startswith(bl + "."):
                 return True
         return False
     except Exception:
@@ -164,13 +163,14 @@ def do_search(query, hotel_name, hotel_address):
                     url = extract_ddg_url(ddg_href)
                     if not url or "/y.js?" in url or "ad_domain=" in url:
                         continue
+                    if is_blacklisted(url):
+                        continue
                     title = link.text.strip()
                     snippet = snippet_els[i].text.strip() if i < len(snippet_els) else ""
                     candidates.append({"url": url, "title": title, "snippet": snippet})
                 except Exception:
                     continue
         except Exception as e:
-            # Driver bị lỗi, reset lại
             reset_driver()
             raise e
 
@@ -236,6 +236,16 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    import socket
+    # Check if port is already in use
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("localhost", PORT))
+        sock.close()
+    except OSError:
+        print(f"DDG server already running on port {PORT}, exiting.", flush=True)
+        sys.exit(0)
+
     print(f"Starting Chrome driver...", flush=True)
     get_driver()
     print(f"DDG server running at http://localhost:{PORT}", flush=True)

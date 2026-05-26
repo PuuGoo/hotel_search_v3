@@ -40,10 +40,8 @@ def is_blacklisted(url):
         return True
     try:
         domain = extract_domain(url)
-        parts = domain.split(".")
         for bl in BLACKLISTED_DOMAINS:
-            bl_parts = bl.split(".")
-            if len(parts) >= len(bl_parts) and parts[-len(bl_parts):] == bl_parts:
+            if domain == bl or domain.endswith("." + bl) or domain.startswith(bl + "."):
                 return True
         return False
     except Exception:
@@ -126,6 +124,8 @@ def search_ddg_selenium(query):
                 ddg_href = link.get_attribute("href")
                 url = extract_ddg_url(ddg_href)
                 if not url or "/y.js?" in url or "ad_domain=" in url:
+                    continue
+                if is_blacklisted(url):
                     continue
                 title = link.text.strip()
                 snippet = snippet_els[i].text.strip() if i < len(snippet_els) else ""
